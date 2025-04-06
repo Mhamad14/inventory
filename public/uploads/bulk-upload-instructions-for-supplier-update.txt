@@ -1,0 +1,31 @@
+Instructions for bulk upload
+-------------------------------------------------------------------
+Data
+-------------------------------------------------------------------
+1. name - Enter the name of supplier.
+
+2. mobile - Enter the mobile number of supplier.
+
+3. email - Enter the email address of supplier.
+
+4. opening balance - Enter the amount that has been credited already for supplier.
+
+5. billing_address - Enter the billing address of supplier.
+
+6. shipping_address - Enter the shipping address of supplier.
+
+7. credit_period - Enter the limit of credit period.
+
+8. credit_limit - Enter the maximum amount for credit limit for supplier.
+
+9. tax_name - Enter the tax name of supplier.
+
+10 tax_num - Enter the tax number of supplier.
+
+11. status - Enter ("1" for active and "0" for de-active ) for supplier.
+
+12. created_at - Enter the date and time when making entry to system.
+
+13. updated_at - Enter the date and time when making entry to system.
+
+ 

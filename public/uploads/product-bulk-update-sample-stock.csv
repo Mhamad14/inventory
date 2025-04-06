@@ -1,0 +1,3 @@
+product_id(mandatory),stock_management(mandatory),current_stock(mandatory),quantity(mandatory),type(add / subtract),note
+4,1,115,10,add,adding to stock
+45,2,110,10,add,adding to stock

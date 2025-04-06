@@ -1,0 +1,1 @@
+use this command (ALTER TABLE `products_variants` AUTO_INCREMENT = 1; ) if you are have error (Out of range value for column 'id' at row 1) ;

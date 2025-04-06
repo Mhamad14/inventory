@@ -1,0 +1,4 @@
+id,vendor_id,customer_id,business_id,created_by,total,delivery_charges,discount,final_total,payment_status,amount_paid,order_type,message,payment_method,created_at,update_at,,product_id,product_variant_id,product_name,quantity,price,tax_name,tax_percentage,is_tax_included,sub_total,status,delivery_boy
+1,96,97,2,96,56,0,0,56,fully_paid,56,product,-,cash,2022-11-24 06:05:39,2022-11-24 06:05:39,,1,1,test,1,56,-,-,1,56,1,
+1,96,97,2,96,56,0,0,56,fully_paid,56,product,-,cash,2022-11-24 06:05:39,2022-11-24 06:05:39,,1,1,test,1,56,-,-,1,56,1,
+1,96,97,2,96,56,0,0,56,fully_paid,56,product,-,cash,2022-11-24 06:05:39,2022-11-24 06:05:39,,1,1,test,1,56,-,-,1,56,1,

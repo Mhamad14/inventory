@@ -1,0 +1,63 @@
+Instructions for bulk upload
+  * Data till column AA is for product rest for product variant(s)
+  * You can add more variants by repeating variants data in sequence for ex. in sample file first product have 1 variants and second product have 2 variants
+  * Atleast one variant is mandatory and for type simple_product only one variant is allowed
+  * You can keep fields blank which are optional
+-------------------------------------------------------------------
+products data
+-------------------------------------------------------------------
+1. category id - You can find from categories section - mandatory
+
+2. tax - You can find from products >> tax section - optional
+
+3. product type - It must be simple_product or variable_product - mandatory
+
+4. stock management -   If you don't want stock management leave it blank. else
+
+		Case 1 - if product type is simple_product it must be 1 (Stock will be managed product wise)
+
+		Case 2 - if product type is variable_product and you want to manage stock product wise stock type should be 1
+
+		Case 3 - if product type is variable_product and you want to manage stock variant wise stock type should be 2
+		
+5. qty alert -  if you don't want to manage stock leave it blank.if stock management is on then eneter qty alert.
+
+6. stock -  if you don't want to manage stock leave it blank.if stock management is on then eneter stock 
+ 
+7. unit_id - if you don't want to manage stock leave it blank.if stock management is on then eneter unit_id 
+
+8. name - Name of the product - mandatory
+
+9. short description - Short descriotion about product - optional
+
+10. image - Image of Product - mandatory
+
+11. is tax included -  if tax in cluded in price than set '0' if tax is excluded from price then set '1'
+
+12.status - 1 if active, 0 for deactivation
+
+-------------------------------------------------------------------
+variants data
+-------------------------------------------------------------------
+
+13. product ids - its a id of product 
+
+14. sale price - saelling price of product(customers have to pay on order) - mandatory
+
+15. purchase price - purchase price of product(vendor have to pay to supplier for stock) - mandatory
+
+16. qty - if stock management is 2 and product is variable_product then set qty /optional
+
+17. stock - if stock management is 2 and product is variable_product then set stock / optional
+
+18. unit_id - if stock management is 2 and product is variable_product then set unit_id / optional
+
+19. status - 1 if active, 0 for deactivation
+
+
+
+
+
+
+
+

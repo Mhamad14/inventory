@@ -1,0 +1,2 @@
+email,first_name,phone,password,vendor_id,business_id,permissions,status,created_at,updated_at 
+mail@gmail.com,first_name,phone,password,1,1,"{""customer_permission"":""1"",""transaction_permission"":""1"",""orders_permission"":""1""}",1,28-02-2024 12.51,28-02-2024 12.51

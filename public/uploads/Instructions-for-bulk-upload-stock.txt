@@ -1,0 +1,4 @@
+Instructions for bulk upload
+# - product_id - Here Product id can be products variant id it is based on column "stock_management" (B) if the product is simple product and You want update the stock of product enter "1" in the column "stock_management" (B). And if the product is variable product then you have to update the products variant stock, So you have to enter products variant id and enter "2" in the column "stock_management" (B).
+
+# - type - enter only words ("add" / "subtract") of specific operation please ensure that there are not white spaces before and after the words.

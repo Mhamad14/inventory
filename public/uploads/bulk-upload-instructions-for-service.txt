@@ -1,0 +1,28 @@
+Instructions for bulk upload
+1. id - Enter the id of service, You can find it in services page,
+
+2. vendore_id - Enter the vendore id (admin id).
+
+3. business_id - Enter the business id in which you want to update or upload the service, You can find it in business page.
+
+4. tax_id - Enter the tax id if it is applicable, You can find it in Settings > tax.
+
+5. unit_id - Enter the unit id which is applicable to service, You can find it in Products > Units.
+
+6. name - Enter the name you want to update or upload to service . (name of service).
+
+7. description - Enter the description for the service.
+
+8. image - enter the image name with extension or you can just live it black.
+
+9. price - Enter the price of service.
+
+10. cost_price - Enter the price which is costed for providing service.
+
+11. is_tax_included - Enter ("1" for yes or "0" for no) if tax is included in price then enter "1" if not then enter "0".
+
+12. is_recursive - if the service is recusive then enter "1".
+
+13. recurring_days - Enter the recurring days for service. 
+
+14. recurring_price - Enter the recurring price for service.

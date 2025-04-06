@@ -1,0 +1,55 @@
+Instructions for bulk upload
+# - From column A to O the data is about Product. And from column P to W the data is about variant.
+# - At least one variant is mandatory for all type of and for type simple product only one variant is allowed.
+# - If there are more variants then create a new row and enter the same details for product and enter data for product variant. (create new row for new product variant)
+
+-------------------------------------------------------------------
+products data
+-------------------------------------------------------------------
+1. id (product id) - Enter the product id which you want to update. You can find the id for product in Product section.
+
+2. category id - You can find from categories section. It will decide that product falls in which category - mandatory
+
+3. business id - the system will automatically enter the business id in which you are currently.
+
+4. vendor id - the system will automatically enter the vendor id which is logged in currently.
+
+5. tax id - You can find from products >> tax section - mandatory
+
+6. name - The name of Product - mandatory
+
+7. description - The description of Product - mandatory
+
+8. qty_alert - 	This is for Product QTY alert. If the stock_management column is 2 then leave it blank and if stock_management column is 1 then enter the amount of QTY you want alert for qty alert - mandatory.
+
+9. image - Enter the name of image with the extension (type) of image - mandatory.
+
+10. type - Enter the type of product enter only (simple , variable or disable)- mandatory.
+
+11. stock_management - 	By the value of stock_management the system will decide whether the product is simple, variable or disable (1 for simple , 2 for variable and 0 for disable) - mandatory.
+
+12. stock - Enter the number of product.
+
+13. unit_id - 	You can find the id of units on page Products->units. Enter the id of unit you want to calculate the product in - mandatory.
+
+14. is_tax_included - 	Enter the 1 if the price includes the tax 0 if the price does not includes the tax - mandatory. 
+
+15. status - Enter 1 if you want to make product active or enter 0 for make product inactive - mandatory.
+
+-------------------------------------------------------------------
+products variant data
+-------------------------------------------------------------------
+
+16. variant_id - Enter the id of product variant. you can find it in products table then click on second button of action column of product 
+
+17. variant_name - Enter the name of Product variant - mandatory.
+
+18. sale_price - Enter the price for sale of Product variant - mandatory.
+
+19. variant_stock - Enter the number of product variant- mandatory.
+
+20. variant_qty_alert - If the stock_management column is 1 then leave it blank and if the stock_management column is 2 then enter the amount of QTY you want alert for qty alert. It is for Product Variant - mandatory.
+
+21. variant_unit_id - Enter the unit id for measuring Product variant- mandatory.
+
+22. variant_status - Enter 1 if you want to make product variant active or enter 0 for make product variant inactive - mandatory.

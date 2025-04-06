@@ -1,0 +1,125 @@
+Instructions for bulk upload
+
+# - Details of order is from column A to  Q.
+# - Details of product is from column R to  AB.
+# - Details of service is from column AC to  AR.
+# - If you want to add data for service then add word "service" in column order_type (L) in order details. And leave black columns of product details (R to AB).
+# - If you want to add data for product then add word "product" in column order_type (L) in order details. And leave black columns of service details (AC to AR).
+# - Please Enter unique order number in column order_no (C)
+# - The column total (F)  is the total amount of the order deal.
+# - The column delivery_charges (F)  is the delivery_charges of the order deal.
+# - The column discount (H)  is the discount amount of the order deal.
+# - The column final_total (I)  is the total amount after deducting delivery_charges and discount on the order deal.
+# - The column payment_status (J) must have the any one of this status (unpaid, fully_paid, partially_paid) enter in same format as provided. (If you want the proper recodes of payment then add "unpaid" and pay it form the system so that system as recodes over it)
+# - The column is_tax_included (Y) will be "1" or "0" ("1" for yes and 0 for no). it indicates whether the price of order item includes tax means ("1") and if price does not include tax than ("0") 
+-------------------------------------------------------------------
+Order Details
+-------------------------------------------------------------------
+1.vendor_id - The system will automatically enter the vendor id which is logged in currently - mandatory.
+
+2. customer_id - You can find form customer page - mandatory.
+
+3. order_no - Enter the order number , Make sure you enter the order number unique of each order. if the single order has multiple order items then repeat the order number for all the order items in that order. The system will enter the data according to order_no column so make sure you enter it properly.
+
+4. business id - You can find form business page - mandatory.
+
+5.created_by - Enter the id of delivery boy or team member that have creating the orders - mandatory.
+
+6. total -  Enter the total amount of order, if there are multiple items than just enter the same total in all the rows of items (order items) - mandatory.
+
+7. delivery_charges - Enter the delivery charges of order, if there are multiple items than just enter the same amount in all the rows of items (order item) - mandatory.
+
+8. discount - Enter the discount on order , if there are multiple items than just enter the same amount in all the rows of items (order item) - mandatory.
+
+9. final_total - Enter the final_total on order , if there are multiple items than just enter the same amount in all the rows of items (order item) - mandatory.
+
+10. payment_status - Enter the payment status accordingly the payment - mandatory.
+
+11. amount_paid - Enter the amount paid on the order deal, if there are multiple items than just enter the same amount in all the rows of items (order item) - mandatory.
+
+12. order_type - Enter the  word "product" if the order item is product or enter the word "service" if the order item is service other detail are provided above - mandatory.
+
+13. message - Enter the message for order deal - not mandatory.
+
+14. payment_method - Enter the payment method  if some or full amount is received - mandatory.
+
+15. transaction_id - Just leave it blank. 
+
+16. created_at - Enter the date and time where the entry is being done - not mandatory.
+
+17. updated_at - Enter the date and time where the entry is being done - not mandatory.
+
+
+-------------------------------------------------------------------
+Product Details
+-------------------------------------------------------------------
+
+1. product_id - Enter the id of Product, You can find it in product page. - mandatory.
+
+2. product_variant_id - Enter the id of Product Variant, You can find it by clicking on second button in Action column of product in Product table - mandatory.
+
+3. product_name - Enter the Product name, You can find it in product page - mandatory.
+
+4. quantity - Enter the quantity of order item - mandatory.
+
+5. price - Enter the price of order item - mandatory.
+
+6. tax_name - Enter the tax name, You can find it in Settings > tax.
+
+7. tax_percentage - Enter the tax percentage, You can find it in Settings > tax.
+
+8. is_tax_included - Only enter 1 or 0 ("1" for yes and "0" for no) - mandatory.
+
+NOTE :- "If the is_tax_included is 0 (no) then you have to enter tax_name and tax_percentage".
+
+9. tax_id - Enter the tax id in format given below : 
+{
+    ["4","3"]
+
+    here 4 and 3 are tax id's 
+    You can find from products >> tax section - mandatory
+}
+ - mandatory.
+
+
+10. sub_total - The sub_total is total of (quantity * prince ) for order item - mandatory.
+
+11. status - The status here is the status which you add while creating the Sales order enter the id of status. You can find it on the select list which is after Payment Methods - mandotary.
+
+12. delivery_boy- Enter the id of delivery_boy, You can find it Delivery Boys page. - mandatory.
+
+-------------------------------------------------------------------
+Service Details
+-------------------------------------------------------------------
+
+1. service_id - Enter the id of Service, You can find it service page - mandatory.
+
+2. service_name - Enter the name of Service, You can find it service page - mandatory.
+
+3. price - Enter the price of the service. - mandatory.
+
+4. quantity - Enter the quantity of service - mandatory.
+
+5. unit_name - Enter the unit name, You can find it in Products > units page - mandatory.
+
+6. unit_id - Enter the unit id, You can find it in Products > units page - mandatory.
+
+7. sub_total - here the sub total is  (quantity * prince ) for order item - mandatory.
+
+8. tax_name - Enter the tax name, You can find it in Settings > tax.
+
+9. tax_percentage - Enter the tax percentage, You can find it in Settings > tax.
+
+10. is_tax_included - Only enter 1 or 0 ("1" for yes and "0" for no) - mandatory.
+
+NOTE :- "If the is_tax_included is 0 (no) then you have to enter tax_name and tax_percentage".
+
+11. is_recursive - If the service is recurseive then enter ("1" for yes and "0" for no) - mandatory.
+
+12. recurring_days - Enter the number of days for recurring - mandatory.
+
+13. starts_on - Enter datetime of starting service - mandatory.
+
+14. ends_on - Enter datetime of ending service - mandatory.
+
+15. delivery_boy- Enter the id of delivery_boy, You can find it Delivery Boys page. - mandatory.

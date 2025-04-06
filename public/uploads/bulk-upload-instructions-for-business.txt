@@ -1,0 +1,43 @@
+Instructions for bulk upload
+
+# - Do not add "id" field at column "A" for uploading all new business. Only add "id" field at column "A" for updating old business.
+-------------------------------------------------------------------
+Data
+-------------------------------------------------------------------
+1. id - Enter the id of business. You can find it at page business. (Only add this if updating old business).
+
+2. user_id - Enter the id of user who created the business.
+
+3. name - Enter the name of business - mandatory.
+
+4. icon - add image with extension.(add the path as given in example file)  - mandatory.
+
+5. description - Enter the description of business  - mandatory.
+
+6. address - Enter the address of business - mandatory.
+
+7. contact - Enter the contact detail of business - mandatory.
+
+8. tax_name - Enter the tax name which allocated to business - mandatory.
+
+9. tax_value - Enter the tax value of business - mandatory.
+
+10. bank_detail - Enter the bank detail for example account number of business - mandatory.
+
+11. default_business - Enter the default business if you want to make the business default then ("1" for yes and "0" for no ).
+
+12. status - Enter ("1" for active business and "0" for de active business ).
+
+13. email - Enter the email address of business - mandatory.
+
+14. website - Enter the website of business.
+
+15.  created_at - Enter the date and time when making entry to system.
+
+16. updated_at - Enter the date and time when making entry to system.
+
+
+
+
+
+

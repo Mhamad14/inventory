@@ -1,0 +1,28 @@
+Instructions for bulk upload
+-------------------------------------------------------------------
+Data
+-------------------------------------------------------------------
+1. id - Enter the id of supplier. You can find it on supplier page.
+
+2. user_id - Enter the id of user. You can find it on supplier page.
+
+3. vendor_id - Enter the admin id.
+
+4. balance - Enter the amount of credit of supplier.
+
+5. billing_address - Enter the billing address.
+
+6. creadit_period - Enter the creadit period for supplier.
+
+7. credit_limit - Enter the creadit limit for supplier.
+
+8. tax_name - Enter the tax name of supplier.
+
+9. tax_num - Enter the tax number of supplier.
+
+10. status -  Enter ("1" for active and "0" for de-active ) for supplier.
+
+11. created_at - Enter the date and time when making entry to system.
+
+12. updated_at - Enter the date and time when making entry to system.
+ 

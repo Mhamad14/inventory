@@ -1,0 +1,2 @@
+﻿id (product id),category_id,business_id,vendor_id,tax_ids,name,description,qty_alert,image,type,stock_management,stock,unit_id,is_tax_included,status,variant_id,variant_name,sale_price,purchase_price,variant_stock,variant_qty_alert,variant_unit_id,variant_status
+24,1,1,1,"[""1""]",Simple Product 1 with tax update via bulk upload,Description 1,10,img1.jpg,simple,2,1,6,1,1,31,Simple variant name,50,30,50,10,1,1

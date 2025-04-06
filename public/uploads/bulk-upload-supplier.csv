@@ -1,0 +1,2 @@
+id,user_id,vendor_id,balance,billing_address,shipping_address,credit_period,credit_limit,tax_name,tax_num,status,created_at,updated_at
+1,102,1,12,BHUJ ,BHUJ,2,11,test,test,1,28-02-2024 17.30,28-02-2024 13.00

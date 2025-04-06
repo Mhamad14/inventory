@@ -1,0 +1,52 @@
+Instructions for bulk upload
+
+1. business_id - Enter the business Id for which you want to upload the purchases. You can find it in business page - mandatory.
+
+2. vendor_id - Enter the id of user which has done the purchases. You can find it in Team members page - mandatory.
+
+3. supplier_id - Enter the id of supplier.You can find it in Supplier page page - mandatory.
+
+4. order_no - Enter the order number of purchase - mandatory.
+
+5. purchase_date - Enter the date when purchase has done in format (dd-mm-yyyy) - mandatory.
+
+6. tax_id -Please enter taxids in format given below : 
+{
+    ["4","3"]
+
+    here 4 and 3 are tax id's 
+    You can find from products >> tax section - mandatory
+}
+ - mandatory.
+
+7. status - Enter the status of purchase. '1' - mandatory.
+
+8. order_type - Enter the status that user has created on page Purchase Orders as per creation. - mandatory.
+
+9. message - Enter the massage for Purcahse. - mandatory.
+
+10. Product_variant_id - Enter the id of Proudct variatnt. You can find it on Product page - mandatory.
+
+11. purchases_item_quantity - Enter the QTY of item - mandatory.
+
+12. purchases_item_price - Enter the Price of item - mandatory.
+
+13. discount_on_item - Enter the discount on item itself - mandatory.
+
+14. status - Enter the status of product variant for purchase. '1' - mandatory.
+
+15. delivery_charges - Enter the delivery_charges if not applicable then enter '0' - mandatory.
+
+16. discount_on_deal - Enter the discount which is on whole Purchase Deal.
+
+17. amount_paid - Enter the amoutn that has been paid for purchase.
+
+18. total_of_deal - Enter the total amount of Purchase Deal. if there more than one product_variant in single purchase deal then create new row for new product_variant. and enter the same total for all the rows - mandatory.
+
+19. payment_method - Enter the method of payment if not paid then leave it blank.
+
+20. payment_status - Enter the payment status ("Fully Paid" , "Un Paid" , "Partialy Paid") - mandatory.
+
+21. created_at - Enter the data and time when makeing entry in system (see the format in sample file ) - mandatory. 
+
+22. updated_at - Enter the data and time when makeing entry in system (see the format in sample file ) - mandatory.

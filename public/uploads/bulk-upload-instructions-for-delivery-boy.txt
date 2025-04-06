@@ -1,0 +1,35 @@
+Instructions for bulk upload
+
+# - It is for uploading new delivery boys.
+
+# - Enter data in column permissions in this format 
+Format =>  {"customer_permission":"1","transaction_permission":"1","orders_permission":"1"}
+
+# - If one delivery boy is for more than one business then enter new row for that business with Business id.
+-------------------------------------------
+data
+-------------------------------------------
+1. email - Enter the email id of delivery boy.
+
+2. first_name - enter the first name of delivery boy.
+
+3. phone - Enter the phone number of delivery boy.
+
+4. password - Enter the password for delivery boy.
+
+5. vendor_id - Enter the admin_id.
+
+6. business_id Enter the business id. You can find it from business page.
+
+7. permissions - Enter data for giving permission to delivery boy. customer_permission can create new customer ("1" for yes and "0" for no), transaction_permission can create new transaction , orders_permission can create new orders.
+
+8. status - is delivery boy is active or not ("1" for yes and "0" for no).
+
+9. created_at - Enter the date and time when making entry to system.
+
+10. updated_at - Enter the date and time when making entry to system.
+
+
+
+
+
