@@ -11,6 +11,7 @@ use App\Models\Delivery_boys_model;
 use App\Models\Orders_items_model;
 use App\Models\Orders_model;
 use App\Models\Ordersmodel;
+use App\Models\OrderReturnsModel;  // Add this line
 use App\Models\Orders_services_model;
 use App\Models\Status_model;
 use App\Models\Subscription_model;
@@ -103,96 +104,79 @@ class Orders extends BaseController
         }
     }
     public function process_return()
-{
-    // Authentication check
-    if (!$this->ionAuth->loggedIn() || (!$this->ionAuth->isAdmin() && !$this->ionAuth->isTeamMember())) {
-        return redirect()->to('login');
-    }
-
-    // Initialize response with detailed debug structure
-    $response = [
-        'error' => true,
-        'message' => labels('return_failed', 'Return processing failed'),
-        'debug' => [
-            'stage' => 'initialization',
-            'post_data' => $this->request->getPost(),
-            'validation_errors' => [],
-            'database_operations' => [],
-            'transaction_status' => null
-        ]
-    ];
-
-    log_message('debug', 'Return processing initiated with data: ' . print_r($response['debug']['post_data'], true));
-
-    if ($this->request->getMethod() == 'post') {
-        try {
-            // Validate and process input data
-            $validation = \Config\Services::validation();
-            $validation->setRules([
-                'order_id' => 'required|numeric',
-                'return_quantity' => 'required',
-                'return_reason' => 'required|min_length[3]'
+    {
+        // Debug the raw server request method
+        log_message('debug', 'SERVER REQUEST_METHOD: ' . ($_SERVER['REQUEST_METHOD'] ?? 'undefined'));
+        
+        // Accept both post and POST (case insensitive)
+        $method = strtoupper($this->request->getMethod());
+        log_message('debug', 'Framework method: ' . $method);
+        
+        if ($method !== 'POST') {
+            log_message('error', 'Rejected method: ' . $method);
+            log_message('debug', 'Full request: ' . print_r($this->request, true));
+            return $this->response->setJSON([
+                'error' => true,
+                'message' => 'Only POST requests are accepted. Received: ' . $method,
+                'csrf_token' => csrf_token(),
+                'csrf_hash' => csrf_hash()
             ]);
-
-            if (!$validation->withRequest($this->request)->run()) {
-                $response['debug']['validation_errors'] = $validation->getErrors();
-                $response['message'] = labels('invalid_input', 'Validation failed');
-                log_message('error', 'Validation failed: ' . print_r($validation->getErrors(), true));
-                return $this->response->setJSON($response);
-            }
-
-            $order_id = $this->request->getPost('order_id');
-            $return_quantities = $this->request->getPost('return_quantity');
-            $return_reason = $this->request->getPost('return_reason');
-
-            // Get order details
-            $orders_model = new OrdersModel();
-            $order = $orders_model->get_order_by_id($order_id);
-            if (empty($order)) {
-                $response['debug']['stage'] = 'order_verification';
-                $response['message'] = labels('order_not_found', 'Order not found');
-                log_message('error', "Order {$order_id} not found");
-                return $this->response->setJSON($response);
-            }
-
-            // Start transaction with detailed logging
+        }
+    
+        // Database connection check
+        try {
             $db = \Config\Database::connect();
-            $db->transStart();
-            $response['debug']['transaction_status'] = 'started';
-            log_message('debug', 'Transaction started for order: ' . $order_id);
-
+            $db->query('SELECT 1');
+            log_message('debug', 'Database connection successful');
+        } catch (\Exception $e) {
+            log_message('error', 'Database connection failed: ' . $e->getMessage());
+            return $this->response->setJSON([
+                'error' => true,
+                'message' => 'Database connection error',
+                'details' => $e->getMessage()
+            ]);
+        }
+    
+        // Start transaction
+        $db->transStart();
+        
+        try {
+            $orderReturnsModel = new OrderReturnsModel();
+            log_message('debug', 'OrderReturnsModel loaded successfully');
+            $ordersModel = new OrdersModel();
+            $orderItemsModel = new Orders_items_model();
+            
+            $order_id = $this->request->getPost('order_id');
+            $return_reason = $this->request->getPost('return_reason');
+            $return_quantities = $this->request->getPost('return_quantity') ?? [];
+            
             $total_return_amount = 0;
             $return_items = [];
-            $processed_items = 0;
-
-            // Process each returned item with individual validation
+    
+            // Prepare return items
             foreach ($return_quantities as $item_id => $quantity) {
                 $quantity = (int)$quantity;
                 if ($quantity <= 0) {
-                    $response['debug']['validation_errors']["item_{$item_id}"] = 'Invalid quantity';
                     continue;
                 }
-
-                $item = $orders_model->get_order_item($item_id);
-                if (empty($item)) {
-                    $response['debug']['validation_errors']["item_{$item_id}"] = 'Item not found';
-                    log_message('error', "Item {$item_id} not found in order {$order_id}");
-                    continue;
+    
+                // Get item details
+                $item = $orderItemsModel->find($item_id);
+                if (!$item || $item['order_id'] != $order_id) {
+                    throw new \RuntimeException("Invalid item ID: $item_id");
                 }
-
-                $already_returned = $orders_model->get_returned_quantity($item_id);
+    
+                // Calculate returnable quantity
+                $already_returned = $orderReturnsModel->getReturnedQuantity($item_id);
                 $returnable_qty = $item['quantity'] - $already_returned;
-
+    
                 if ($quantity > $returnable_qty) {
-                    $response['debug']['validation_errors']["item_{$item_id}"] = "Quantity exceeds returnable amount (max: {$returnable_qty})";
-                    log_message('error', "Invalid quantity {$quantity} for item {$item_id} (max: {$returnable_qty})");
-                    continue;
+                    throw new \RuntimeException("Quantity exceeds returnable amount for item ID $item_id");
                 }
-
+    
                 $return_amount = $quantity * $item['price'];
                 $total_return_amount += $return_amount;
-                $processed_items++;
-
+    
                 $return_items[] = [
                     'order_id' => $order_id,
                     'item_id' => $item_id,
@@ -201,81 +185,61 @@ class Orders extends BaseController
                     'total' => $return_amount,
                     'return_date' => date('Y-m-d H:i:s'),
                     'return_reason' => $return_reason,
-                    'status' => 'pending',
-                    'business_id' => $order['business_id'],
-                    'processed_by' => $this->ionAuth->getUserId()
+                    'status' => 'processed',
+                    'processed_by' => $this->ionAuth->getUserId(),
+                    'business_id' => $_SESSION['business_id'] ?? null
                 ];
-
-                $response['debug']['database_operations']["item_{$item_id}"] = 'processed';
             }
-
+    
+            log_message('debug', 'Prepared return items: ' . print_r($return_items, true));
+    
             if (empty($return_items)) {
-                throw new \RuntimeException('No valid items to process after validation');
+                throw new \RuntimeException('No valid items to process');
             }
-
-            // Insert return records with error handling
-            if (!$orders_model->insert_return_items($return_items)) {
+    
+            // Insert returns
+            if (!$orderReturnsModel->insertBatch($return_items)) {
                 $error = $db->error();
-                $response['debug']['database_operations']['insert_error'] = $error;
-                log_message('error', 'Failed to insert return items: ' . print_r($error, true));
+                log_message('error', 'Failed to insert return records: ' . print_r($error, true));
                 throw new \RuntimeException('Failed to insert return records');
             }
-
+    
             // Update order totals
-            $updateData = [
-                'returns_total' => ($order['returns_total'] ?? 0) + $total_return_amount,
-                'final_total' => $order['final_total'] - $total_return_amount
-            ];
-
-            if (!$orders_model->update_order($updateData, $order_id)) {
+            if (!$ordersModel->updateOrderTotals($order_id, $total_return_amount)) {
                 $error = $db->error();
-                $response['debug']['database_operations']['update_error'] = $error;
-                log_message('error', 'Failed to update order: ' . print_r($error, true));
+                log_message('error', 'Failed to update order totals: ' . print_r($error, true));
                 throw new \RuntimeException('Failed to update order totals');
             }
-
-            // Finalize transaction
+    
             $db->transComplete();
-            $response['debug']['transaction_status'] = $db->transStatus() ? 'completed' : 'failed';
-
-            if ($db->transStatus() === FALSE) {
-                log_message('error', 'Transaction failed for order: ' . $order_id);
-                throw new \RuntimeException('Database transaction failed');
+    
+            if ($db->transStatus() === false) {
+                throw new \RuntimeException('Transaction failed');
             }
-
-            // Success response
-            $response = [
+    
+            return $this->response->setJSON([
                 'error' => false,
-                'message' => labels('return_success', 'Return processed successfully'),
+                'message' => 'Return processed successfully',
                 'return_amount' => $total_return_amount,
-                'returned_items_count' => count($return_items)
-            ];
-
-            log_message('info', "Successfully processed return for order {$order_id}");
-
-        } catch (\Throwable $e) {
-            // Ensure transaction is rolled back
-            if (isset($db) && $db->transStatus() !== FALSE) {
-                $db->transRollback();
-                $response['debug']['transaction_status'] = 'rolled_back';
-            }
-
-            $response['message'] = $e->getMessage();
-            $response['debug']['exception'] = [
-                'message' => $e->getMessage(),
-                'file' => $e->getFile(),
-                'line' => $e->getLine(),
-                'trace' => $e->getTraceAsString()
-            ];
-
+                'returned_items_count' => count($return_items),
+                'inserted_ids' => $orderReturnsModel->getInsertID(),
+                'csrf_token' => csrf_token(),
+                'csrf_hash' => csrf_hash()
+            ]);
+    
+        } catch (\Exception $e) {
+            $db->transRollback();
             log_message('error', 'Return processing error: ' . $e->getMessage());
             log_message('error', 'Stack trace: ' . $e->getTraceAsString());
+            return $this->response->setJSON([
+                'error' => true,
+                'message' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+                'csrf_token' => csrf_token(),
+                'csrf_hash' => csrf_hash()
+            ]);
         }
     }
-
-    log_message('debug', 'Return processing completed with response: ' . print_r($response, true));
-    return $this->response->setJSON($response);
-}
     public function sales_order()
 
     {

@@ -15,6 +15,7 @@ $routes->get('/test', 'Home::test');
 $routes->get('/features', 'Features::index');
 $routes->get('/pricing', 'Pricing::index'); 
 $routes->post('admin/orders/process_return', 'Admin\Orders::process_return');
+$routes->post('admin/orders/process_return', 'Orders::process_return');
 
 $routes->get('/forgot_password_back', 'Forgot_password_back::index'); 
 
