@@ -122,10 +122,13 @@
                     </td>
                     <td><?= $item['product_name'] ?></td>
                     <td>
-                        <select name="quantity_<?= $item['id'] ?>" class="form-control quantity_update" data-item-id="<?= $item['id'] ?>" data-price="<?= $item['price'] ?>">
-                            <?php for($i = 1; $i <= $item['quantity']; $i++) { ?>
-                                <option value="<?= $i ?>" <?= ($i == $item['quantity']) ? 'selected' : '' ?>><?= $i ?></option>
-                            <?php } ?>
+                        <select name="return_quantity[<?= $item['id'] ?>]" 
+                        class="form-control form-control-sm return-quantity" 
+                        data-price="<?= $item['price'] ?>"
+                        data-max="<?= $item['quantity'] - $item['returned_quantity'] ?>">
+                        <?php for ($i = 0; $i <= ($item['quantity'] - $item['returned_quantity']); $i++): ?>
+                        <option value="<?= $i ?>"><?= $i ?></option>
+                        <?php endfor; ?>
                         </select>
                     </td>
                     <td><?= currency_location(decimal_points($item['price'])) ?></td>
@@ -461,49 +464,53 @@
                     </div>
                     
                     <div class="table-responsive">
-                        <table class="table table-bordered table-hover">
+                    <table class="table table-bordered table-hover">
                             <thead class="thead-light">
                                 <tr>
-                                    <th width="5%"><?= labels('return', 'Return') ?></th>
-                                    <th width="15%"><?= labels('image', 'Image') ?></th>
-                                    <th width="25%"><?= labels('product_name', 'Product') ?></th>
-                                    <th width="15%"><?= labels('price', 'Price') ?></th>
-                                    <th width="15%"><?= labels('ordered', 'Ordered') ?></th>
-                                    <th width="15%"><?= labels('already_returned', 'Returned') ?></th>
-                                    <th width="10%"><?= labels('return_quantity', 'Qty') ?></th>
+                                    <th width="5%">Return</th>
+                                    <th width="15%">Image</th>
+                                    <th width="25%">Product</th>
+                                    <th width="15%">Price</th>
+                                    <th width="10%">Ordered</th>
+                                    <th width="10%">Remaining</th> <!-- NEW HEADER -->
+                                    <th width="10%">Returned</th>
+                                    <th width="10%">Qty</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                <?php foreach ($items as $item): 
-                                    $already_returned = isset($item['returned_quantity']) ? $item['returned_quantity'] : 0;
-                                    $returnable_qty = $item['quantity'] - $already_returned;
-                                    if ($returnable_qty <= 0) continue;
-                                ?>
-                                <tr>
-                                    <td class="text-center">
-                                        <input type="checkbox" class="item-checkbox" checked>
-                                    </td>
-                                    <td>
-                                        <img src="<?= !empty($item['image']) ? base_url($item['image']) : base_url('assets/admin/img/default-product.jpg') ?>" 
-                                             class="img-thumbnail" style="max-height: 60px;">
-                                    </td>
-                                    <td><?= $item['product_name'] ?></td>
-                                    <td><?= currency_location(decimal_points($item['price'])) ?></td>
-                                    <td><?= $item['quantity'] ?></td>
-                                    <td><?= $already_returned ?></td>
-                                    <td>
-                                        <select name="return_quantity[<?= $item['id'] ?>]" 
-                                                class="form-control form-control-sm return-quantity" 
-                                                data-price="<?= $item['price'] ?>"
-                                                data-max="<?= $returnable_qty ?>">
-                                            <?php for ($i = 0; $i <= $returnable_qty; $i++): ?>
-                                                <option value="<?= $i ?>" <?= $i == 0 ? 'selected' : '' ?>><?= $i ?></option>
-                                            <?php endfor; ?>
-                                        </select>
-                                    </td>
-                                </tr>
-                                <?php endforeach; ?>
-                            </tbody>
+                            <?php foreach ($items as $item): 
+                                $already_returned = isset($item['returned_quantity']) ? $item['returned_quantity'] : 0;
+                                $returnable_qty = $item['quantity'] - $already_returned;
+                                if ($returnable_qty <= 0) continue;
+                            ?>
+                            <tr>
+                                <td class="text-center">
+                                    <input type="checkbox" class="item-checkbox" checked>
+                                </td>
+                                <td>
+                                    <img src="<?= !empty($item['image']) ? base_url($item['image']) : base_url('assets/admin/img/default-product.jpg') ?>" 
+                                        class="img-thumbnail" style="max-height: 60px;">
+                                </td>
+                                <td><?= $item['product_name'] ?></td>
+                                <td><?= currency_location(decimal_points($item['price'])) ?></td>
+                                <td><?= $item['quantity'] ?></td>
+                                <!-- NEW COLUMN ADDED HERE -->
+                                <td><?= $returnable_qty ?></td>
+                                <!-- END NEW COLUMN -->
+                                <td><?= $already_returned ?></td>
+                                <td>
+                                    <select name="return_quantity[<?= $item['id'] ?>]" 
+                                            class="form-control form-control-sm return-quantity" 
+                                            data-price="<?= $item['price'] ?>"
+                                            data-max="<?= $returnable_qty ?>">
+                                        <?php for ($i = 0; $i <= $returnable_qty; $i++): ?>
+                                            <option value="<?= $i ?>" <?= $i == 0 ? 'selected' : '' ?>><?= $i ?></option>
+                                        <?php endfor; ?>
+                                    </select>
+                                </td>
+                            </tr>
+                            <?php endforeach; ?>
+                        </tbody>
                         </table>
                     </div>
                     

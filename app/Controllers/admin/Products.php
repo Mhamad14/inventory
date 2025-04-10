@@ -1295,54 +1295,86 @@ class Products extends BaseController
 
     public function stock_alert()
     {
-        $business_id = isset($_SESSION['business_id']) ? $_SESSION['business_id'] : "";
-        $model = new Products_model();
-        $products = $model->get_product_details($business_id);
-
-        // Get low stock from warehouses
-        $warehouseStockModel = new WarehouseProductStockModel();
-        $lowWarehouseStock = $warehouseStockModel->get_low_warehouse_stock($business_id); // Get warehouse stock alerts
-
-        $i = 0;
-        $rows = [];
-
-        // Iterate through the products from get_product_details
-        if (!empty($products)) {
-            foreach ($products as $product) {
-                if ($product['qty_alert'] > $product['stock']) {
-                    $product['stock_management'] = $product['stock_management'] == "1" ? "Product" : ($product['stock_management'] == "2" ? "Variable" : "NA");
-
-                    $rows[$i] = [
-                        "product_id" => $product['product_id'],
-                        "product" => $product['product'],
-                        "variant_name" => $product['variant_name'],
-                        "stock" => $product['stock'],
-                        "qty_alert" => $product['qty_alert'],
-                        "stock_management" => $product['stock_management'],
-                        "action" => '<a type="button" class="btn btn-primary text-white" data-bs-toggle="modal" data-stock ="' . $product['stock'] . '" data-product_id ="' . $product['product_id'] . '" data-stock_management ="' . $product['stock_management'] . '" data-bs-target="#new_stock"><i class="fas fa-edit"></i></a>'
-                    ];
-                    $i++;
-                }
-            }
+        if (!$this->ionAuth->loggedIn()) {
+            return redirect()->to('login');
         }
-
-        // Add low warehouse stock products to the same rows array
-        if (!empty($lowWarehouseStock)) {
-            foreach ($lowWarehouseStock as $warehouseProduct) {
+    
+        $business_id = isset($_SESSION['business_id']) ? $_SESSION['business_id'] : "";
+        
+        if (empty($business_id)) {
+            return $this->response->setJSON([
+                'error' => true,
+                'message' => 'Business ID is required'
+            ]);
+        }
+    
+        try {
+            // Get product-level low stock
+            $productModel = new Products_model();
+            $lowProductStock = $productModel->get_low_product_stock($business_id);
+            
+            // Get variant-level low stock
+            $variantModel = new Products_variants_model();
+            $lowVariantStock = $variantModel->get_low_variant_stock($business_id);
+            
+            $rows = [];
+            $i = 0;
+    
+            // Process product-level alerts
+            foreach ($lowProductStock as $product) {
                 $rows[$i] = [
-                    "product_id" => $warehouseProduct['product_variant_id'],
-                    "product" => $warehouseProduct['product_name'],
-                    "variant_name" => $warehouseProduct['variant_name'],
-                    "stock" => $warehouseProduct['stock'],
-                    "qty_alert" => $warehouseProduct['qty_alert'],
-                    "stock_management" => "Warehouse",
-                    "action" => '<a type="button" class="btn btn-primary text-white" data-bs-toggle="modal" data-stock ="' . $warehouseProduct['stock'] . '" data-product_id ="' . $warehouseProduct['product_variant_id'] . '" data-stock_management ="Warehouse" data-bs-target="#new_stock"><i class="fas fa-edit"></i></a>'
+                    "product_id" => $product['id'],
+                    "variant_id" => null,
+                    "product" => $product['name'],
+                    "variant_name" => null,
+                    "stock" => $product['stock'],
+                    "qty_alert" => $product['qty_alert'],
+                    "stock_management" => "Product",
+                    "stock_management_type" => 1,
+                    "action" => '<a type="button" class="btn btn-primary text-white" data-bs-toggle="modal" 
+                                data-stock="'.$product['stock'].'" 
+                                data-product_id="'.$product['id'].'"  
+                                data-stock_management="1" 
+                                data-bs-target="#new_stock">
+                                <i class="fas fa-edit"></i></a>'
                 ];
                 $i++;
             }
+    
+            // Process variant-level alerts
+            foreach ($lowVariantStock as $variant) {
+                $rows[$i] = [
+                    "product_id" => $variant['product_id'],
+                    "variant_id" => $variant['id'],
+                    "product" => $variant['product_name'],
+                    "variant_name" => $variant['variant_name'],
+                    "stock" => $variant['stock'],
+                    "qty_alert" => $variant['qty_alert'],
+                    "stock_management" => "Variant",
+                    "stock_management_type" => 2,
+                    "action" => '<a type="button" class="btn btn-primary text-white" data-bs-toggle="modal" 
+                                data-stock="'.$variant['stock'].'" 
+                                data-product_id="'.$variant['product_id'].'" 
+                                data-variant_id="'.$variant['id'].'" 
+                                data-stock_management="2" 
+                                data-bs-target="#new_stock">
+                                <i class="fas fa-edit"></i></a>'
+                ];
+                $i++;
+            }
+    
+            return $this->response->setJSON([
+                'rows' => $rows,
+                'total' => count($rows)
+            ]);
+            
+        } catch (\Exception $e) {
+            log_message('error', 'Stock alert error: ' . $e->getMessage());
+            return $this->response->setStatusCode(500)->setJSON([
+                'error' => true,
+                'message' => 'An error occurred while fetching stock alerts'
+            ]);
         }
-        $array['rows'] = !empty($rows) ? $rows : [];
-        return $this->response->setJSON($array);
     }
 
     public function get_taxs()

@@ -148,4 +148,15 @@ class Products_variants_model extends Model
         return $variants;
 
     }
+    public function get_low_variant_stock($business_id)
+    {
+        return $this->db->table('products_variants pv')
+            ->select('pv.*, p.name as product_name')
+            ->join('products p', 'p.id = pv.product_id')
+            ->where('p.business_id', $business_id)
+            ->where('pv.qty_alert >', 0)
+            ->where('pv.stock <=', 'pv.qty_alert', false)
+            ->get()
+            ->getResultArray();
+    }
 }

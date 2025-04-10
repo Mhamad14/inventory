@@ -10,7 +10,7 @@ class Orders_items_model extends Model
 
     protected $table = 'orders_items';
     protected $primaryKey = 'id';
-    protected $allowedFields = ['order_id', 'product_id', 'product_variant_id', 'product_name', 'quantity', 'price', 'tax_name', 'tax_percentage','tax_details' ,'is_tax_included', 'sub_total', 'status', 'delivery_boy'];
+    protected $allowedFields = ['order_id', 'product_id', 'product_variant_id', 'product_name', 'quantity', 'price', 'tax_name', 'tax_percentage','tax_details' ,'is_tax_included', 'sub_total', 'status', 'delivery_boy','returned_quantity'];
 
     function get_items($order_id = "")
     {
@@ -109,6 +109,14 @@ class Orders_items_model extends Model
         $array['rows'] = $rows;
         return $array;
     }
+    public function getReturnedQuantity($item_id)
+{
+    $builder = $this->db->table('order_returns');
+    $builder->selectSum('quantity');
+    $builder->where('item_id', $item_id);
+    $result = $builder->get()->getRowArray();
+    return ($result && isset($result['quantity'])) ? $result['quantity'] : 0;
+}
 
     function total_selling()
     {

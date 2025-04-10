@@ -4892,68 +4892,107 @@ function payment_reminder(order_id) {
 }
 
 // Quantity Alert Message
-$(window).on('load', function () {
+// Quantity Alert Message - Updated to handle both product and variant level stock
+$(document).ready(function() {
+    // Check if iziToast is loaded (required for notifications)
+    if (typeof iziToast === 'undefined') {
+        console.error('iziToast not loaded - stock alerts disabled');
+        return;
+    }
 
-    $.ajax({
-        url: site_url + 'admin/products/stock_alert',
-        type: 'GET',
-        dataType: 'json',
-        success: function (response) {
-            // Handle the successful response from the server
-            var products = response.rows;
-            $.each(products, function (index, value) {
-
-                if (value.qty_alert.length == 0) {
-                    value.qty_alert = 0;
-                }
-
-
-
-                if (value.qty_alert >= value.stock) {
-                    var showNotification = true;
-                    if (sessionStorage.getItem('dontShowAgain_' + value.product_id) === 'true') {
-                        showNotification = false;
-                    }
-                    if (showNotification) {
-                        var message = value.product + '(' + value.variant_name + ') is going out of stock';
-                        if (value.stock_management === "Warehouse") {
-                            message = value.product + '(' + value.variant_name + ') is running low in the warehouse';
-                        }
-
-                        if (window.location.href !== site_url + 'admin/purchases/purchase_orders/order') {
-
-
-                            iziToast.warning({
-                                position: 'topRight',
-                                css: {
-                                    'font-weight': '800'
-                                },
-                                icon: 'fa fa-box-open',
-                                message: message,
-                                buttons: [
-                                    ['<button>Redirect to purchases</button>', function (instance, toast) {
-                                        window.location.href = site_url + 'admin/purchases/purchase_orders/order';
-                                    }],
-                                    ['<button>Don\'t show again</button>', function (instance, toast) {
-                                        sessionStorage.setItem('dontShowAgain_' + value.product_id, 'true');
-                                        instance.hide({
-                                            transitionOut: 'fadeOutRight',
-                                            onClosing: function (instance, toast, closedBy) { }
-                                        }, toast);
-                                    }]
-                                ],
-                            });
-                        }
-                    }
-                }
-            });
-
-        },
-        error: function (xhr, status, error) {
-            // Handle any errors that occur during the request
-            console.log(error);
-        }
+    // Configure default iziToast settings
+    iziToast.settings({
+        position: 'topRight',
+        timeout: 15000,
+        closeOnClick: true,
+        displayMode: 'replace',
+        transitionIn: 'fadeInDown',
+        transitionOut: 'fadeOutUp'
     });
+
+    // Function to show stock alert notification
+    function showStockAlert(productName, variantName, currentStock, alertLevel, productId, variantId, isVariantLevel) {
+        // Create storage key to remember dismissed alerts
+        const storageKey = 'stockAlert_' + productId + (isVariantLevel ? '_' + variantId : '');
+        
+        // Check if user dismissed this alert previously
+        if (sessionStorage.getItem(storageKey)) {
+            return;
+        }
+
+        // Build the notification message
+        const itemName = variantName ? `${productName} (${variantName})` : productName;
+        const message = `<strong>${itemName}</strong> is low on stock<br>
+                        Current: ${currentStock} | Alert Level: ${alertLevel}`;
+
+        // Show the notification
+        iziToast.warning({
+            title: 'LOW STOCK WARNING',
+            message: message,
+            icon: 'fas fa-exclamation-triangle',
+            buttons: [
+                ['<button><i class="fas fa-shopping-cart"></i> Order Now</button>', function(instance, toast) {
+                    window.location.href = site_url + 'admin/purchases/purchase_orders/order';
+                    instance.hide(toast);
+                }],
+                ['<button><i class="fas fa-times"></i> Dismiss</button>', function(instance, toast) {
+                    instance.hide(toast);
+                }],
+                ['<button><i class="fas fa-eye-slash"></i> Don\'t Show Again</button>', function(instance, toast) {
+                    sessionStorage.setItem(storageKey, 'true');
+                    instance.hide(toast);
+                }]
+            ],
+            onClosing: function() {
+                // Optional: Add any cleanup here
+            }
+        });
+    }
+
+    // Load stock alerts after page fully loads
+    setTimeout(function() {
+        $.ajax({
+            url: site_url + 'admin/products/stock_alert',
+            type: 'GET',
+            dataType: 'json',
+            success: function(response) {
+                if (response && response.rows && response.rows.length > 0) {
+                    response.rows.forEach(function(item) {
+                        try {
+                            // Parse stock values
+                            const currentStock = parseFloat(item.stock) || 0;
+                            const alertLevel = parseFloat(item.qty_alert) || 0;
+                            
+                            // Check if we should show alert
+                            if (alertLevel > 0 && currentStock <= alertLevel) {
+                                const isVariantLevel = item.stock_management_type == 2;
+                                showStockAlert(
+                                    item.product || 'Unknown Product',
+                                    item.variant_name,
+                                    currentStock,
+                                    alertLevel,
+                                    item.product_id,
+                                    item.variant_id,
+                                    isVariantLevel
+                                );
+                            }
+                        } catch (e) {
+                            console.error('Error processing stock alert:', e);
+                        }
+                    });
+                }
+            },
+            error: function(xhr, status, error) {
+                console.error('Failed to load stock alerts:', error);
+                // Optional: Show error notification
+                iziToast.error({
+                    title: 'Error',
+                    message: 'Could not check stock levels',
+                    position: 'topRight'
+                });
+            }
+        });
+    }, 2000); // 2-second delay to ensure everything is loaded
 });
 $(document).ready(function () {
     $('.phone-number').on('input', function () {

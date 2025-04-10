@@ -20,66 +20,61 @@ class Products_model extends Model
         $products = $builder->get()->getResultArray();
         return $products;
     }
-    public function get_product_details($business_id = '', $flag = '')
-    {
-        $db = \Config\Database::connect();
-        $builder = $db->table("products as p");
-        $builder->select('p.id,pv.id,pv.stock , pv.variant_name, pv.qty_alert,pv.product_id,pv.variant_name,p.name as product,p.stock_management,p.stock,p.qty_alert,p.business_id');
-        $builder->where('p.business_id', $business_id);
-        $builder->whereIn('p.stock_management', [1, 2]);
-        $builder->join('products_variants as pv', 'p.id = pv.product_id ', "left"); // added left here
-        $offset = 0;
-        if (isset($_GET['offset'])) {
-            $offset = $_GET['offset'];
-        }
-
-        if (isset($flag) && $flag == "out") {
-            $builder->where('((p.stock = 0) AND (pv.stock = 0 ))');
-        }
-        if (isset($flag) && $flag == "low") {
-            $builder->where('((p.stock < p.qty_alert AND p.stock > 0 AND p.stock_management = "1" ) OR (pv.stock < pv.qty_alert AND pv.stock > 0 AND p.stock_management = "2")) ');
-            $builder->groupBy('p.id');
-        }
-
-        if (isset($_GET['offset'])){
-            $offset = $_GET['offset'];
-        }
-
-        $limit = 20;
-        if (isset($_GET['limit'])) {
-            $limit = $_GET['limit'];
-        }
-        if (isset($_GET['search']) and $_GET['search'] != '') {
-            $search = $_GET['search'];
-            $multipleWhere = [
-                'p.name' => $search,
-                'pv.variant_name' => $search,
-                'pv.stock' => $search,
-                'p.stock' => $search,
-                'p.qty_alert' => $search,
-                'p.stock_management' => $search,
-            ];
-        }
-        if (isset($multipleWhere) && !empty($multipleWhere)) {
-            $builder->groupStart();
-            $builder->orLike($multipleWhere);
-            $builder->groupEnd();
-        }
-        $sort = "p.id";
-        if (isset($_GET['sort'])) {
-            if ($_GET['sort'] == 'p.id') {
-                $sort = "p.id";
-            } else {
-                $sort = $_GET['sort'];
-            }
-        }
-        $order = "ASC";
-        if (isset($_GET['order'])) {
-            $order = $_GET['order'];
-        }
-        $products = $builder->orderBy($sort, $order)->limit($limit, $offset)->get()->getResultArray();
-        return $products;
+    /**
+ * Improved get_product_details method with better stock alert handling
+ */
+public function get_product_details($business_id = '', $flag = '')
+{
+    $builder = $this->db->table("products as p");
+    $builder->select('p.*, pv.id as variant_id, pv.variant_name, pv.stock as variant_stock, 
+                     pv.qty_alert as variant_qty_alert, pv.status as variant_status');
+    $builder->where('p.business_id', $business_id);
+    
+    // Join with variants
+    $builder->join('products_variants as pv', 'p.id = pv.product_id', 'left');
+    
+    // Handle different flag cases
+    switch ($flag) {
+        case 'out':
+            $builder->groupStart()
+                ->where('p.stock', 0)
+                ->orWhere('pv.stock', 0)
+                ->groupEnd();
+            break;
+            
+        case 'low':
+            $builder->groupStart()
+                // Product-level low stock
+                ->groupStart()
+                    ->where('p.stock_management', 1)
+                    ->where('p.qty_alert >', 0)
+                    ->where('p.stock <= p.qty_alert', null, false)
+                    ->where('p.stock >', 0)
+                ->groupEnd()
+                // Variant-level low stock
+                ->orGroupStart()
+                    ->where('p.stock_management', 2)
+                    ->where('pv.qty_alert >', 0)
+                    ->where('pv.stock <= pv.qty_alert', null, false)
+                    ->where('pv.stock >', 0)
+                ->groupEnd()
+                ->groupEnd();
+            break;
     }
+
+    return $builder->get()->getResultArray();
+}
+public function get_low_product_stock($business_id)
+{
+    return $this->db->table('products')
+        ->where('business_id', $business_id)
+        ->where('stock_management', 1) // Only product-level stock management
+        ->where('qty_alert >', 0)     // Only products with alert level set
+        ->where('stock <= qty_alert')  // Current stock is at or below alert level
+        ->where('stock >', 0)         // Exclude out-of-stock items
+        ->get()
+        ->getResultArray();
+}
     public function get_products($business_id = "", $flag = null)
     {
         $db = \Config\Database::connect();
