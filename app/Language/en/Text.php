@@ -373,4 +373,6 @@ $lang['edit_product'] = "Edit Product";
 $lang['create_suppliers'] = "Create Suppliers";
 $lang['edit_suppliers'] = "Edit Suppliers";
 $lang['edit_expenses'] = "Edit Expenses";
+$lang['hold_cart'] = "Hold Cart";
+$lang['load_drafts'] = "Load Drafts";
 return $lang;

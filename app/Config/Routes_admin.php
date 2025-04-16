@@ -10,7 +10,8 @@ $routes->post('admin/languages/create', "admin\Languages::create", ['filter' => 
 $routes->post('admin/languages/set_labels', "admin\Languages::set_labels", ['filter' => 'checkRoles']);
 $routes->get('admin/languages/change/(:any)', "admin\Languages::change/$1", ['filter' => 'checkRoles']);
 
-
+// in case hold and draft buttons didnt work 
+//$routes->get('admin/orders', 'Admin\Orders::index');
 
 $routes->get('admin/home/fetch_sales', 'admin\Home::fetch_sales');
 $routes->get('admin/home/fetch_warehouse_sales', 'admin\Home::fetch_warehouse_sales');

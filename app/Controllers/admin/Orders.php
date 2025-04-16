@@ -10,8 +10,8 @@ use App\Models\Customers_transactions_model;
 use App\Models\Delivery_boys_model;
 use App\Models\Orders_items_model;
 use App\Models\Orders_model;
-use App\Models\Ordersmodel;
-use App\Models\OrderReturnsModel;  // Add this line
+use App\Models\OrderReturnsModel; // this modal is created 
+use App\Models\Ordersmodel; // this modal is created 
 use App\Models\Orders_services_model;
 use App\Models\Status_model;
 use App\Models\Subscription_model;
@@ -105,6 +105,8 @@ class Orders extends BaseController
             return view("admin/template", $data);
         }
     }
+
+    // returing items functions 
     public function process_return()
 {
     // Debug the raw server request method
@@ -388,6 +390,8 @@ protected function updateWarehouseStock($warehouseStockModel, $warehouse_id, $pr
             return view("admin/template", $data);
         }
     }
+
+    // returing items functions 
     public function orders()
     {
         if (!$this->ionAuth->loggedIn() || (!$this->ionAuth->isAdmin() && !$this->ionAuth->isTeamMember())) {

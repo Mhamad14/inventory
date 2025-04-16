@@ -94,7 +94,9 @@ class Filters extends BaseFilters
      *
      * @var array<string, list<string>>
      */
-    public array $methods = ['post' => ['csrf', 'toolbar']];
+
+     // made this comment cuz it fixes something the lang problem
+  //  public array $methods = ['post' => ['csrf', 'toolbar']];
 
     /**
      * List of filter aliases that should run on any

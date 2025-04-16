@@ -229,8 +229,12 @@
                                             </div>
 
                                             <div class="text-center mt-4">
-                                                <button class="btn btn-sm btn-clear_cart btn-danger mb-2 " type="reset" id="clear_cart_btn"><?= labels('clear_cart', 'Clear Cart') ?></button>
-                                                <button class="btn btn-sm btn-purchase btn-primary mb-2 mx-3" type="submit" id="place_order_btn"><?= labels('create_order', 'Create Order') ?></button>
+                                                <button class="btn btn-sm btn-clear_cart btn-danger mb-2" type="reset" id="clear_cart_btn"><?= labels('clear_cart', 'Clear Cart') ?></button>
+                                                    <!-- the hold and load buttons -->
+                                                <button class="btn btn-sm btn-warning mb-2 mx-2" type="button" id="hold_cart_btn" onclick="console.log('Hold button clicked')"><?= labels('hold_cart', 'Hold Cart') ?></button>
+                                                <button class="btn btn-sm btn-info mb-2 mx-2" type="button" id="load_drafts_btn"><?= labels('load_drafts', 'Load Drafts') ?> (<span id="draft-count">0</span>)</button>
+                                                    <!-- the hold and load buttons -->
+                                                <button class="btn btn-sm btn-purchase btn-primary mb-2" type="submit" id="place_order_btn"><?= labels('create_order', 'Create Order') ?></button>
                                                 <button type="button" class="btn btn-sm btn-dark mb-2 d-none" id="pos_quick_invoice" onclick="printInvoice()" data-id="">Print last order Invoce</button>
                                             </div>
                                 </div>

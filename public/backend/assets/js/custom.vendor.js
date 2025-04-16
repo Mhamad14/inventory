@@ -5885,4 +5885,172 @@ function deleteBrand(id, route) {
             },
         });
     });
+
+}
+
+
+// codes for the draft and hold bottuns
+// Add these at the top of test.js
+$(document).ready(function() {
+    console.log("Document ready - initializing cart buttons");
+    initCartButtons();
+    updateDraftCount(); // Initialize count on page load
+});
+function initCartButtons() {
+    // Update button initialization
+    $(document).off('click', '#hold_cart_btn').on('click', '#hold_cart_btn', function(e) {
+        e.preventDefault();
+        holdCurrentCart();
+    });
+    
+    $(document).off('click', '#load_drafts_btn').on('click', '#load_drafts_btn', function(e) {
+        e.preventDefault();
+        showDraftsModal();
+    });
+}
+
+// Add this function
+function updateDraftCount() {
+    try {
+        const business_id = $("#business_id").val();
+        const drafts = JSON.parse(localStorage.getItem(`drafts${business_id}`)) || [];
+        const count = drafts.length;
+        $('#load_drafts_btn').html(`${labels('load_drafts', 'Load Drafts')} (${count})`);
+    } catch (error) {
+        console.error("Draft count error:", error);
+    }
+}
+
+// Modified hold function
+function holdCurrentCart() {
+    try {
+        const business_id = $("#business_id").val();
+        const cart = localStorage.getItem(`cart${business_id}`);
+        
+        if (cart && JSON.parse(cart).length > 0) {
+            const drafts = JSON.parse(localStorage.getItem(`drafts${business_id}`)) || [];
+            const newDraft = {
+                id: Date.now(),
+                cart: JSON.parse(cart),
+                created_at: new Date().toLocaleString()
+            };
+            
+            drafts.push(newDraft);
+            localStorage.setItem(`drafts${business_id}`, JSON.stringify(drafts));
+            localStorage.removeItem(`cart${business_id}`);
+            
+            display_cart();
+            updateDraftCount();
+            show_message("Success", "Cart saved as draft", "success");
+            return;
+        }
+        show_message("Error", "No items to save", "error");
+    } catch (error) {
+        console.error("Hold error:", error);
+        show_message("Error", error.message, "error");
+    }
+}
+
+// Modified load function
+function loadDraft(draftId) {
+    try {
+        const business_id = $("#business_id").val();
+        let drafts = JSON.parse(localStorage.getItem(`drafts${business_id}`)) || [];
+        const draftIndex = drafts.findIndex(d => d.id === draftId);
+
+        if (draftIndex !== -1) {
+            localStorage.setItem(`cart${business_id}`, JSON.stringify(drafts[draftIndex].cart));
+            drafts.splice(draftIndex, 1);
+            localStorage.setItem(`drafts${business_id}`, JSON.stringify(drafts));
+            
+            display_cart();
+            updateDraftCount();
+            $('#draftsModal').modal('hide');
+            show_message("Success", "Draft loaded and removed", "success");
+        }
+    } catch (error) {
+        console.error("Load error:", error);
+        show_message("Error", error.message, "error");
+    }
+}
+
+// Modified delete function
+function deleteDraft(draftId) {
+    if (confirm("Delete this draft permanently?")) {
+        try {
+            const business_id = $("#business_id").val();
+            let drafts = JSON.parse(localStorage.getItem(`drafts${business_id}`) || '[]');
+            drafts = drafts.filter(d => d.id !== draftId);
+            localStorage.setItem(`drafts${business_id}`, JSON.stringify(drafts));
+            
+            // Update UI
+            display_cart();
+            updateDraftCount();
+            $('#draftsModal').modal('hide');
+            show_message("Success", "Draft loaded and removed", "success");
+            
+        } catch (error) {
+            console.error("Delete error:", error);
+            show_message("Error", error.message, "error");
+        }
+    }
+}
+
+// Modified modal function
+function showDraftsModal() {
+    try {
+        const business_id = $("#business_id").val();
+        const drafts = JSON.parse(localStorage.getItem(`drafts${business_id}`)) || [];
+        
+        let modalHTML = `
+            <div class="modal fade" id="draftsModal" tabindex="-1" aria-hidden="true">
+                <div class="modal-dialog modal-lg">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">Saved Drafts</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        <div class="modal-body">
+                            ${drafts.length ? '' : '<p>No saved drafts found</p>'}
+                            <div class="list-group">`;
+
+        drafts.forEach(draft => {
+            modalHTML += `
+                <div class="list-group-item d-flex justify-content-between align-items-center">
+                    <div>
+                        <strong>${draft.created_at}</strong><br>
+                        ${draft.cart.length} items
+                    </div>
+                    <div>
+                        <button class="btn btn-sm btn-primary me-2" 
+                            onclick="loadDraft(${draft.id})">
+                            Load
+                        </button>
+                        <button class="btn btn-sm btn-danger" 
+                            onclick="deleteDraft(${draft.id})">
+                            Delete
+                        </button>
+                    </div>
+                </div>`;
+        });
+
+        modalHTML += `
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                        </div>
+                    </div>
+                </div>
+            </div>`;
+
+        $('#draftsModal').remove();
+        $('body').append(modalHTML);
+        
+        const modal = new bootstrap.Modal(document.getElementById('draftsModal'));
+        modal.show();
+    } catch (error) {
+        console.error("Modal error:", error);
+        show_message("Error", error.message, "error");
+    }
 }

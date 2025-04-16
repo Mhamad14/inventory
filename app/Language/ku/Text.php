@@ -10,7 +10,7 @@
 $lang['label_language'] = "ku";
 $lang['code'] = "ku";
 $lang['order_details'] = "";
-$lang['add_payment'] = "";
+$lang['add_payment'] = "زیاد کردنی حساب";
 $lang['no_payments_found'] = "";
 $lang['payment_date'] = "";
 $lang['create_payment'] = "";
@@ -56,7 +56,7 @@ $lang['product_level'] = "";
 $lang['variant_level'] = "";
 $lang['select_level'] = "";
 $lang['type'] = "";
-$lang['stock_management'] = "";
+$lang['stock_management'] = "زانیاری مەخزەن";
 $lang['stock'] = "";
 $lang['simple_product'] = "";
 $lang['variable_product'] = "";
