@@ -75,6 +75,7 @@
                                                 <th data-field="email" data-sortable="true"><?= labels('email', 'Email') ?></th>
                                                 <th data-field="mobile" data-sortable="true"><?= labels('mobile_number', 'Mobile') ?></th>
                                                 <th data-field="balance" data-sortable="true"><?= labels('balance', 'Balance') ?></th>
+                                                <th data-field="debit" data-sortable="true"><?= labels('debit', 'Debit') ?></th>
                                                 <th data-field="status" data-sortable="true"><?= labels('status', 'Status') ?></th>
                                             </tr>
                                         </thead>

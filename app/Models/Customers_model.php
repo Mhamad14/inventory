@@ -58,13 +58,41 @@ class Customers_model extends Model
         $builder->where('user_id ', $user_id);
         return $builder->get()->getResultArray();
     }
-    function get_customers_details( $business_id = "")
+//added this for knwing debit
+    public function calculate_customer_debit($customer_id, $business_id)
+    {
+        $db = \Config\Database::connect();
+        $builder = $db->table("orders");
+        
+        $builder->select('SUM(final_total - amount_paid) as total_debit');
+        $builder->where('customer_id', $customer_id); // Uses customers.id
+        $builder->where('business_id', $business_id);
+        $builder->groupStart()
+                ->where('payment_status', 'unpaid')
+                ->orWhere('payment_status', 'partially_paid')
+                ->groupEnd();
+        
+        $result = $builder->get()->getRowArray();
+        return $result['total_debit'] ?? 0;
+    }
+//added this to get all the orders of a customer
+    public function get_customer_orders($user_id, $business_id)
+    {
+        $db = \Config\Database::connect();
+        $builder = $db->table("orders");
+        $builder->select('*');
+        $builder->where('customer_id', $user_id);
+        $builder->where('business_id', $business_id);
+        $builder->where("(payment_status = 'unpaid' OR payment_status = 'partially_paid')");
+        return $builder->get()->getResultArray();
+    }
+    public function get_customers_details($business_id = "")
     {
         $db = \Config\Database::connect();
         $builder = $db->table("customers as c");
         $builder->select('c.*,u.first_name,u.email,u.mobile,u.last_name');
-        $builder->where('business_id ', $business_id);
-        $builder->join('users as u', 'c.user_id = u.id ', "left"); // added left here
+        $builder->where('business_id', $business_id);
+        $builder->join('users as u', 'c.user_id = u.id', "left");
 
         $condition = [];
         $offset = 0;
@@ -117,7 +145,14 @@ class Customers_model extends Model
             $builder->where($where);
         }
         $customers = $builder->orderBy($sort, $order)->limit($limit, $offset)->get()->getResultArray();
+        
+        // Calculate debit for each customer
+        foreach($customers as &$customer) {
+           $customer['debit'] = $this->calculate_customer_debit($customer['id'], $business_id);
+        }
+        
         return $customers;
-    }
     
+    }
+   
 }
