@@ -22,14 +22,17 @@ class Home extends BaseController
         $this->session       = \Config\Services::session();
     }
 
+    public function loginPage(){
+
+    }
     public function index()
     {
 
-        if (!$this->ionAuth->loggedIn() || (!$this->ionAuth->isAdmin() && !$this->ionAuth->isTeamMember())) {
+        if (!$this->ionAuth->loggedIn() || (!$this->ionAuth->isAdmin() && !$this->ionAuth->isTeamMember()) ) {
             return redirect()->to('login');
         } else {
 
-            if (!isset($_SESSION['business_id']) || empty($_SESSION['business_id'])) {
+            if (!session()->has('business_id')) {
                 $business_model = new Businesses_model();
                 $warehouse_model = new WarehouseModel();
 
@@ -138,7 +141,7 @@ class Home extends BaseController
 
             if (empty($is_user_team_member)) {
                 // user is admin.
-                if (!isset($_SESSION['business_id'])) {
+                if (!session()->has('business_id')) {
                     $default_business = fetch_details('businesses', ['default_business' => "1", 'user_id' => $id]);
                     $business_id = isset($default_business[0]['id']) ? $default_business[0]['id'] : "";
                     check_data_in_table('businesses', $business_id);
@@ -146,7 +149,7 @@ class Home extends BaseController
                     $this->session->set('business_id', $business_id);
                     $this->session->set('business_name', $business_name);
                 } else {
-                    $business_id = $_SESSION['business_id'];
+                    $business_id = session('business_id');
                 }
 
                 $business_count = $db->table('businesses')->select('count(id) as total')->where(["user_id" => $id])->get()->getResultArray()[0]['total'];
@@ -156,7 +159,7 @@ class Home extends BaseController
 
                 $vendor_id = $is_user_team_member[0]['vendor_id'];
 
-                if (!isset($_SESSION['business_id'])) {
+                if (!session()->has('business_id')) {
                     $default_business = fetch_details('businesses', ['default_business' => "1", 'user_id' => $vendor_id]);
 
                     $business_id = isset($default_business[0]['id']) ? $default_business[0]['id'] : "";
@@ -166,7 +169,7 @@ class Home extends BaseController
                     $this->session->set('business_id', $business_id);
                     $this->session->set('business_name', $business_name);
                 } else {
-                    $business_id = $_SESSION['business_id'];
+                    $business_id = session('business_id');
                 }
 
                 $business_count = $db->table('businesses')->select('count(id) as total')->where(["user_id" => $vendor_id])->get()->getResultArray()[0]['total'];
@@ -248,7 +251,7 @@ class Home extends BaseController
 
             $sales[] = array();
             $db = \Config\Database::connect();
-            $business_id = (isset($_SESSION['business_id']) && is_numeric($_SESSION['business_id'])) ? trim($_SESSION['business_id']) : "";
+            $business_id = (session()->has('business_id') && is_numeric(session('business_id'))) ? trim($_SESSION['business_id']) : "";
             $month_res = $db->table('orders')
                 ->select('SUM(final_total) AS total_sale,DATE_FORMAT(created_at,"%b") AS month_name ')
 
@@ -272,7 +275,7 @@ class Home extends BaseController
             $db = \Config\Database::connect();
 
             // Check if the business_id is set in the session
-            $business_id = (isset($_SESSION['business_id']) && is_numeric($_SESSION['business_id']))
+            $business_id = (session()->has('business_id') && is_numeric(session('business_id')))
                 ? trim($_SESSION['business_id'])
                 : "";
 
@@ -316,7 +319,7 @@ class Home extends BaseController
             $sales[] = array();
             $month_res = $db->table('orders')
                 ->select('SUM(final_total) AS total_sale,DATE_FORMAT(created_at,"%b") AS month_name ')
-                ->where('business_id', $_SESSION['business_id'])
+                ->where('business_id', session('business_id'))
                 ->groupBy('year(CURDATE()),MONTH(created_at)')
                 ->orderBy('year(CURDATE()),MONTH(created_at)')
                 ->get()->getResultArray();
@@ -326,7 +329,7 @@ class Home extends BaseController
 
             $month_res_purchase = $db->table('purchases')
                 ->select('SUM(total) AS total_purchases,DATE_FORMAT(created_at,"%b") AS purchase_month_name ')
-                ->where('business_id', $_SESSION['business_id'])
+                ->where('business_id', session('business_id'))
                 ->groupBy('year(CURDATE()),MONTH(created_at)')
                 ->orderBy('year(CURDATE()),MONTH(created_at)')
                 ->get()->getResultArray();
@@ -347,13 +350,13 @@ class Home extends BaseController
             $db = \Config\Database::connect();
             $id = $this->ionAuth->getUserId();
 
-            $business_id = $_SESSION['business_id'];
+            $business_id = session('business_id');
             $orders = $db->table('orders o')->select('count(id) as total')->where(["vendor_id" => $id, 'business_id' =>  $business_id])->get()->getResultArray()[0]['total'];
             $customers = $db->table('customers')->select('count(id) as total')->where(['business_id' =>  $business_id])->get()->getResultArray()[0]['total'];
 
             $sales = $db->table('orders')
                 ->select('sum(final_total) as total')
-                ->where('business_id', $_SESSION['business_id'])
+                ->where('business_id', session('business_id'))
                 ->get()->getResultArray()[0]['total'];
 
             $count['orders'] = $orders;

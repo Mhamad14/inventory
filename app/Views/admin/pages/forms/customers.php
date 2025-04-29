@@ -2,7 +2,6 @@
         <section class="section">
             <div class="section-header">
                 <h1><?= labels('customers', 'Customers') ?> </h1>
-
             </div>
             <?php
             $session = session();
@@ -33,11 +32,11 @@
                                         <div class="row">
                                             <div class="form-group col-md">
                                                 <label for="password"><?= labels('password', 'Password') ?> <small>(<?= labels('password_delivery_boy_text', 'Enter new password if you want to update current password') ?>)</small></label><span class="asterisk text-danger"> *</span>
-                                                <input type="text" class="form-control" id="password" value="" placeholder="Enter Password" name="password">
+                                                <input type="password" class="form-control" id="password" value="" placeholder="Enter Password" name="password">
                                             </div>
                                             <div class="form-group col-md">
                                                 <label for="email"><?= labels('email', 'Email') ?></label><span class="asterisk text-danger"> *</span>
-                                                <input type="text" class="form-control" id="email" placeholder="abc@gmail.com" name="email">
+                                                <input type="email" class="form-control" id="email" placeholder="abc@gmail.com" name="email" require>
                                             </div>
                                         </div>
                                         <div class="form-group">
@@ -66,7 +65,7 @@
                         <div class="col-12">
                             <div class="card">
                                 <div class="card-body">
-                                    <table class="table table-hover table-borderd" data-show-export="true" data-export-types="['txt','excel','csv']"  data-export-options='{"fileName": "customers-list"}' id="customers_table" data-auto-refresh="true" data-show-columns="true" data-show-toggle="true" data-show-refresh="true" data-toggle="table" data-search-highlight="true" data-server-sort="false" data-page-list="[5, 10, 25, 50, 100, 200, All]" data-url="<?= base_url('admin/customers/customers_table'); ?>" data-side-pagination="server" data-pagination="true" data-search="true" data-server-sort="false">
+                                    <table class="table table-hover" data-show-export="true" data-export-types="['txt','excel','csv']" data-export-options='{"fileName": "customers-list"}' id="customers_table" data-auto-refresh="true" data-show-columns="true" data-show-toggle="true" data-show-refresh="true" data-toggle="table" data-search-highlight="true" data-server-sort="false" data-page-list="[5, 10, 25, 50, 100, 200, All]" data-url="<?= base_url('admin/customers/customers_table'); ?>" data-side-pagination="server" data-pagination="true" data-search="true" data-server-sort="false">
                                         <thead>
                                             <tr>
                                                 <th data-radio="true"></th>
@@ -77,6 +76,7 @@
                                                 <th data-field="balance" data-sortable="true"><?= labels('balance', 'Balance') ?></th>
                                                 <th data-field="debit" data-sortable="true"><?= labels('debit', 'Debit') ?></th>
                                                 <th data-field="status" data-sortable="true"><?= labels('status', 'Status') ?></th>
+                                                <th data-field="actions" data-sortable="true"><?= labels('action', 'Actions') ?></th>
                                             </tr>
                                         </thead>
                                     </table>
@@ -88,6 +88,12 @@
             </div>
         </section>
     </div>
+
+
+
+
+
+
     <div class="modal" id="customer_register">
         <div class="modal-dialog modal-m">
             <div class="modal-content">
@@ -129,6 +135,8 @@
             </div>
         </div>
     </div>
+
+
     <div class="modal" id="customer_status">
         <div class="modal-dialog modal-s">
             <div class="modal-content">
@@ -145,6 +153,7 @@
                                 <div class="col-12">
                                     <div class="card">
                                         <div class="card-body">
+                                            <?php var_dump("welcom"); ?>
                                             <form id="customer_status" action="<?= base_url("admin/customers/save_status") ?>" method="post">
                                                 <input type="hidden" value="" name="customer_id">
                                                 <div class="row">

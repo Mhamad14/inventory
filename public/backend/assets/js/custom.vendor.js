@@ -3607,6 +3607,43 @@ $("#expenses_form").on("submit", function (e) {
         },
     });
 });
+
+
+
+$("#customer_form").on("submit", function (e) {
+    e.preventDefault();
+    var formData = new FormData(this);
+    formData.append(csrf_token, csrf_hash);
+    $.ajax({
+        type: "post",
+        url: this.action,
+        data: formData,
+        cache: false,
+        processData: false,
+        contentType: false,
+        dataType: "json",
+        success: function (result) {
+            csrf_token = result["csrf_token"];
+            csrf_hash = result["csrf_hash"];
+            if (result.error == true) {
+                var message = "";
+                Object.keys(result.message).map((key) => {
+                    iziToast.error({
+                        title: "Error!",
+                        message: result.message[key],
+                        position: "topRight",
+                    });
+                });
+            } else {
+                window.location = base_url + "/admin/expenses";
+                showToastMessage(result.message, "success");
+                console.log(window.location);
+            }
+        },
+    });
+});
+
+
 $("#expenses_type_form").on("submit", function (e) {
     e.preventDefault();
     var formData = new FormData(this);
@@ -4893,7 +4930,7 @@ function payment_reminder(order_id) {
 
 // Quantity Alert Message
 // Quantity Alert Message - Updated to handle both product and variant level stock
-$(document).ready(function() {
+$(document).ready(function () {
     // Check if iziToast is loaded (required for notifications)
     if (typeof iziToast === 'undefined') {
         console.error('iziToast not loaded - stock alerts disabled');
@@ -4914,7 +4951,7 @@ $(document).ready(function() {
     function showStockAlert(productName, variantName, currentStock, alertLevel, productId, variantId, isVariantLevel) {
         // Create storage key to remember dismissed alerts
         const storageKey = 'stockAlert_' + productId + (isVariantLevel ? '_' + variantId : '');
-        
+
         // Check if user dismissed this alert previously
         if (sessionStorage.getItem(storageKey)) {
             return;
@@ -4931,38 +4968,38 @@ $(document).ready(function() {
             message: message,
             icon: 'fas fa-exclamation-triangle',
             buttons: [
-                ['<button><i class="fas fa-shopping-cart"></i> Order Now</button>', function(instance, toast) {
+                ['<button><i class="fas fa-shopping-cart"></i> Order Now</button>', function (instance, toast) {
                     window.location.href = site_url + 'admin/purchases/purchase_orders/order';
                     instance.hide(toast);
                 }],
-                ['<button><i class="fas fa-times"></i> Dismiss</button>', function(instance, toast) {
+                ['<button><i class="fas fa-times"></i> Dismiss</button>', function (instance, toast) {
                     instance.hide(toast);
                 }],
-                ['<button><i class="fas fa-eye-slash"></i> Don\'t Show Again</button>', function(instance, toast) {
+                ['<button><i class="fas fa-eye-slash"></i> Don\'t Show Again</button>', function (instance, toast) {
                     sessionStorage.setItem(storageKey, 'true');
                     instance.hide(toast);
                 }]
             ],
-            onClosing: function() {
+            onClosing: function () {
                 // Optional: Add any cleanup here
             }
         });
     }
 
     // Load stock alerts after page fully loads
-    setTimeout(function() {
+    setTimeout(function () {
         $.ajax({
             url: site_url + 'admin/products/stock_alert',
             type: 'GET',
             dataType: 'json',
-            success: function(response) {
+            success: function (response) {
                 if (response && response.rows && response.rows.length > 0) {
-                    response.rows.forEach(function(item) {
+                    response.rows.forEach(function (item) {
                         try {
                             // Parse stock values
                             const currentStock = parseFloat(item.stock) || 0;
                             const alertLevel = parseFloat(item.qty_alert) || 0;
-                            
+
                             // Check if we should show alert
                             if (alertLevel > 0 && currentStock <= alertLevel) {
                                 const isVariantLevel = item.stock_management_type == 2;
@@ -4982,7 +5019,7 @@ $(document).ready(function() {
                     });
                 }
             },
-            error: function(xhr, status, error) {
+            error: function (xhr, status, error) {
                 console.error('Failed to load stock alerts:', error);
                 // Optional: Show error notification
                 iziToast.error({
@@ -5128,6 +5165,21 @@ $(document).ready(function () {
             });
         }
     });
+
+    $('input[name="balance"]').on('input', function () {
+        let value = $(this).val();
+        let pattern = /^[0-9]*\.?[0-9]+$/;
+
+        if (!pattern.test(value)) {
+            $(this).val(value.replace(/[^0-9]/g, ''));
+            iziToast.error({
+                title: 'Error',
+                message: 'Only numbers are allowed !',
+                position: "topRight",
+            });
+        }
+    });
+
 });
 
 
@@ -5891,19 +5943,19 @@ function deleteBrand(id, route) {
 
 // codes for the draft and hold bottuns
 // Add these at the top of test.js
-$(document).ready(function() {
+$(document).ready(function () {
     console.log("Document ready - initializing cart buttons");
     initCartButtons();
     updateDraftCount(); // Initialize count on page load
 });
 function initCartButtons() {
     // Update button initialization
-    $(document).off('click', '#hold_cart_btn').on('click', '#hold_cart_btn', function(e) {
+    $(document).off('click', '#hold_cart_btn').on('click', '#hold_cart_btn', function (e) {
         e.preventDefault();
         holdCurrentCart();
     });
-    
-    $(document).off('click', '#load_drafts_btn').on('click', '#load_drafts_btn', function(e) {
+
+    $(document).off('click', '#load_drafts_btn').on('click', '#load_drafts_btn', function (e) {
         e.preventDefault();
         showDraftsModal();
     });
@@ -5926,7 +5978,7 @@ function holdCurrentCart() {
     try {
         const business_id = $("#business_id").val();
         const cart = localStorage.getItem(`cart${business_id}`);
-        
+
         if (cart && JSON.parse(cart).length > 0) {
             const drafts = JSON.parse(localStorage.getItem(`drafts${business_id}`)) || [];
             const newDraft = {
@@ -5934,11 +5986,11 @@ function holdCurrentCart() {
                 cart: JSON.parse(cart),
                 created_at: new Date().toLocaleString()
             };
-            
+
             drafts.push(newDraft);
             localStorage.setItem(`drafts${business_id}`, JSON.stringify(drafts));
             localStorage.removeItem(`cart${business_id}`);
-            
+
             display_cart();
             updateDraftCount();
             show_message("Success", "Cart saved as draft", "success");
@@ -5962,7 +6014,7 @@ function loadDraft(draftId) {
             localStorage.setItem(`cart${business_id}`, JSON.stringify(drafts[draftIndex].cart));
             drafts.splice(draftIndex, 1);
             localStorage.setItem(`drafts${business_id}`, JSON.stringify(drafts));
-            
+
             display_cart();
             updateDraftCount();
             $('#draftsModal').modal('hide');
@@ -5982,13 +6034,13 @@ function deleteDraft(draftId) {
             let drafts = JSON.parse(localStorage.getItem(`drafts${business_id}`) || '[]');
             drafts = drafts.filter(d => d.id !== draftId);
             localStorage.setItem(`drafts${business_id}`, JSON.stringify(drafts));
-            
+
             // Update UI
             display_cart();
             updateDraftCount();
             $('#draftsModal').modal('hide');
             show_message("Success", "Draft loaded and removed", "success");
-            
+
         } catch (error) {
             console.error("Delete error:", error);
             show_message("Error", error.message, "error");
@@ -6001,7 +6053,7 @@ function showDraftsModal() {
     try {
         const business_id = $("#business_id").val();
         const drafts = JSON.parse(localStorage.getItem(`drafts${business_id}`)) || [];
-        
+
         let modalHTML = `
             <div class="modal fade" id="draftsModal" tabindex="-1" aria-hidden="true">
                 <div class="modal-dialog modal-lg">
@@ -6046,7 +6098,7 @@ function showDraftsModal() {
 
         $('#draftsModal').remove();
         $('body').append(modalHTML);
-        
+
         const modal = new bootstrap.Modal(document.getElementById('draftsModal'));
         modal.show();
     } catch (error) {

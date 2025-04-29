@@ -17,7 +17,7 @@ class Home extends Frontend
     public function index()
     {
         if ($this->ionAuth->loggedIn()){
-            return redirect('admin/home');
+            return redirect('login');
         }
         $data['title'] = "Home &mdash; $this->appName";
         $data['page'] = VIEWS . 'login';

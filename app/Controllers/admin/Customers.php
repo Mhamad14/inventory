@@ -9,178 +9,239 @@ use App\Models\Orders_model;
 
 class Customers extends BaseController
 {
+
     protected $ionAuth;
     protected $validation;
     protected $session;
     protected $configIonAuth;
+
+    protected Customers_model $customerModel;
+
     public function __construct()
     {
         $this->ionAuth = new \App\Libraries\IonAuth();
         $this->validation = \Config\Services::validation();
-        helper(['form', 'url', 'filesystem']);
+        helper(['form', 'url', 'filesystem', 'customer']);
         $this->configIonAuth = config('IonAuth');
         $this->session       = \Config\Services::session();
+
+        $this->customerModel = new Customers_model();
     }
+
     public function index()
+    {
+
+        $business_id = session('business_id');
+        $this->validateUserPermission();
+
+        // Fetch customers and other data
+        $customers = getCustomers($business_id);
+
+        // Prepare data for the view
+        $data = $this->getData('customers', $customers, FORMS . 'customers');
+
+        return view("admin/template", $data);
+    }
+
+
+    // to update customer
+    public function update($user_id)
+    {
+
+        $rules = [
+            'name' => [
+                'label' => 'Name',
+                'rules' => 'required|min_length[3]',
+                'errors' => [
+                    'required'   => 'The {field} field is required.',
+                    'min_length' => 'The {field} must be at least {param} characters long.'
+                ]
+            ],
+            'email' => [
+                'label' => 'Email',
+                'rules' => 'required|valid_email',
+                'errors' => [
+                    'required'    => 'The {field} field is required.',
+                    'valid_email' => 'Please enter a valid {field} address.'
+                ]
+            ],
+            'mobile' => [
+                'label' => 'Mobile Number',
+                'rules' => 'required|numeric|min_length[7]|max_length[20]',
+                'errors' => [
+                    'required'    => 'The {field} field is required.',
+                    'numeric'     => 'The {field} must contain only numbers.',
+                    'min_length'  => 'The {field} must be at least {param} digits long.',
+                    'max_length'  => 'The {field} must not be more than {param} digits long.'
+                ]
+            ],
+        ];
+        $isValid = $this->validate($rules);
+        if (!$isValid) {
+            return $this->response->setJSON([
+                'success' => false,
+                'message' => implode('<br>', $this->validator->getErrors())
+            ]);
+            // return redirect()->back()->withInput()->with('shahram_errors', $this->validator->getErrors());
+        }
+
+        // Check if password is entered
+        $password = $this->request->getPost('password');
+        if (!empty($password)) {
+            $rules['password'] = [
+                'label' => 'Password',
+                'rules' => 'min_length[8]',
+                'errors' => [
+                    'min_length' => 'The {field} must be at least {param} characters long.'
+                ]
+            ];
+            $this->ionAuth->update($user_id, ['password' => $password]);
+        }
+
+        $db = db_connect();
+
+        $this->validateUserPermission();
+
+        // update users table
+        $db->table('users')
+            ->where('id', $user_id)
+            ->update([
+                'first_name' => $this->request->getPost('name'),
+                'mobile' => $this->request->getPost('mobile'),
+                'email' => $this->request->getPost('email'),
+            ]);
+
+        // update Customers table
+        $db->table('customers')
+            ->where('user_id', $user_id)
+            ->update([
+                'status' => $this->request->getPost('status'),
+            ]);
+
+        return $this->response->setJSON([
+            'success' => true,
+            'message' => 'Customer Updated successfully!',
+            'data' => [],
+            'csrf_token' => csrf_token(),
+            'csrf_hash' => csrf_hash(),
+            'user_id' => $user_id,
+        ]);
+    }
+    // to get Customers/show.php
+    public function edit($id)
+    {
+        $this->validateUserPermission();
+
+        $customer = $this->customerModel->getCustomerFullDetail($id);
+
+        $data = $this->getData('customer', $customer,  FORMS . 'Customers/' . 'show');
+
+
+        return view('admin/template', $data);
+    }
+
+
+    public function save_status()
+    {
+        // Check if modifications are allowed
+        if (defined('ALLOW_MODIFICATION') && ALLOW_MODIFICATION == 0) {
+            return setJSON($this->response, true, [DEMO_MODE_ERROR]);
+        }
+
+        // Check if the user is logged in and is an admin
+        if (!$this->ionAuth->loggedIn() || !$this->ionAuth->isAdmin()) {
+            return redirect()->to('login');
+        }
+
+        if (subscription() !== 'active') {
+            return setJSON($this->response, true, ['Subscription is not active.']);
+        }
+        // Validate the input
+        $this->validation->setRules([
+            'customer_id' => 'required|trim',
+            'status' => 'required|trim'
+        ]);
+
+        if (!$this->validation->withRequest($this->request)->run()) {
+            return setJSON($this->response, true, $this->validation->getErrors());
+        }
+
+        // Get the input data
+        $customer_id = $this->request->getPost('customer_id');
+        $status = $this->request->getPost('status');
+
+        // Update the customer's status
+        $update = update_details(['status' => $status], ['user_id' => $customer_id], 'customers');
+
+        if (!$update) {
+            return setJSON($this->response, true, ['Failed to update customer status. Please try again.']);
+        }
+
+        // Set success response
+        session()->setFlashdata('toastMessage', 'Customer status updated successfully.');
+        session()->setFlashdata('toastMessageType', 'success');
+        return setJSON($this->response, false, 'Customer status updated successfully');
+    }
+
+
+
+    // edit it a little
+    public function customers_table()
+    {
+        // Get the business ID from the session
+        $business_id = session('business_id') ?? "";
+
+        // Initialize the Customers model
+        $customers_model = new Customers_model();
+
+        // Fetch customer details and total count
+        $customers = $customers_model->get_customers_details($business_id);
+        $total = $customers_model->count_of_customers($business_id);
+
+        // Prepare rows for the response
+        $rows = [];
+        foreach ($customers as $customer) {
+            $rows[] = prepareCustomerRow($customer);
+        }
+        // Prepare the response array
+        $response = [
+            'total' => $total[0]['total'] ?? 0,
+            'rows' => $rows
+        ];
+
+        // Return the response as JSON
+        return $this->response->setJSON($response);
+    }
+
+
+    private function validateUserPermission()
     {
         if (!$this->ionAuth->loggedIn() || (!$this->ionAuth->isAdmin() && !$this->ionAuth->isTeamMember())) {
             return redirect()->to('login');
-        } else {
-            if (! isset($_SESSION['business_id']) || empty($_SESSION['business_id'])) {
-                // business id is not set 
-                $business_model = new Businesses_model();
-                $allbusiness = $business_model->findAll();
-                if( empty($allbusiness)){
-                    session()->setFlashdata('message', 'Please create a business !');
-                    session()->setFlashdata('type', 'error');
-                    return redirect()->to('admin/businesses');
-                }else{
-                    session()->setFlashdata('message', 'Please select a business !');
-                    session()->setFlashdata('type', 'error');
-                    return redirect()->to('admin/businesses');
-                }
-            }
-            $version = fetch_details('updates', [], ['version'], '1', '0', 'id', 'DESC')[0]['version'];
-            $data['version'] = $version;
-            $session = session();
-            $lang = $session->get('lang');
-            if (empty($lang)) {
-                $lang = 'en';
-            }
-            $data['code'] = $lang;
-            $data['current_lang'] = $lang;
-            $data['languages_locale'] = fetch_details('languages', [], [], null, '0', 'id', 'ASC');
-            $business_id = isset($_SESSION['business_id']) ? $_SESSION['business_id'] : "";
-            $data['business_id'] = $business_id;
-            $settings = get_settings('general', true);
-            $company_title = (isset($settings['title'])) ? $settings['title'] : "";
-            $data['page'] = FORMS . 'customers';
-            $data['title'] = "Customers - " . $company_title;
-            $data['meta_keywords'] = "subscriptions app, digital subscription, daily subscription, software, app, module";
-            $data['meta_description'] = "Home - Welcome to Subscribers, an digital solution for your subscription based daily problems";
-            $id = $_SESSION['user_id'];
-            $customers = fetch_details("customers", ['business_id' => $business_id]);
-            $data['customers'] = isset($customers) ? $customers : "";
-            $data['user'] = $this->ionAuth->user($id)->row();
-            return view("admin/template", $data);
+        }
+        if (isset($session['business_id'])) {
+            return handleMissingBusiness();
         }
     }
-    public function save_status()
+
+    private function getData($tableName, $tableData, $page)
     {
-        if (defined('ALLOW_MODIFICATION') && ALLOW_MODIFICATION == 0) {
-            $response = [
-                'error' => true,
-                'message' => [DEMO_MODE_ERROR],
-                'csrfName' => csrf_token(),
-                'csrfHash' => csrf_hash(),
-                'data' => []
-            ];
-
-            return $this->response->setJSON($response);
-        }
-        if (!$this->ionAuth->loggedIn() && !$this->ionAuth->isAdmin()) {
-            return redirect()->to('login');
-        } else {
-            $status = subscription();
-            if ($status == 'active') {
-                if (isset($_POST) && !empty($_POST)) {
-                    $this->validation->setRules([
-                        'customer_id' => 'required|trim',
-                        'status' => 'required|trim'
-                    ]);
-                }
-                if (!$this->validation->withRequest($this->request)->run()) {
-                    $errors = $this->validation->getErrors();
-                    $response = [
-                        'error' => true,
-                        'message' => $errors,
-                        'data' => []
-                    ];
-                    $response['csrf_token'] = csrf_token();
-                    $response['csrf_hash'] = csrf_hash();
-                    return $this->response->setJSON($response);
-                } else {
-
-                    update_details(['status' => $_POST['status']], ['user_id' => $_POST['customer_id']], 'customers');
-                    $response = [
-                        'error' => false,
-                        'message' => 'Customers status updated successfully',
-                        'data' => []
-                    ];
-                    $response['csrf_token'] = csrf_token();
-                    $response['csrf_hash'] = csrf_hash();
-                    $_SESSION['toastMessage'] = 'Customers status updated successfully';
-                    $_SESSION['toastMessageType']  = 'success';
-                    $this->session->markAsFlashdata('toastMessage');
-                    $this->session->markAsFlashdata('toastMessageType');
-                    return $this->response->setJSON($response);
-                }
-            }
-            
-        }
-    }
-// chnaged this function a bit
-    public function customers_table()
-{
-    $business_id = isset($_SESSION['business_id']) ? $_SESSION['business_id'] : "";
-    $customers_model = new Customers_model();
-    $customers = $customers_model->get_customers_details($business_id);
-    $total = $customers_model->count_of_customers($business_id);
-    
-    $i = 0;
-    foreach ($customers as $customer) {
-        $customer_id = $customer['user_id'];
-        if ($customer['status'] == 1) {
-            $status = "<span class='badge badge-primary'>Active</span>";
-        } else {
-            $status = "<span class='badge' style='background-color:#ed1307'>Deactive</span>";
-        }
-        
-        $name = ucwords($customer['first_name']);
-        $edit_customer = "<a href='javascript:void(0)' data-id='{$customer_id}' class='btn btn-primary btn-sm' data-toggle='tooltip' data-placement='bottom' title='Status update' data-bs-toggle='modal' data-bs-target='#customer_status'><i class='bi bi-pen'></i></a>";
-        $details_btn = "<a href='".base_url('admin/customers/details/'.$customer_id)."' class='btn btn-info btn-sm'><i class='bi bi-eye'></i></a>";
-        
-        $rows[$i] = [
-            'id' => $customer['user_id'],
-            'customer_id' => $customer['id'],
-            'name' => $name,
-            'email' => $customer['email'],
-            'mobile' => $customer['mobile'],
-            'balance' => currency_location(decimal_points($customer['balance'])),
-            'debit' => currency_location(decimal_points($customer['debit'] ?? 0)),
-            'status' => $status,
-            'active' => $customer['status'],
-            'action' => $details_btn . ' ' . $edit_customer
+        $company_title = (isset($settings['title'])) ? $settings['title'] : "";
+        $business_id = session('business_id');
+        $languages = getLanguages();
+        return $data = [
+            'version' => getAppVersion(),
+            'code' => session('lang') ?? 'en',
+            'current_lang' => session('lang') ?? 'en',
+            'languages_locale' => $languages,
+            'business_id' => $business_id,
+            'page' => $page,
+            'title' => "Customers - " . $company_title,
+            'from_title' => 'Customer Details',
+            'meta_keywords' => "subscriptions app, digital subscription, daily subscription, software, app, module",
+            'meta_description' => "Home - Welcome to Subscribers, a digital solution for your subscription-based daily problems",
+            $tableName => $tableData,
+            'user' => $this->ionAuth->user(session('user_id'))->row(),
         ];
-        $i++;
     }
-    
-    $array['total'] = $total[0]['total'];
-    $array['rows'] = $rows ?? [];
-    echo json_encode($array);
-}
-//added this function for knwing debit
-public function details($user_id)
-{
-    if (!$this->ionAuth->loggedIn()) {
-        return redirect()->to('login');
-    }
-
-    $business_id = $_SESSION['business_id'];
-    $customer_model = new Customers_model();
-    $orders_model = new Orders_model();
-
-    $data = [
-        'customer' => $this->ionAuth->user($user_id)->row(),
-        'orders' => $orders_model->where('customer_id', $user_id)
-                                 ->where('business_id', $business_id)
-                                 ->where("(payment_status = 'unpaid' OR payment_status = 'partially_paid')")
-                                 ->findAll(),
-        'debit' => $customer_model->calculate_customer_debit($user_id, $business_id),
-        'page' => 'admin/customers/details',
-        'title' => 'Customer Details'
-    ];
-
-    return view('admin/template', $data);
-}
 }
