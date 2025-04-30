@@ -25,6 +25,7 @@
 <script src="<?= base_url("public/backend/assets/js/selectize.min.js") ?>"></script>
 <script src="<?= base_url("public/backend/assets/js/barcode-gen.min.js") ?>"></script>
 <script src="<?= base_url("public/backend/assets/js/select2.min.js") ?>"></script>
+<!-- <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script> -->
 <!-- <script src="https://checkout.razorpay.com/v1/checkout-frame.js"></script>
 <script src="https://js.stripe.com/v3/"></script>
 <script src="https://checkout.flutterwave.com/v3.js"></script> -->

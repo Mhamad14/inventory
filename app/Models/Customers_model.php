@@ -9,7 +9,20 @@ class Customers_model extends Model
 
     protected $table = 'customers';
     protected $primaryKey = 'id';
-    protected $allowedFields = ['user_id', 'business_id','vendor_id' , 'balance','created_by', 'status'];
+    protected $allowedFields = ['id', 'user_id', 'business_id', 'vendor_id', 'balance', 'created_by', 'status'];
+
+    //Shahram: Added this line to get a customer full details
+    public function getCustomerFullDetail($user_id)
+    {
+        $customer = $this->db->table('customers')
+            ->select('customers.* ,users.first_name, users.email, users.mobile')
+            ->join('users', 'customers.user_id = users.id')
+            ->where('customers.user_id', $user_id)
+            ->get()
+            ->getRowArray();
+        $customer['debt'] = $this->calculate_customer_debit($customer['id'],$customer['business_id']);
+        return $customer;
+    }
 
     public function count_of_customers($business_id = "")
     {
@@ -46,11 +59,12 @@ class Customers_model extends Model
         $users = $builder->get()->getResultArray();
         $data = array();
         foreach ($users as $user) {
-            $data[] = array("id" => $user['id'], "text" => $user['first_name'], "number" => $user['mobile'], "email" => $user['email'],"balance" => $user['balance']);
+            $data[] = array("id" => $user['id'], "text" => $user['first_name'], "number" => $user['mobile'], "email" => $user['email'], "balance" => $user['balance']);
         }
         $response['data'] = $data;
         return json_encode($response);
     }
+
     public function get_customer($user_id = "")
     {
         $db      = \Config\Database::connect();
@@ -58,24 +72,25 @@ class Customers_model extends Model
         $builder->where('user_id ', $user_id);
         return $builder->get()->getResultArray();
     }
-//added this for knwing debit
+    //added this for knwing debit
     public function calculate_customer_debit($customer_id, $business_id)
     {
         $db = \Config\Database::connect();
         $builder = $db->table("orders");
-        
+
         $builder->select('SUM(final_total - amount_paid) as total_debit');
         $builder->where('customer_id', $customer_id); // Uses customers.id
         $builder->where('business_id', $business_id);
         $builder->groupStart()
-                ->where('payment_status', 'unpaid')
-                ->orWhere('payment_status', 'partially_paid')
-                ->groupEnd();
-        
+            ->where('payment_status', 'unpaid')
+            ->orWhere('payment_status', 'partially_paid')
+            ->groupEnd();
+
         $result = $builder->get()->getRowArray();
         return $result['total_debit'] ?? 0;
     }
-//added this to get all the orders of a customer
+    //added this to get all the orders of a customer
+    // $routes->get('(:any)/edit', 'admin\Customers::edit', ['action' => 'can_update']);
     public function get_customer_orders($user_id, $business_id)
     {
         $db = \Config\Database::connect();
@@ -145,14 +160,12 @@ class Customers_model extends Model
             $builder->where($where);
         }
         $customers = $builder->orderBy($sort, $order)->limit($limit, $offset)->get()->getResultArray();
-        
+
         // Calculate debit for each customer
-        foreach($customers as &$customer) {
-           $customer['debit'] = $this->calculate_customer_debit($customer['id'], $business_id);
+        foreach ($customers as &$customer) {
+            $customer['debit'] = $this->calculate_customer_debit($customer['id'], $business_id);
         }
-        
+
         return $customers;
-    
     }
-   
 }

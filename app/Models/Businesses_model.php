@@ -21,6 +21,11 @@ class Businesses_model extends Model
         $res = $builder->get()->getResultArray();
         return $res;
     }
+    public function get_businesse_count($id)
+    {
+        $business_count = $this->table('businesses')->select('count(id) as total')->where(["user_id" => $id])->get()->getResultArray()[0]['total'];
+        return $business_count;
+    }
 
     public function get_businesses($id = "")
     {
