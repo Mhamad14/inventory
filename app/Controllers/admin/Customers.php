@@ -36,7 +36,6 @@ class Customers extends BaseController
 
         // Fetch customers and other data
         $customers = getCustomers($business_id);
-
         // Prepare data for the view
         $data = $this->getData('customers', $customers, FORMS . 'customers');
 
@@ -136,6 +135,8 @@ class Customers extends BaseController
 
         $data = $this->getData('customer', $customer,  FORMS . 'Customers/' . 'show');
 
+        session()->set('current_customer_id', $customer['id']);
+
 
         return view('admin/template', $data);
     }
@@ -191,12 +192,9 @@ class Customers extends BaseController
         // Get the business ID from the session
         $business_id = session('business_id') ?? "";
 
-        // Initialize the Customers model
-        $customers_model = new Customers_model();
-
         // Fetch customer details and total count
-        $customers = $customers_model->get_customers_details($business_id);
-        $total = $customers_model->count_of_customers($business_id);
+        $customers = $this->customerModel->get_customers_details($business_id);
+        $total = $this->customerModel->count_of_customers($business_id);
 
         // Prepare rows for the response
         $rows = [];
@@ -211,6 +209,36 @@ class Customers extends BaseController
 
         // Return the response as JSON
         return $this->response->setJSON($response);
+    }
+
+    public function customer_orders_table()
+    {
+        // Get the business ID from the session
+        $business_id = session('business_id') ?? "";
+        $current_customer_id = session("current_customer_id");
+
+        // Fetch customer details and total count
+        $customerOrders = $this->customerModel->getCustomersOrderDetails($business_id, $current_customer_id);
+
+        $filters = [
+            'search' => $this->request->getGet('search'),
+            'start_date' => $this->request->getGet('start_date'),
+            'end_date' => $this->request->getGet('end_date'),
+            'payment_status_filter' => $this->request->getGet('payment_status_filter'),
+            'customer_orders_type_filter' => $this->request->getGet('customer_orders_type_filter'),
+        ];
+        $limit = $this->request->getGet('limit') ?? 10;
+        $offset = $this->request->getGet('offset') ?? 0;
+        $sort = $this->request->getGet('sort') ?? 'id';
+        $order = $this->request->getGet('order') ?? 'DESC';
+
+        $rows = $this->customerModel->getCustomersOrderDetails($business_id, $current_customer_id, $limit, $offset, $sort, $order, $filters);
+        $total = $this->customerModel->getTotalCustomerOrders($business_id, $current_customer_id, $filters);
+
+        return $this->response->setJSON([
+            'total' => $total,
+            'rows' => array_map('prepareCustomerOrdersRow', $rows)
+        ]);
     }
 
 

@@ -29,6 +29,7 @@ $routes->group('admin/customers', ['filter' => 'checkpermissions:module=customer
     $routes->get('/', 'admin\Customers::index', ['action' => 'can_read']);
     $routes->post('save_status', 'admin\Customers::save_status', ['action' => 'can_update']);
     $routes->get('customers_table', 'admin\Customers::customers_table', ['action' => 'can_read']);
+    $routes->get('customer_orders_table', 'admin\Customers::customer_orders_table', ['action' => 'can_read']);
     $routes->get('(:any)/edit', 'admin\Customers::edit/$1', ['action' => 'can_update']);
     $routes->put('(:any)', 'admin\Customers::update/$1', ['action' => 'can_update']);
 });
@@ -92,6 +93,7 @@ $routes->group('admin/customers_subscription', ['filter' => 'checkpermissions:mo
 $routes->group('admin/transactions', ['filter' => 'checkpermissions:module=transactions'], function($routes) {
     $routes->get('/', 'admin\Transactions::index', ['filter' => 'checkpermissions:action=can_read']);
     $routes->get('transactions_table', 'admin\Transactions::transactions_table', ['filter' => 'checkpermissions:action=can_read']);
+    $routes->get('customers_order_table', 'admin\Transactions::customers_order_table', ['filter' => 'checkpermissions:action=can_read']);
     $routes->get('customers_table', 'admin\Transactions::customers_table', ['filter' => 'checkpermissions:action=can_read']);
     $routes->get('customer_transaction_table/(:any)/(:any)', 'admin\Transactions::customer_transaction_table/$1/$2', ['filter' => 'checkpermissions:action=can_read']);
     $routes->get('purchase_transaction_table/(:any)', 'admin\Transactions::purchase_transaction_table/$1', ['filter' => 'checkpermissions:action=can_read']);

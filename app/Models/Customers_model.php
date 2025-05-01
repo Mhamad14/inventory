@@ -11,6 +11,8 @@ class Customers_model extends Model
     protected $primaryKey = 'id';
     protected $allowedFields = ['id', 'user_id', 'business_id', 'vendor_id', 'balance', 'created_by', 'status'];
 
+
+
     //Shahram: Added this line to get a customer full details
     public function getCustomerFullDetail($user_id)
     {
@@ -20,7 +22,7 @@ class Customers_model extends Model
             ->where('customers.user_id', $user_id)
             ->get()
             ->getRowArray();
-        $customer['debt'] = $this->calculate_customer_debit($customer['id'],$customer['business_id']);
+        $customer['debt'] = $this->calculate_customer_debit($customer['id'], $customer['business_id']);
         return $customer;
     }
 
@@ -93,6 +95,7 @@ class Customers_model extends Model
     // $routes->get('(:any)/edit', 'admin\Customers::edit', ['action' => 'can_update']);
     public function get_customer_orders($user_id, $business_id)
     {
+
         $db = \Config\Database::connect();
         $builder = $db->table("orders");
         $builder->select('*');
@@ -101,67 +104,138 @@ class Customers_model extends Model
         $builder->where("(payment_status = 'unpaid' OR payment_status = 'partially_paid')");
         return $builder->get()->getResultArray();
     }
+    public function getTotalCustomerOrders($business_id = "", $customer_id = "", $filters = [])
+    {
+        $db = \Config\Database::connect();
+        $builder = $db->table("orders");
+        $builder->where('business_id', $business_id);
+        $builder->where('customer_id', $customer_id);
+
+        // Search
+        if (!empty($filters['search'])) {
+            $search = $filters['search'];
+            $builder->groupStart()
+                ->orLike('payment_status', $search)
+                ->orLike('discount', $search)
+                ->orLike('amount_paid', $search)
+                ->orLike('delivery_charges', $search)
+                ->orLike('message', $search)
+                ->orLike('created_at', $search)
+                ->groupEnd();
+        }
+
+        // Date range
+        if (!empty($filters['start_date']) && !empty($filters['end_date'])) {
+            $builder->where('created_at >=', $filters['start_date'] . ' 00:00:00');
+            $builder->where('created_at <=', $filters['end_date'] . ' 23:59:59');
+        }
+
+        // Payment status filter
+        if (!empty($filters['payment_status_filter'])) {
+            $builder->where('payment_status', $filters['payment_status_filter']);
+        }
+
+        // Order type filter
+        if (!empty($filters['customer_orders_type_filter'])) {
+            $builder->where('order_type', $filters['customer_orders_type_filter']);
+        }
+
+        // Return the total count
+        return $builder->countAllResults();
+    }
+    public function getCustomersOrderDetails(
+        $business_id = "",
+        $customer_id = "",
+        $limit = 10,
+        $offset = 0,
+        $sort = 'id',
+        $order = 'DESC',
+        $filters = []
+    ) {
+        $db = \Config\Database::connect();
+        $builder = $db->table("orders");
+        $builder->select('orders.*, ((final_total - amount_paid) - returns_total) as debt');
+        $builder->where('orders.business_id', $business_id);
+        $builder->where('orders.customer_id', $customer_id);
+
+        // Search
+        if (!empty($filters['search'])) {
+            $search = $filters['search'];
+            $builder->groupStart()
+                ->orLike('payment_status', $search)
+                ->orLike('discount', $search)
+                ->orLike('amount_paid', $search)
+                ->orLike('created_at', $search)
+                ->groupEnd();
+        }
+
+        // Date range
+        if (!empty($filters['start_date']) && !empty($filters['end_date'])) {
+            $builder->where('created_at >=', $filters['start_date'] . ' 00:00:00');
+            $builder->where('created_at <=', $filters['end_date'] . ' 23:59:59');
+        }
+
+        // Payment status filter
+        if (!empty($filters['payment_status_filter'])) {
+            $builder->where('payment_status', $filters['payment_status_filter']);
+        }
+
+        // Order type filter
+        if (!empty($filters['customer_orders_type_filter'])) {
+            $builder->where('order_type', $filters['customer_orders_type_filter']);
+        }
+
+        // Final query
+        $customerOrders = $builder->orderBy($sort, $order)
+            ->limit($limit, $offset)
+            ->get()
+            ->getResultArray();
+
+        return $customerOrders;
+    }
+
+
     public function get_customers_details($business_id = "")
     {
         $db = \Config\Database::connect();
         $builder = $db->table("customers as c");
-        $builder->select('c.*,u.first_name,u.email,u.mobile,u.last_name');
+
+        $builder->select('c.*, u.first_name, u.email, u.mobile, u.last_name');
+        $builder->join('users as u', 'c.user_id = u.id', 'left');
         $builder->where('business_id', $business_id);
-        $builder->join('users as u', 'c.user_id = u.id', "left");
 
-        $condition = [];
-        $offset = 0;
-        if (isset($_GET['offset']))
-            $offset = $_GET['offset'];
+        // Handle pagination
+        $offset = $_GET['offset'] ?? 0;
+        $limit  = $_GET['limit']  ?? 10;
 
-        $limit = 10;
-        if (isset($_GET['limit'])) {
-            $limit = $_GET['limit'];
-        }
+        // Handle sorting
+        $sort  = $_GET['sort']  ?? 'id';
+        $order = $_GET['order'] ?? 'ASC';
 
-        $sort = "id";
-        if (isset($_GET['sort'])) {
-            if ($_GET['sort'] == 'id') {
-                $sort = "id";
-            } else {
-                $sort = $_GET['sort'];
-            }
-        }
-        $order = "ASC";
-        if (isset($_GET['order'])) {
-            $order = $_GET['order'];
-        }
-        if (isset($_GET['search']) and $_GET['search'] != '') {
+        // Handle search
+        if (!empty($_GET['search'])) {
             $search = $_GET['search'];
-            $multipleWhere = [
-                '`c.balance`' => $search,
-                '`u.first_name`' => $search,
-                '`u.email`' => $search,
-                '`u.mobile`' => $search,
-            ];
-        }
-        if (isset($multipleWhere) && !empty($multipleWhere)) {
-            $builder->groupStart();
-            $builder->orLike($multipleWhere);
-            $builder->groupEnd();
-        }
-        if (isset($where) && !empty($where)) {
-            $builder->where($where);
-        }
-        if (isset($_GET['id']) && $_GET['id'] != '') {
-            $builder->where($condition);
-        }
-        if (isset($multipleWhere) && !empty($multipleWhere)) {
-            $builder->groupStart();
-            $builder->orLike($multipleWhere);
-            $builder->groupEnd();
-        }
-        if (isset($where) && !empty($where)) {
-            $builder->where($where);
-        }
-        $customers = $builder->orderBy($sort, $order)->limit($limit, $offset)->get()->getResultArray();
 
-        // Calculate debit for each customer
+            $builder->groupStart()
+                ->orLike('c.balance', $search)
+                ->orLike('u.first_name', $search)
+                ->orLike('u.email', $search)
+                ->orLike('u.mobile', $search)
+                ->groupEnd();
+        }
+
+        // Apply additional where filter by ID if needed
+        if (!empty($_GET['id'])) {
+            $builder->where('c.id', $_GET['id']);
+        }
+
+        // Finalize query
+        $customers = $builder->orderBy($sort, $order)
+            ->limit($limit, $offset)
+            ->get()
+            ->getResultArray();
+
+        // Post-processing: calculate debit for each customer
         foreach ($customers as &$customer) {
             $customer['debit'] = $this->calculate_customer_debit($customer['id'], $business_id);
         }
