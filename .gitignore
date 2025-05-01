@@ -6,7 +6,6 @@
 .DS_Store
 .AppleDouble
 .LSOverride
-
 # OS X Thumbnails
 ._*
 
@@ -124,3 +123,9 @@ nb-configuration.xml
 
 /results/
 /phpunit*.xml
+
+#unnecessary folders/files
+Updates/
+*.png
+*.jpg
+*.jpeg
