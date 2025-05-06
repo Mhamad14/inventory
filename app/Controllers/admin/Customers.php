@@ -32,7 +32,6 @@ class Customers extends BaseController
     {
 
         $business_id = session('business_id');
-        $this->validateUserPermission();
 
         // Fetch customers and other data
         $customers = getCustomers($business_id);
@@ -42,11 +41,23 @@ class Customers extends BaseController
         return view("admin/template", $data);
     }
 
+    public function payBackAllDebt($id)
+    {
 
-    // to update customer
+        return $this->response->setJSON([
+            'success'    => true,
+            'message'    => 'Paid all debt back!',
+            'data'       => [],
+            'csrf_token' => csrf_token(),
+            'csrf_hash'  => csrf_hash(),
+            'user_id'    => $id,
+        ]);
+    }
+
     public function update($user_id)
     {
 
+        // Define common validation rules
         $rules = [
             'name' => [
                 'label' => 'Name',
@@ -75,16 +86,8 @@ class Customers extends BaseController
                 ]
             ],
         ];
-        $isValid = $this->validate($rules);
-        if (!$isValid) {
-            return $this->response->setJSON([
-                'success' => false,
-                'message' => implode('<br>', $this->validator->getErrors())
-            ]);
-            // return redirect()->back()->withInput()->with('shahram_errors', $this->validator->getErrors());
-        }
 
-        // Check if password is entered
+        // Dynamically add password rule if submitted
         $password = $this->request->getPost('password');
         if (!empty($password)) {
             $rules['password'] = [
@@ -94,53 +97,61 @@ class Customers extends BaseController
                     'min_length' => 'The {field} must be at least {param} characters long.'
                 ]
             ];
-            $this->ionAuth->update($user_id, ['password' => $password]);
+        }
+
+        // Validate input
+        if (!$this->validate($rules)) {
+            return $this->response->setJSON([
+                'success' => false,
+                'message' => implode('<br>', $this->validator->getErrors())
+            ]);
         }
 
         $db = db_connect();
+        $data = [
+            'first_name' => $this->request->getPost('name'),
+            'mobile'     => $this->request->getPost('mobile'),
+            'email'      => $this->request->getPost('email'),
+        ];
 
-        $this->validateUserPermission();
+        // Update password only if provided
+        if (!empty($password)) {
+            $this->ionAuth->update($user_id, ['password' => $password]);
+        }
 
-        // update users table
+        // Update users table
         $db->table('users')
             ->where('id', $user_id)
-            ->update([
-                'first_name' => $this->request->getPost('name'),
-                'mobile' => $this->request->getPost('mobile'),
-                'email' => $this->request->getPost('email'),
-            ]);
+            ->update($data);
 
-        // update Customers table
+        // Update customers table
         $db->table('customers')
             ->where('user_id', $user_id)
             ->update([
                 'status' => $this->request->getPost('status'),
             ]);
 
+        // Return success JSON
         return $this->response->setJSON([
-            'success' => true,
-            'message' => 'Customer Updated successfully!',
-            'data' => [],
+            'success'    => true,
+            'message'    => 'Customer updated successfully!',
+            'data'       => [],
             'csrf_token' => csrf_token(),
-            'csrf_hash' => csrf_hash(),
-            'user_id' => $user_id,
+            'csrf_hash'  => csrf_hash(),
+            'user_id'    => $user_id,
         ]);
     }
     // to get Customers/show.php
     public function edit($id)
     {
-        $this->validateUserPermission();
-
         $customer = $this->customerModel->getCustomerFullDetail($id);
 
         $data = $this->getData('customer', $customer,  FORMS . 'Customers/' . 'show');
 
         session()->set('current_customer_id', $customer['id']);
-
-
+        $data['overallPayments'] = $this->customerModel->getOverallPayments($customer['id'], session('business_id'));
         return view('admin/template', $data);
     }
-
 
     public function save_status()
     {
@@ -184,32 +195,29 @@ class Customers extends BaseController
         return setJSON($this->response, false, 'Customer status updated successfully');
     }
 
-
-
     // edit it a little
     public function customers_table()
     {
-        // Get the business ID from the session
         $business_id = session('business_id') ?? "";
 
-        // Fetch customer details and total count
         $customers = $this->customerModel->get_customers_details($business_id);
         $total = $this->customerModel->count_of_customers($business_id);
 
-        // Prepare rows for the response
         $rows = [];
         foreach ($customers as $customer) {
             $rows[] = prepareCustomerRow($customer);
         }
-        // Prepare the response array
+
         $response = [
             'total' => $total[0]['total'] ?? 0,
             'rows' => $rows
         ];
 
-        // Return the response as JSON
         return $this->response->setJSON($response);
     }
+
+
+
 
     public function customer_orders_table()
     {
@@ -218,22 +226,8 @@ class Customers extends BaseController
         $current_customer_id = session("current_customer_id");
 
         // Fetch customer details and total count
-        $customerOrders = $this->customerModel->getCustomersOrderDetails($business_id, $current_customer_id);
-
-        $filters = [
-            'search' => $this->request->getGet('search'),
-            'start_date' => $this->request->getGet('start_date'),
-            'end_date' => $this->request->getGet('end_date'),
-            'payment_status_filter' => $this->request->getGet('payment_status_filter'),
-            'customer_orders_type_filter' => $this->request->getGet('customer_orders_type_filter'),
-        ];
-        $limit = $this->request->getGet('limit') ?? 10;
-        $offset = $this->request->getGet('offset') ?? 0;
-        $sort = $this->request->getGet('sort') ?? 'id';
-        $order = $this->request->getGet('order') ?? 'DESC';
-
-        $rows = $this->customerModel->getCustomersOrderDetails($business_id, $current_customer_id, $limit, $offset, $sort, $order, $filters);
-        $total = $this->customerModel->getTotalCustomerOrders($business_id, $current_customer_id, $filters);
+        $rows = $this->customerModel->getCustomersOrderDetails($business_id, $current_customer_id, $this->request);
+        $total = $this->customerModel->getTotalCustomerOrders($business_id, $current_customer_id, $this->request);
 
         return $this->response->setJSON([
             'total' => $total,
@@ -241,16 +235,6 @@ class Customers extends BaseController
         ]);
     }
 
-
-    private function validateUserPermission()
-    {
-        if (!$this->ionAuth->loggedIn() || (!$this->ionAuth->isAdmin() && !$this->ionAuth->isTeamMember())) {
-            return redirect()->to('login');
-        }
-        if (isset($session['business_id'])) {
-            return handleMissingBusiness();
-        }
-    }
 
     private function getData($tableName, $tableData, $page)
     {

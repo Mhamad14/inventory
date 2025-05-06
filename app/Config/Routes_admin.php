@@ -25,12 +25,14 @@ $routes->group('admin/home', function($routes) {
     $routes->get('switch_businesses/(:any)', 'admin\Home::switch_businesses/$1');
 });
 
-$routes->group('admin/customers', ['filter' => 'checkpermissions:module=customers'], function ($routes) {
+//,checkpermissions:module=customers
+$routes->group('admin/customers', ['filter' => 'permissioncheck','checkpermissions:module=customers'], function ($routes) {
     $routes->get('/', 'admin\Customers::index', ['action' => 'can_read']);
     $routes->post('save_status', 'admin\Customers::save_status', ['action' => 'can_update']);
     $routes->get('customers_table', 'admin\Customers::customers_table', ['action' => 'can_read']);
     $routes->get('customer_orders_table', 'admin\Customers::customer_orders_table', ['action' => 'can_read']);
     $routes->get('(:any)/edit', 'admin\Customers::edit/$1', ['action' => 'can_update']);
+    $routes->put('(:any)/payback_all_debt', 'admin\Customers::payBackAllDebt/$1', ['action' => 'can_update']);
     $routes->put('(:any)', 'admin\Customers::update/$1', ['action' => 'can_update']);
 });
 

@@ -1,4 +1,5 @@
 <?php
+
 namespace App\Controllers\admin;
 
 use App\Controllers\BaseController;
@@ -11,7 +12,7 @@ use App\Models\Orders_items_model;
 use App\Models\Orders_model;
 use App\Models\OrderReturnsModel;
 use App\Models\Orders_services_model;
-use App\Models\Status_model;    
+use App\Models\Status_model;
 use App\Models\OrdersModel;
 use App\Models\Subscription_model;
 use App\Models\Tax_model;
@@ -29,7 +30,7 @@ class Orders extends BaseController
     protected $data;
     protected $validationListTemplate = 'list';
     protected $ionAuthModel;
-    
+
     public function __construct()
     {
         $this->ionAuth = new \App\Libraries\IonAuth();
@@ -53,10 +54,10 @@ class Orders extends BaseController
         $data['page'] = $page;
         $data['title'] = $title . " - " . $data['company_title'];
         $data['user_id'] = $this->getUserId();
-        
+
         $category_model = new Categories_model();
         $data['categories'] = $this->getActiveCategories($category_model, $data['user_id'], $business_id);
-        
+
         $data['brands'] = (new BrandModel())->findAll();
         $data['status'] = (new Status_model())->get_status($business_id) ?? "";
         $data['customers'] = fetch_details("customers", ['business_id' => $business_id]) ?? "";
@@ -70,9 +71,9 @@ class Orders extends BaseController
     {
         $session = session();
         $lang = $session->get('lang') ?? 'en';
-        
+
         $settings = get_settings('general', true);
-        
+
         return [
             'version' => fetch_details('updates', [], ['version'], '1', '0', 'id', 'DESC')[0]['version'],
             'code' => $lang,
@@ -101,7 +102,7 @@ class Orders extends BaseController
     {
         $categories_set = $category_model->get_categories($user_id, $business_id);
         $categories = [];
-        
+
         foreach ($categories_set as $key) {
             if ($key['status']) {
                 $categories[] = [
@@ -115,7 +116,7 @@ class Orders extends BaseController
                 ];
             }
         }
-        
+
         return $categories;
     }
 
@@ -133,7 +134,7 @@ class Orders extends BaseController
     {
         $method = strtoupper($this->request->getMethod());
         log_message('debug', 'Framework method: ' . $method);
-        
+
         if ($method !== 'POST') {
             log_message('error', 'Rejected method: ' . $method);
             return $this->response->setJSON([
@@ -158,7 +159,7 @@ class Orders extends BaseController
         }
 
         $db->transStart();
-        
+
         try {
             $orderReturnsModel = new OrderReturnsModel();
             $ordersModel = new OrdersModel();
@@ -166,11 +167,11 @@ class Orders extends BaseController
             $productsModel = new Products_model();
             $variantsModel = new Products_variants_model();
             $warehouseStockModel = new WarehouseProductStockModel();
-            
+
             $order_id = $this->request->getPost('order_id');
             $return_reason = $this->request->getPost('return_reason');
             $return_quantities = $this->request->getPost('return_quantity') ?? [];
-            
+
             $total_return_amount = 0;
             $return_items = [];
 
@@ -222,7 +223,7 @@ class Orders extends BaseController
                 if ($product['stock_management'] == 1) {
                     $new_stock = $product['stock'] + $quantity;
                     $productsModel->update($item['product_id'], ['stock' => $new_stock]);
-                    
+
                     if ($warehouse_id) {
                         $this->updateWarehouseStock(
                             $warehouseStockModel,
@@ -239,7 +240,7 @@ class Orders extends BaseController
                     if ($variant) {
                         $new_stock = $variant['stock'] + $quantity;
                         $variantsModel->update($item['product_variant_id'], ['stock' => $new_stock]);
-                        
+
                         if ($warehouse_id) {
                             $this->updateWarehouseStock(
                                 $warehouseStockModel,
@@ -291,7 +292,6 @@ class Orders extends BaseController
                 'csrf_token' => csrf_token(),
                 'csrf_hash' => csrf_hash()
             ]);
-
         } catch (\Exception $e) {
             $db->transRollback();
             log_message('error', 'Return processing error: ' . $e->getMessage());
@@ -312,9 +312,9 @@ class Orders extends BaseController
             'product_id' => $product_id,
             'product_variant_id' => $variant_id
         ];
-        
+
         $warehouse_stock = $warehouseStockModel->where($where)->first();
-        
+
         $data = [
             'warehouse_id' => $warehouse_id,
             'product_id' => $product_id,
@@ -324,14 +324,14 @@ class Orders extends BaseController
             'business_id' => $business_id,
             'updated_at' => $currentDateTime
         ];
-        
+
         if ($warehouse_stock) {
             $data['id'] = $warehouse_stock['id'];
         } else {
             $data['created_at'] = $currentDateTime;
             $data['qty_alert'] = 0;
         }
-        
+
         $warehouseStockModel->save($data);
     }
 
@@ -344,7 +344,7 @@ class Orders extends BaseController
         $data = $this->setViewData(FORMS . "create_orders", "Create Order");
         $warehouse_model = new WarehouseModel();
         $data['warehouses'] = $warehouse_model->where('business_id', $data['business_id'])->get()->getResultArray();
-        
+
         return view("admin/template", $data);
     }
 
@@ -361,7 +361,7 @@ class Orders extends BaseController
 
         $data = $this->getCommonData($business_id);
         $data['page'] = VIEWS . "orders_list";
-        
+
         $orders = fetch_details('orders', ['business_id' => $business_id]);
         if (!empty($orders)) {
             foreach ($orders as $order) {
@@ -369,11 +369,11 @@ class Orders extends BaseController
                 update_details(['payment_status' => $payment_status], ['id' => $order['id']], "orders");
             }
         }
-        
+
         $data['title'] = "Orders List - " . $data['company_title'];
         $data['user'] = $this->ionAuth->user($this->getUserId())->row();
         $this->data['users'] = $this->ionAuth->users()->result();
-        
+
         return view("admin/template", $data);
     }
 
@@ -397,26 +397,26 @@ class Orders extends BaseController
         $orders_model = new Orders_model();
         $orders = $orders_model->get_delivery_boy_orders_list($business_id);
         $total = $orders_model->count_of_orders($business_id);
-        
+
         $rows = [];
         foreach ($orders as $order) {
             $order_id = $order['id'];
             $delivery_boy_name = $this->getDeliveryBoyName($order['order_type'], $order_id);
-            
+
             $customer_id = $order['customer_id'];
             $customer_model = new Customers_model();
             $customer_array = $customer_model->where('user_id', $customer_id)->get()->getResultArray();
             if (empty($customer_array)) {
                 $customer_array = $customer_model->where('id', $customer_id)->get()->getResultArray();
             }
-            
+
             $user_id = $customer_array[0]['user_id'];
             $balance = $this->getCustomerBalance($customer_model, $user_id);
             $customer_name = $this->ionAuth->user($user_id)->row()->first_name;
-            
+
             $status = $this->getPaymentStatusBadge($order['payment_status']);
             $view_order = $this->getOrderActionButtons($order_id);
-            
+
             $rows[] = [
                 'id' => $order['id'],
                 'order_type' => ucwords($order['order_type']),
@@ -435,16 +435,16 @@ class Orders extends BaseController
                 'action' => $view_order
             ];
         }
-        
+
         $array = [
             'total' => $total[0]['total'] ?? 0,
             'rows' => $rows
         ];
-        
+
         if (count($array['rows']) < 1) {
             $array['total'] = 0;
         }
-        
+
         echo json_encode($array);
     }
 
@@ -452,7 +452,7 @@ class Orders extends BaseController
     {
         $table = $order_type == "service" ? 'orders_services' : 'orders_items';
         $item = fetch_details($table, ['order_id' => $order_id]);
-        
+
         if (!empty($item) && !empty($item[0]['delivery_boy'])) {
             $delivery_boy_details = $this->ionAuth->user($item[0]['delivery_boy'])->row();
             return $delivery_boy_details->first_name ?? "";
@@ -502,33 +502,33 @@ class Orders extends BaseController
         $data['vendor_id'] = $this->getUserId();
         $data['user'] = $this->ionAuth->user($data['vendor_id'])->row();
         $this->data['users'] = $this->ionAuth->users()->result();
-        
+
         $order = fetch_details("orders", ["id" => $order_id]);
         $data['has_transactions'] = true;
-        
+
         if (isset($order[0]['business_id']) && $order[0]['business_id'] == $data['business_id']) {
             $customer_id = $order[0]['customer_id'];
             $customer = $this->getCustomerDetails($customer_id);
-            
+
             $user_id = $customer['user_id'];
             $customer_id = $customer['id'];
-            
+
             $user = $this->ionAuth->user($user_id)->row();
             $order[0]['customer_name'] = $user->first_name;
             $order[0]['customer_mobile'] = $user->mobile;
             $order[0]['balance'] = $customer['balance'] ?? "";
             $data['order'] = $order[0];
-            
+
             $data['status'] = (new Status_model())->get_status($data['business_id']) ?? "";
             $data['delivery_boys'] = (new Delivery_boys_model())->delivery_boys($data['business_id']) ?? "";
-            
+
             if ($order[0]['payment_status'] == "fully_paid" && $order[0]['payment_method'] != "cash" && $order[0]['payment_method'] != "wallet") {
                 $db = \config\Database::connect();
                 $order_transaction_id = $db->table('customers_transactions')->select('*')->where(['order_id' => $order_id, 'customer_id' => $customer['id']])->get()->getResultArray();
                 $data['order']['order_transaction_id'] = $order_transaction_id[0]['transaction_id'] ?? '';
                 $data['has_transactions'] = false;
             }
-            
+
             $data['items'] = $this->getOrderItems($order_id);
             $data['services'] = $this->getOrderServices($order_id);
         } else {
@@ -536,14 +536,14 @@ class Orders extends BaseController
             $data['services'] = "";
             $this->session->setFlashdata('message', 'you dont have order of this business!');
         }
-        
+
         return view("admin/template", $data);
     }
 
     protected function getCustomerDetails($customer_id)
     {
         $customer = fetch_details("customers", ['user_id' => $customer_id]);
-        
+
         if (empty($customer)) {
             $customer = fetch_details("customers", ['id' => $customer_id]);
             return [
@@ -552,7 +552,7 @@ class Orders extends BaseController
                 'balance' => $customer[0]['balance'] ?? ""
             ];
         }
-        
+
         return [
             'id' => $customer[0]['id'],
             'user_id' => $customer[0]['user_id'],
@@ -563,44 +563,44 @@ class Orders extends BaseController
     protected function getOrderItems($order_id)
     {
         $orders_items = fetch_details("orders_items", ["order_id" => $order_id]);
-        
+
         if (!empty($orders_items)) {
             foreach ($orders_items as $key => $item) {
                 $product = fetch_details("products", ['id' => $item['product_id']]);
                 $orders_items[$key]['image'] = $product[0]['image'] ?? "";
-                
+
                 if (!empty($item['delivery_boy'])) {
                     $delivery_boy = fetch_details('users', ['id' => $item['delivery_boy']]);
                     $orders_items[$key]['delivery_boy_name'] = $delivery_boy[0]['first_name'] ?? "";
                 }
-                
+
                 $status = fetch_details("status", ['id' => $item['status']]);
                 $orders_items[$key]['status_name'] = $status[0]['status'] ?? null;
             }
         }
-        
+
         return $orders_items ?? "";
     }
 
     protected function getOrderServices($order_id)
     {
         $orders_services = fetch_details("orders_services", ["order_id" => $order_id]);
-        
+
         if (!empty($orders_services)) {
             foreach ($orders_services as $key => $service) {
                 $services = fetch_details("services", ['id' => $service['service_id']]);
                 $orders_services[$key]['image'] = $services[0]['image'] ?? "";
-                
+
                 if (!empty($service['delivery_boy'])) {
                     $delivery_boy = fetch_details('users', ['id' => $service['delivery_boy']]);
                     $orders_services[$key]['delivery_boy_name'] = $delivery_boy[0]['first_name'] ?? "";
                 }
-                
+
                 $status = fetch_details("status", ['id' => $service['status']]);
                 $orders_services[$key]['status_name'] = $status[0]['status'] ?? null;
             }
         }
-        
+
         return $orders_services ?? "";
     }
 
@@ -761,7 +761,7 @@ class Orders extends BaseController
         if ($payment_type == "wallet") {
             $transaction_data['amount'] = ($payment_status == "fully_paid") ? $final_total : $amount_paid;
             $customers_transactions_model->save($transaction_data);
-            
+
             $balance = $customer_wallet_balance - (($payment_status == "fully_paid") ? $final_total : $amount_paid);
             $db = \Config\Database::connect();
             $db->table('customers')->where(['id' => $customer_id])->update(['balance' => $balance]);
@@ -814,7 +814,7 @@ class Orders extends BaseController
     protected function updateStockAndWarehouse($item, $warehouse_product_stock_model)
     {
         update_stock($item->product_variant_id, $item->quantity);
-        
+
         $warehouse_stock = $warehouse_product_stock_model->where('product_variant_id', $item->product_variant_id)->get()->getResultArray();
         $warehouse_item_max_stock = $warehouse_stock[0];
         $max_stock = $warehouse_stock[0]['stock'];
@@ -859,7 +859,7 @@ class Orders extends BaseController
         $subscription_model = new Subscription_model();
         $data = $subscription_model->if_exist($item->service_id, $customer_id);
         $sub_id = $data[0]['id'] ?? "";
-        
+
         $subscription = [
             'id' => $sub_id,
             'service_id' => $item->service_id,
@@ -974,7 +974,7 @@ class Orders extends BaseController
         $user_id = $this->request->getGet('user_id');
         $customer = fetch_details("customers", ['user_id' => $user_id, 'status' => 1]);
         $balance = $customer[0]['balance'] ?? "0";
-        
+
         return $this->response->setJSON([
             'error' => false,
             'balance' => $balance
@@ -1073,10 +1073,10 @@ class Orders extends BaseController
         $email = strtolower($this->request->getPost('email'));
         $identity = ($identityColumn === 'email') ? $email : $this->request->getPost('identity');
         $password = $this->request->getPost('password');
-        
+
         $group_id_arry = fetch_details("groups", ['name' => 'customers'], "id");
         $group_id = [$group_id_arry[0]['id']];
-        
+
         $additionalData = [
             'first_name' => $this->request->getPost('first_name'),
         ];
@@ -1118,11 +1118,11 @@ class Orders extends BaseController
 
         $this->validation->setRule('first_name', lang('Auth.create_user_validation_fname_label'), 'required');
         $this->validation->setRule('identity', lang('Auth.create_user_validation_identity_label'), 'required|is_unique[' . $tables['users'] . '.' . $identityColumn . ']');
-        
+
         if (!empty($_POST['email'])) {
             $this->validation->setRule('email', lang('Auth.create_user_validation_email_label'), 'valid_email|is_unique[' . $tables['users'] . '.email]');
         }
-        
+
         $this->validation->setRule('password', lang('Auth.create_user_validation_password_label'), 'required|min_length[' . $this->configIonAuth->minPasswordLength . ']');
 
         if (!$this->validation->withRequest($this->request)->run()) {
@@ -1132,10 +1132,10 @@ class Orders extends BaseController
         $email = strtolower($this->request->getPost('email'));
         $identity = ($identityColumn === 'email') ? $email : $this->request->getPost('identity');
         $password = $this->request->getPost('password');
-        
+
         $group_id_arry = fetch_details("groups", ['name' => 'customers'], "id");
         $group_id = [$group_id_arry[0]['id']];
-        
+
         $additionalData = [
             'first_name' => $this->request->getPost('first_name'),
             'phone' => $this->request->getPost('phone'),
@@ -1199,12 +1199,14 @@ class Orders extends BaseController
         $customer_id = $this->request->getVar('customer_id');
         $customer = fetch_details('customers', ['user_id' => $customer_id]);
         $customer_id = $customer[0]['id'];
-        
+
         $quantity = $_POST['qty'];
         $price = $_POST['price'];
-        $sub_total = array_map(function($q, $p) { return (int)$q * (int)$p; }, $quantity, $price);
+        $sub_total = array_map(function ($q, $p) {
+            return (int)$q * (int)$p;
+        }, $quantity, $price);
         $total = array_sum($sub_total);
-        
+
         $payment_status = $this->request->getVar('payment_status');
         $delivery_charges = $this->request->getVar('delivery_charge');
         $discount = $this->request->getVar('order_discount') ?? 0;
@@ -1316,7 +1318,7 @@ class Orders extends BaseController
         for ($i = 0; $i < $count; $i++) {
             $tax = fetch_details('products', ['id' => $products[$i]->product_id], ['tax_ids', 'is_tax_included']);
             $tax_details = fetch_details('tax', ['id' => $tax[0]['tax_ids']]);
-            
+
             $products[($count - 1) - $i]->qty = $quantity[$i];
             $products[($count - 1) - $i]->product_id = $products[$i]->product_id;
             $products[($count - 1) - $i]->product_name = $products[$i]->name;
@@ -1326,166 +1328,166 @@ class Orders extends BaseController
             $products[($count - 1) - $i]->tax_percentage = $tax_details[0]['percentage'] ?? '';
             $products[($count - 1) - $i]->discount = $_POST['discount'][$i] ?? '0';
         }
-        
+
         return $products;
     }
 
     protected function processSalesPayment($payment_type, $payment_status, $order_id, $customer_id, $vendor_id, $amount_paid, $customer_wallet_balance)
-{
-    $customers_transactions_model = new Customers_transactions_model();
-    $transaction = [
-        'order_id' => $order_id,
-        'customer_id' => $customer_id,
-        'vendor_id' => $vendor_id,
-        'created_by' => $vendor_id,
-        'payment_type' => $payment_type,
-        'amount' => $amount_paid,
-        'transaction_id' => $this->request->getVar('transaction_id'),
-    ];
+    {
+        $customers_transactions_model = new Customers_transactions_model();
+        $transaction = [
+            'order_id' => $order_id,
+            'customer_id' => $customer_id,
+            'vendor_id' => $vendor_id,
+            'created_by' => $vendor_id,
+            'payment_type' => $payment_type,
+            'amount' => $amount_paid,
+            'transaction_id' => $this->request->getVar('transaction_id'),
+        ];
 
-    if ($payment_type == "wallet") {
-        $customers_transactions_model->save($transaction);
-        $balance = $customer_wallet_balance - $amount_paid;
-        update_details(['balance' => $balance], ['user_id' => $customer_id], "customers");
-    } elseif ($payment_type == "cash" && $payment_status == "partially_paid") {
-        $customers_transactions_model->save($transaction);
-    } elseif ($payment_type != "cash" && $payment_type != "wallet") {
-        $customers_transactions_model->save($transaction);
-        
-        // For non-cash/non-wallet payments, we might want to log additional details
-        $this->logNonStandardPayment($order_id, $payment_type, $amount_paid);
+        if ($payment_type == "wallet") {
+            $customers_transactions_model->save($transaction);
+            $balance = $customer_wallet_balance - $amount_paid;
+            update_details(['balance' => $balance], ['user_id' => $customer_id], "customers");
+        } elseif ($payment_type == "cash" && $payment_status == "partially_paid") {
+            $customers_transactions_model->save($transaction);
+        } elseif ($payment_type != "cash" && $payment_type != "wallet") {
+            $customers_transactions_model->save($transaction);
+
+            // For non-cash/non-wallet payments, we might want to log additional details
+            $this->logNonStandardPayment($order_id, $payment_type, $amount_paid);
+        }
     }
-}
-protected function logNonStandardPayment($order_id, $payment_type, $amount_paid)
-{
-    // Additional logging for non-standard payment methods
-    log_message('info', "Processed $payment_type payment for order $order_id - Amount: $amount_paid");
-    
-    // You could also update some audit table here if needed
-    // $this->updatePaymentAuditLog($order_id, $payment_type, $amount_paid);
-}
-        public function payment_reminder()
-            {
-                if (!$this->ionAuth->loggedIn() || (!$this->ionAuth->isAdmin() && !$this->ionAuth->isTeamMember())) {
-                    return redirect()->to('login');
-                }
-        
-                $business_id = $this->getBusinessId();
-                if (empty($business_id) || check_data_in_table('businesses', $_SESSION['business_id'])) {
-                    return redirect()->to("vendor/businesses");
-                }
-        
-                $data = $this->setViewData(VIEWS . "payment_reminder", "Payment Reminder");
-                return view("admin/template", $data);
-            }
-        
-            public function payment_reminder_table()
-            {
-                $business_id = $this->getBusinessId();
-                $orders_model = new Orders_model();
-                $orders = $orders_model->payment_reminder($business_id);
-                $total = count($orders);
-        
-                $rows = [];
-                foreach ($orders as $order) {
-                    $order_id = $order['id'];
-                    $delivery_boy_name = $this->getDeliveryBoyName($order['order_type'], $order_id);
-        
-                    $customer_id = $order['customer_id'];
-                    $customer_model = new Customers_model();
-                    $customer_wallet = $customer_model->get_customer($customer_id);
-                    $balance = $customer_wallet[0]['balance'] ?? 0.00;
-                    $customer_name = $this->ionAuth->user($customer_id)->row()->first_name;
-        
-                    $status = $this->getPaymentStatusBadge($order['payment_status']);
-                    $view_order = $this->getPaymentReminderButton($order['id']);
-        
-                    $rows[] = [
-                        'id' => $order['id'],
-                        'order_type' => ucwords($order['order_type']),
-                        'Order_date' => date_formats(strtotime($order['created_at'])),
-                        'vendor_id' => $order['vendor_id'],
-                        'customer_name' => $customer_name,
-                        'business_id' => $order['business_id'],
-                        'total' => currency_location(decimal_points($order['total'])),
-                        'remaining_amount' => currency_location(decimal_points(($order['total'] - $order['amount_paid']))),
-                        'balance' => currency_location(decimal_points($balance)),
-                        'delivery_charges' => currency_location(decimal_points($order['delivery_charges'])),
-                        'discount' => currency_location(decimal_points($order['discount'])),
-                        'final_total' => currency_location(decimal_points($order['final_total'])),
-                        'payment_status' => $status,
-                        'message' => $order['message'],
-                        'amount_paid' => currency_location(decimal_points($order['amount_paid'])),
-                        'payment_method' => $order['payment_method'],
-                        'delivery_boy' => $delivery_boy_name,
-                        'action' => $view_order
-                    ];
-                }
-        
-                $array = [
-                    'total' => $total,
-                    'rows' => $rows
-                ];
-        
-                echo json_encode($array);
-            }
-        
-            protected function getPaymentReminderButton($order_id)
-            {
-                return '<button type="button" class="btn btn-info btn-sm payment_reminder_button" data-id="' . $order_id . '" title="Send Remainder" onclick="payment_reminder(' . $order_id . ')"><i class="bi bi-bell"></i></button>';
-            }
-        
-            public function send_reminder()
-            {
-                if (defined('ALLOW_MODIFICATION') && ALLOW_MODIFICATION == 0) {
-                    return $this->jsonErrorResponse(DEMO_MODE_ERROR);
-                }
-        
-                if (!$this->ionAuth->loggedIn() || (!$this->ionAuth->isAdmin() && !$this->ionAuth->isTeamMember())) {
-                    return redirect()->to('login');
-                }
-        
-                $order_id = $_GET['order_id'];
-                $order_details = fetch_details('orders', ['id' => $order_id]);
-                $customer_details = $this->ionAuth->user($order_details[0]['customer_id'])->row();
-                $business_id = $this->getBusinessId();
-                $setting = get_settings('email', true);
-                $company_title = get_settings('general', true);
-                $icon = get_business_icon($business_id);
-        
-                $message = $this->getReminderEmailTemplate($order_details, $customer_details, $company_title, $icon);
-        
-                $subject = "Payment Reminder";
-                $email = \Config\Services::email();
-                $email_con = [
-                    'protocol' => 'smtp',
-                    'SMTPHost' => $setting['smtp_host'],
-                    'SMTPPort' => (int) $setting['smtp_port'],
-                    'SMTPUser' => $setting['email'],
-                    'SMTPPass' => $setting['password'],
-                    'SMTPCrypto' => $setting['smtp_encryption'],
-                    'mailType' => $setting['mail_content_type'],
-                    'charset' => 'utf-8',
-                    'wordWrap' => true,
-                ];
-                $email->initialize($email_con);
-                $email->setFrom($setting['email'], $company_title['title']);
-                $email->setTo(trim($customer_details->email));
-                $email->setSubject($subject);
-                $email->setMessage($message);
-        
-                if ($email->send()) {
-                    return $this->jsonSuccessResponse("Email sent!");
-                } else {
-                    return $this->jsonErrorResponse("Something went wrong Please try again after some time.", [
-                        'console' => "console.log(" . $email->printDebugger() . ");"
-                    ]);
-                }
-            }
-        
-            protected function getReminderEmailTemplate($order_details, $customer_details, $company_title, $icon)
-            {
-                return '<!DOCTYPE html>
+    protected function logNonStandardPayment($order_id, $payment_type, $amount_paid)
+    {
+        // Additional logging for non-standard payment methods
+        log_message('info', "Processed $payment_type payment for order $order_id - Amount: $amount_paid");
+
+        // You could also update some audit table here if needed
+        // $this->updatePaymentAuditLog($order_id, $payment_type, $amount_paid);
+    }
+    public function payment_reminder()
+    {
+        if (!$this->ionAuth->loggedIn() || (!$this->ionAuth->isAdmin() && !$this->ionAuth->isTeamMember())) {
+            return redirect()->to('login');
+        }
+
+        $business_id = $this->getBusinessId();
+        if (empty($business_id) || check_data_in_table('businesses', $_SESSION['business_id'])) {
+            return redirect()->to("vendor/businesses");
+        }
+
+        $data = $this->setViewData(VIEWS . "payment_reminder", "Payment Reminder");
+        return view("admin/template", $data);
+    }
+
+    public function payment_reminder_table()
+    {
+        $business_id = $this->getBusinessId();
+        $orders_model = new Orders_model();
+        $orders = $orders_model->payment_reminder($business_id);
+        $total = count($orders);
+
+        $rows = [];
+        foreach ($orders as $order) {
+            $order_id = $order['id'];
+            $delivery_boy_name = $this->getDeliveryBoyName($order['order_type'], $order_id);
+
+            $customer_id = $order['customer_id'];
+            $customer_model = new Customers_model();
+            $customer_wallet = $customer_model->get_customer($customer_id);
+            $balance = $customer_wallet[0]['balance'] ?? 0.00;
+            $customer_name = $this->ionAuth->user($customer_id)->row()->first_name;
+
+            $status = $this->getPaymentStatusBadge($order['payment_status']);
+            $view_order = $this->getPaymentReminderButton($order['id']);
+
+            $rows[] = [
+                'id' => $order['id'],
+                'order_type' => ucwords($order['order_type']),
+                'Order_date' => date_formats(strtotime($order['created_at'])),
+                'vendor_id' => $order['vendor_id'],
+                'customer_name' => $customer_name,
+                'business_id' => $order['business_id'],
+                'total' => currency_location(decimal_points($order['total'])),
+                'remaining_amount' => currency_location(decimal_points(($order['total'] - $order['amount_paid']))),
+                'balance' => currency_location(decimal_points($balance)),
+                'delivery_charges' => currency_location(decimal_points($order['delivery_charges'])),
+                'discount' => currency_location(decimal_points($order['discount'])),
+                'final_total' => currency_location(decimal_points($order['final_total'])),
+                'payment_status' => $status,
+                'message' => $order['message'],
+                'amount_paid' => currency_location(decimal_points($order['amount_paid'])),
+                'payment_method' => $order['payment_method'],
+                'delivery_boy' => $delivery_boy_name,
+                'action' => $view_order
+            ];
+        }
+
+        $array = [
+            'total' => $total,
+            'rows' => $rows
+        ];
+
+        echo json_encode($array);
+    }
+
+    protected function getPaymentReminderButton($order_id)
+    {
+        return '<button type="button" class="btn btn-info btn-sm payment_reminder_button" data-id="' . $order_id . '" title="Send Remainder" onclick="payment_reminder(' . $order_id . ')"><i class="bi bi-bell"></i></button>';
+    }
+
+    public function send_reminder()
+    {
+        if (defined('ALLOW_MODIFICATION') && ALLOW_MODIFICATION == 0) {
+            return $this->jsonErrorResponse(DEMO_MODE_ERROR);
+        }
+
+        if (!$this->ionAuth->loggedIn() || (!$this->ionAuth->isAdmin() && !$this->ionAuth->isTeamMember())) {
+            return redirect()->to('login');
+        }
+
+        $order_id = $_GET['order_id'];
+        $order_details = fetch_details('orders', ['id' => $order_id]);
+        $customer_details = $this->ionAuth->user($order_details[0]['customer_id'])->row();
+        $business_id = $this->getBusinessId();
+        $setting = get_settings('email', true);
+        $company_title = get_settings('general', true);
+        $icon = get_business_icon($business_id);
+
+        $message = $this->getReminderEmailTemplate($order_details, $customer_details, $company_title, $icon);
+
+        $subject = "Payment Reminder";
+        $email = \Config\Services::email();
+        $email_con = [
+            'protocol' => 'smtp',
+            'SMTPHost' => $setting['smtp_host'],
+            'SMTPPort' => (int) $setting['smtp_port'],
+            'SMTPUser' => $setting['email'],
+            'SMTPPass' => $setting['password'],
+            'SMTPCrypto' => $setting['smtp_encryption'],
+            'mailType' => $setting['mail_content_type'],
+            'charset' => 'utf-8',
+            'wordWrap' => true,
+        ];
+        $email->initialize($email_con);
+        $email->setFrom($setting['email'], $company_title['title']);
+        $email->setTo(trim($customer_details->email));
+        $email->setSubject($subject);
+        $email->setMessage($message);
+
+        if ($email->send()) {
+            return $this->jsonSuccessResponse("Email sent!");
+        } else {
+            return $this->jsonErrorResponse("Something went wrong Please try again after some time.", [
+                'console' => "console.log(" . $email->printDebugger() . ");"
+            ]);
+        }
+    }
+
+    protected function getReminderEmailTemplate($order_details, $customer_details, $company_title, $icon)
+    {
+        return '<!DOCTYPE html>
                 <html>
                 <head>
                 <meta charset="UTF-8">
@@ -1616,6 +1618,5 @@ protected function logNonStandardPayment($order_id, $payment_type, $amount_paid)
                 </div>
                 </body>
                 </html>';
-            }
-        }
-     
+    }
+}

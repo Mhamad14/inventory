@@ -119,21 +119,3 @@ if (!function_exists('getCustomers')) {
         return fetch_details("customers", ['business_id' => $business_id]) ?? [];
     }
 }
-
-if (!function_exists('handleMissingBusiness')) {
-    function handleMissingBusiness()
-    {
-        $business_model = new \App\Models\Businesses_model();
-        $all_businesses = $business_model->findAll();
-
-        if (empty($all_businesses)) {
-            session()->setFlashdata('message', 'Please create a business!');
-            session()->setFlashdata('type', 'error');
-        } else {
-            session()->setFlashdata('message', 'Please select a business!');
-            session()->setFlashdata('type', 'error');
-        }
-
-        return redirect()->to('admin/businesses');
-    }
-}
