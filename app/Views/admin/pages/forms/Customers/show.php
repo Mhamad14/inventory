@@ -12,7 +12,6 @@
     </section>
     <!-- section title and Back button ..End -->
 
-
     <!-- section Customer Details ..start -->
     <div class="card mt-5">
         <div class="card-header mt-2">
@@ -167,7 +166,7 @@
             </h6>
         </div>
 
-        <div id="overallPaymentsSectionBody" class="collapse hide">
+        <div id="overallPaymentsSectionBody" class="collapse show">
             <div class="card-body">
                 <div class="row">
                     <!-- Left Column -->
@@ -175,25 +174,26 @@
                         <div class="form-group row mb-2">
                             <label class="col-sm-5 col-form-label">Subtotal</label>
                             <div class="col-sm-7">
-                                <p class="form-control-plaintext"><?= $overallPayments['sub_total'] ?? 'not defined' ?></p>
+                            <!-- currency_location(decimal_points($customer['balance'])), -->
+                                <p class="form-control-plaintext"><?= currency_location(decimal_points($overallPayments['sub_total'])) ?? 'not defined' ?></p>
                             </div>
                         </div>
                         <div class="form-group row mb-2">
                             <label class="col-sm-5 col-form-label">Discount</label>
                             <div class="col-sm-7">
-                                <p class="form-control-plaintext text-danger">- <?= $overallPayments['discount'] ?? 'not defined' ?></p>
+                                <p class="form-control-plaintext text-danger">- <?= currency_location(decimal_points($overallPayments['discount'])) ?? 'not defined' ?></p>
                             </div>
                         </div>
                         <div class="form-group row mb-2">
                             <label class="col-sm-5 col-form-label">Delivery Charges</label>
                             <div class="col-sm-7">
-                                <p class="form-control-plaintext text-success">+ <?= $overallPayments['delivery_charges'] ?? 'not defined' ?></p>
+                                <p class="form-control-plaintext text-success">+ <?= currency_location(decimal_points($overallPayments['delivery_charges'])) ?? 'not defined' ?></p>
                             </div>
                         </div>
                         <div class="form-group row mb-2">
                             <label class="col-sm-5 col-form-label font-weight-bold">Final Total</label>
                             <div class="col-sm-7">
-                                <p class="form-control-plaintext font-weight-bold"><?= $overallPayments['final_total'] ?? '-' ?></p>
+                                <p class="form-control-plaintext font-weight-bold"><?= currency_location(decimal_points($overallPayments['final_total'])) ?? '-' ?></p>
                             </div>
                         </div>
                     </div>
@@ -204,13 +204,13 @@
                         <div class="form-group row mb-2">
                             <label class="col-sm-5 col-form-label">Amount Paid</label>
                             <div class="col-sm-7">
-                                <p class="form-control-plaintext"><?= $overallPayments['amount_paid'] ?? 'not defined' ?></p>
+                                <p class="form-control-plaintext"><?= currency_location(decimal_points($overallPayments['amount_paid'])) ?? 'not defined' ?></p>
                             </div>
                         </div>
                         <div class="form-group row mb-2">
                             <label class="col-sm-5 col-form-label">Debt</label>
                             <div class="col-sm-7">
-                                <p class="form-control-plaintext"><?= $overallPayments['debt'] ?? 'not defined' ?></p>
+                                <p class="form-control-plaintext"><?= currency_location(decimal_points($overallPayments['debt'])) ?? 'not defined' ?></p>
                                 <?php if (!empty($overallPayments['debt']) && $overallPayments['debt'] != 0 && $overallPayments['debt'] != "not defined"): ?>
                                     <form action="<?= base_url('admin/customers/' . $customer['user_id']) . '/payback_all_debt' ?>" id="form_payback_all_debt" enctype="multipart/form-data" accept-charset="utf-8" method="POST">
                                         <?= csrf_field("csrf_pacsrf_payback_all_debtybacl_all_debt") ?> <!-- CSRF Token -->
@@ -223,7 +223,7 @@
                         <div class="form-group row mb-2">
                             <label class="col-sm-5 col-form-label">Returns</label>
                             <div class="col-sm-7">
-                                <p class="form-control-plaintext text-danger">- <?= $overallPayments['returns_total'] ?? 'not defined' ?></p>
+                                <p class="form-control-plaintext text-danger">- <?= currency_location(decimal_points($overallPayments['returns_total'])) ?? 'not defined' ?></p>
                             </div>
                         </div>
                     </div>
@@ -338,6 +338,7 @@
                             if (response.success) {
                                 showToastMessage(response.message, 'success');
                                 $('input[name="csrf_payback_all_debt"]').val(response.csrf_token);
+                                location.reload();  // This will reload the page after the successful request
                             } else {
                                 showToastMessage(response.message, 'error');
                             }
@@ -396,6 +397,19 @@
                     minlength: "Password must be at least 8 characters"
                 },
             },
+
+            highlight: function(element) {
+                $(element).removeClass('is-valid').addClass('is-invalid');
+            },
+            unhighlight: function(element) {
+                $(element).removeClass('is-invalid').addClass('is-valid');
+            },
+            errorPlacement: function(error, element) {
+                error.addClass("invalid-feedback");
+                error.insertAfter(element);
+            },
+
+
             submitHandler: function(form) {
                 // Handle form submission for customer form here
                 let formData = new FormData(form);
@@ -440,7 +454,7 @@
                 alert.remove();
             }, 500); // wait for fade out
         });
-    }, 5000); // 3 seconds delay before start fading
+    }, 5000);
 
     // hide success alert after 5 seconds
     setTimeout(function() {
@@ -477,4 +491,5 @@
             }
         });
     }
+
 </script>

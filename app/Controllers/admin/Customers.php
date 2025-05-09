@@ -16,7 +16,7 @@ class Customers extends BaseController
     protected $configIonAuth;
 
     protected Customers_model $customerModel;
-
+    protected $business_id;
     public function __construct()
     {
         $this->ionAuth = new \App\Libraries\IonAuth();
@@ -24,6 +24,7 @@ class Customers extends BaseController
         helper(['form', 'url', 'filesystem', 'customer']);
         $this->configIonAuth = config('IonAuth');
         $this->session       = \Config\Services::session();
+        $this->business_id = session('business_id') ?? "";
 
         $this->customerModel = new Customers_model();
     }
@@ -31,10 +32,8 @@ class Customers extends BaseController
     public function index()
     {
 
-        $business_id = session('business_id');
-
         // Fetch customers and other data
-        $customers = getCustomers($business_id);
+        $customers = getCustomers($this->business_id);
         // Prepare data for the view
         $data = $this->getData('customers', $customers, FORMS . 'customers');
 
@@ -43,15 +42,29 @@ class Customers extends BaseController
 
     public function payBackAllDebt($id)
     {
+       
 
-        return $this->response->setJSON([
-            'success'    => true,
-            'message'    => 'Paid all debt back!',
-            'data'       => [],
-            'csrf_token' => csrf_token(),
-            'csrf_hash'  => csrf_hash(),
-            'user_id'    => $id,
-        ]);
+        if ($this->customerModel->payBackAllDebt( $this->business_id)) {
+            return $this->response->setJSON([
+                'success'    => true,
+                'message'    => 'Paid all debt back!',
+                'data'       => [],
+                'csrf_token' => csrf_token(),
+                'csrf_hash'  => csrf_hash(),
+                'user_id'    => $id,
+                'overallPayments' => $this->customerModel->getOverallPayments(session('current_customer_id'), $this->business_id),
+            ]);
+            
+        } else {
+            return $this->response->setJSON([
+                'success'    => false,
+                'message'    => 'No unpaid or partially paid orders found, or something went wrong.',
+                'data'       => [],
+                'csrf_token' => csrf_token(),
+                'csrf_hash'  => csrf_hash(),
+                'user_id'    => $id,
+            ]);
+        }
     }
 
     public function update($user_id)
@@ -144,12 +157,13 @@ class Customers extends BaseController
     // to get Customers/show.php
     public function edit($id)
     {
+
         $customer = $this->customerModel->getCustomerFullDetail($id);
 
         $data = $this->getData('customer', $customer,  FORMS . 'Customers/' . 'show');
 
         session()->set('current_customer_id', $customer['id']);
-        $data['overallPayments'] = $this->customerModel->getOverallPayments($customer['id'], session('business_id'));
+        $data['overallPayments'] = $this->customerModel->getOverallPayments($customer['id'], $this->business_id);
         return view('admin/template', $data);
     }
 
@@ -198,10 +212,9 @@ class Customers extends BaseController
     // edit it a little
     public function customers_table()
     {
-        $business_id = session('business_id') ?? "";
 
-        $customers = $this->customerModel->get_customers_details($business_id);
-        $total = $this->customerModel->count_of_customers($business_id);
+        $customers = $this->customerModel->get_customers_details($this->business_id);
+        $total = $this->customerModel->count_of_customers($this->business_id);
 
         $rows = [];
         foreach ($customers as $customer) {
@@ -221,13 +234,11 @@ class Customers extends BaseController
 
     public function customer_orders_table()
     {
-        // Get the business ID from the session
-        $business_id = session('business_id') ?? "";
         $current_customer_id = session("current_customer_id");
 
         // Fetch customer details and total count
-        $rows = $this->customerModel->getCustomersOrderDetails($business_id, $current_customer_id, $this->request);
-        $total = $this->customerModel->getTotalCustomerOrders($business_id, $current_customer_id, $this->request);
+        $rows = $this->customerModel->getCustomersOrderDetails($this->request, $this->business_id, $current_customer_id, );
+        $total = $this->customerModel->getTotalCustomerOrders($this->request, $this->business_id, $current_customer_id, );
 
         return $this->response->setJSON([
             'total' => $total,
@@ -239,14 +250,13 @@ class Customers extends BaseController
     private function getData($tableName, $tableData, $page)
     {
         $company_title = (isset($settings['title'])) ? $settings['title'] : "";
-        $business_id = session('business_id');
         $languages = getLanguages();
         return $data = [
             'version' => getAppVersion(),
             'code' => session('lang') ?? 'en',
             'current_lang' => session('lang') ?? 'en',
             'languages_locale' => $languages,
-            'business_id' => $business_id,
+            'business_id' => $this->business_id,
             'page' => $page,
             'title' => "Customers - " . $company_title,
             'from_title' => 'Customer Details',

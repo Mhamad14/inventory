@@ -11,6 +11,23 @@ class Customers_model extends Model
     protected $primaryKey = 'id';
     protected $allowedFields = ['id', 'user_id', 'business_id', 'vendor_id', 'balance', 'created_by', 'status'];
 
+    public function payBackAllDebt( $business_id)
+    {
+
+        $customer_id = session('current_customer_id');
+
+        $builder = $this->db->table('orders');
+        $builder->set('amount_paid', 'final_total', false)
+            ->where('customer_id', $customer_id)
+            ->where('business_id', $business_id)
+            ->whereIn('payment_status', ['unpaid', 'partially_paid']);
+
+        $builder->update(['payment_status' => 'fully_paid']);
+
+        // log_message('debug', 'User ID is: ' . $customer->id);
+
+        return $this->db->affectedRows() > 0;
+    }
 
     public function getOverallPayments($customer_id, $business_id)
     {
@@ -91,7 +108,6 @@ class Customers_model extends Model
         return $builder->get()->getResultArray();
     }
 
-
     //added this for knwing debit
     public function calculate_customer_debit($customer_id, $business_id)
     {
@@ -122,7 +138,7 @@ class Customers_model extends Model
         $builder->where("(payment_status = 'unpaid' OR payment_status = 'partially_paid')");
         return $builder->get()->getResultArray();
     }
-    public function getTotalCustomerOrders($business_id = "", $customer_id = "", $request)
+    public function getTotalCustomerOrders($request, $business_id = "", $customer_id = "",)
     {
         $db = \Config\Database::connect();
         $builder = $db->table("orders");
@@ -173,7 +189,7 @@ class Customers_model extends Model
     {
         $result = $this->db->table('orders')
             ->select('(final_total - amount_paid) as debt')
-            ->where('id',$order_id)
+            ->where('id', $order_id)
             ->whereIn('payment_status', ['partially_paid', 'unpaid'])
             ->get()
             ->getRowArray();
@@ -182,7 +198,7 @@ class Customers_model extends Model
         return $result['debt'] ?? 0;
     }
 
-    public function getCustomersOrderDetails($business_id = "", $customer_id = "", $request)
+    public function getCustomersOrderDetails($request, $business_id = "", $customer_id = "",)
     {
         $db = \Config\Database::connect();
         $builder = $db->table("orders");
