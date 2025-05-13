@@ -174,7 +174,7 @@
                         <div class="form-group row mb-2">
                             <label class="col-sm-5 col-form-label">Subtotal</label>
                             <div class="col-sm-7">
-                            <!-- currency_location(decimal_points($customer['balance'])), -->
+                                <!-- currency_location(decimal_points($customer['balance'])), -->
                                 <p class="form-control-plaintext"><?= currency_location(decimal_points($overallPayments['sub_total'])) ?? 'not defined' ?></p>
                             </div>
                         </div>
@@ -220,6 +220,7 @@
                                 <?php endif; ?>
                             </div>
                         </div>
+
                         <div class="form-group row mb-2">
                             <label class="col-sm-5 col-form-label">Returns</label>
                             <div class="col-sm-7">
@@ -228,6 +229,21 @@
                         </div>
                     </div>
                 </div>
+                <div class="row">
+                    <?php if (!empty($overallPayments['debt']) && $overallPayments['debt'] != 0 && $overallPayments['debt'] != "not defined"): ?>
+                        <form action="<?= base_url('admin/customers/payback_partial_debt') ?>" id="form_payback_partial_debt" enctype="multipart/form-data" accept-charset="utf-8" method="POST">
+                            <?= csrf_field("csrf_payback_partial_debt") ?> <!-- CSRF Token -->
+                            <input type="hidden" name="_method" value="PUT">
+
+                            <div class="form-row align-items-center">
+
+                                <div class="col-8"><input class="form-control" name="partial_amount" type="text" placeholder="Enter amount" /></div>
+                                <div class="col-4"><button class="btn btn-primary form-control" type="submit"><?= labels('partial_payback', 'Pay back') ?></button></div>
+                            </div>
+                        </form>
+                    <?php endif; ?>
+                </div>
+
             </div>
         </div>
     </div>
@@ -256,9 +272,11 @@
         });
     }
 
-
     // restrict mobile number to enter text
     restrictToNumbers('input[name="mobile"]', 'Only numbers are allowed for Mobile!');
+
+    // restrict partial_amount to only numbers
+    restrictToNumbers('input[name="partial_amount"]', 'Only numbers are allowed for Amount!');
 
     // filter orders list
     var start_date = "";
@@ -304,6 +322,61 @@
 
     $(document).ready(function() {
 
+        // Payback partial debt form
+        $("#form_payback_partial_debt").on('submit', function(e) {
+            e.preventDefault(); // Prevent default form submission
+            e.stopImmediatePropagation(); // This will stop the event from propagating
+
+            Swal.fire({
+                title: 'Are you sure?',
+                text: "You are about to pay back Enterd Amount debt!",
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#5cb85c',
+                cancelButtonColor: '#d33',
+                confirmButtonText: 'Yes, pay back!',
+                cancelButtonText: 'No, cancel!'
+            }).then((result) => {
+                if (result.value == true) {
+
+                    let form = this;
+
+                    // Using AJAX to handle the form
+                    let formData = new FormData(form);
+                    formData.append('csrf_payback_partial_debt', $('input[name="csrf_payback_partial_debt"]').val());
+
+                    $.ajax({
+                        url: $(form).attr('action'),
+                        type: 'POST',
+                        data: formData,
+                        processData: false,
+                        contentType: false,
+                        dataType: 'json',
+                        success: function(response) {
+                            if (response.success) {
+                                showToastMessage(response.message, 'success');
+                                $('input[name="csrf_payback_partial_debt"]').val(response.csrf_token);
+                                location.reload(); // This will reload the page after the successful request
+                                $(form)[0].reset();
+                            } else {
+                                showToastMessage(response.message, 'error');
+                            }
+                        },
+                        error: function() {
+                            showToastMessage('An error occurred during the request.', 'error');
+                        }
+                    });
+                } else {
+                    console.log(result);
+                    showToastMessage('Action cancelled.', 'error');
+                }
+
+            });
+            return false; // Stop further propagation and form submission
+
+        });
+
+
         // Payback all debt form
         $("#form_payback_all_debt").on('submit', function(e) {
             e.preventDefault(); // Prevent default form submission
@@ -338,7 +411,7 @@
                             if (response.success) {
                                 showToastMessage(response.message, 'success');
                                 $('input[name="csrf_payback_all_debt"]').val(response.csrf_token);
-                                location.reload();  // This will reload the page after the successful request
+                                location.reload(); // This will reload the page after the successful request
                             } else {
                                 showToastMessage(response.message, 'error');
                             }
@@ -491,5 +564,4 @@
             }
         });
     }
-
 </script>

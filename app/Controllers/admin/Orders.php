@@ -31,94 +31,22 @@ class Orders extends BaseController
     protected $validationListTemplate = 'list';
     protected $ionAuthModel;
 
+    protected $business_id;
+    protected Customers_model $customerModel;
+
+
     public function __construct()
     {
         $this->ionAuth = new \App\Libraries\IonAuth();
         $this->validation = \Config\Services::validation();
-        helper(['form', 'url', 'filesystem']);
+        helper(['form', 'url', 'filesystem', 'order']);
         $this->configIonAuth = config('IonAuth');
         $this->session = \Config\Services::session();
+        $this->business_id = session('business_id') ?? "";
+        $this->customerModel = new Customers_model();
     }
 
-    /**
-     * Common function to set view data
-     */
-    protected function setViewData($page, $title)
-    {
-        $business_id = $this->getBusinessId();
-        if (empty($business_id) || check_data_in_table('businesses', $_SESSION['business_id'])) {
-            return redirect()->to("admin/businesses");
-        }
 
-        $data = $this->getCommonData($business_id);
-        $data['page'] = $page;
-        $data['title'] = $title . " - " . $data['company_title'];
-        $data['user_id'] = $this->getUserId();
-
-        $category_model = new Categories_model();
-        $data['categories'] = $this->getActiveCategories($category_model, $data['user_id'], $business_id);
-
-        $data['brands'] = (new BrandModel())->findAll();
-        $data['status'] = (new Status_model())->get_status($business_id) ?? "";
-        $data['customers'] = fetch_details("customers", ['business_id' => $business_id]) ?? "";
-        $data['user'] = $this->ionAuth->user($data['user_id'])->row();
-        $this->data['users'] = $this->ionAuth->users()->result();
-
-        return $data;
-    }
-
-    protected function getCommonData($business_id)
-    {
-        $session = session();
-        $lang = $session->get('lang') ?? 'en';
-
-        $settings = get_settings('general', true);
-
-        return [
-            'version' => fetch_details('updates', [], ['version'], '1', '0', 'id', 'DESC')[0]['version'],
-            'code' => $lang,
-            'current_lang' => $lang,
-            'languages_locale' => fetch_details('languages', [], [], null, '0', 'id', 'ASC'),
-            'business_id' => $business_id,
-            'currency' => $settings['currency_symbol'] ?? '₹',
-            'company_title' => $settings['title'] ?? "",
-            'meta_keywords' => "subscriptions app, digital subscription, daily subscription, software, app, module",
-            'meta_description' => "Home - Welcome to Subscribers, an digital solution for your subscription based daily problems"
-        ];
-    }
-
-    protected function getBusinessId()
-    {
-        return (isset($_SESSION['business_id']) && is_numeric($_SESSION['business_id'])) ? trim($_SESSION['business_id']) : "";
-    }
-
-    protected function getUserId()
-    {
-        $user_id = $_SESSION['user_id'];
-        return $this->ionAuth->isTeamMember() ? get_vendor_for_teamMember($user_id) : $user_id;
-    }
-
-    protected function getActiveCategories($category_model, $user_id, $business_id)
-    {
-        $categories_set = $category_model->get_categories($user_id, $business_id);
-        $categories = [];
-
-        foreach ($categories_set as $key) {
-            if ($key['status']) {
-                $categories[] = [
-                    'id' => $key['id'],
-                    "parent_id" => $key['parent_id'],
-                    "vendor_id" => $key['vendor_id'],
-                    "business_id" => $key['business_id'],
-                    'name' => $key['name'],
-                    'updated_at' => $key['updated_at'],
-                    'created_at' => $key['created_at'],
-                ];
-            }
-        }
-
-        return $categories;
-    }
 
     public function index()
     {
@@ -350,30 +278,17 @@ class Orders extends BaseController
 
     public function orders()
     {
-        if (!$this->ionAuth->loggedIn() || (!$this->ionAuth->isAdmin() && !$this->ionAuth->isTeamMember())) {
-            return redirect()->to('login');
-        }
 
-        $business_id = $this->getBusinessId();
-        if (empty($business_id) || check_data_in_table('businesses', $_SESSION['business_id'])) {
-            return redirect()->to("admin/businesses");
-        }
+        $data = $this->setViewData(VIEWS . "orders_list", 'Orders List');
 
-        $data = $this->getCommonData($business_id);
-        $data['page'] = VIEWS . "orders_list";
 
-        $orders = fetch_details('orders', ['business_id' => $business_id]);
+        $orders = fetch_details('orders', ['business_id' => $this->business_id]);
         if (!empty($orders)) {
             foreach ($orders as $order) {
                 $payment_status = $this->determinePaymentStatus($order['amount_paid'], $order['final_total']);
                 update_details(['payment_status' => $payment_status], ['id' => $order['id']], "orders");
             }
         }
-
-        $data['title'] = "Orders List - " . $data['company_title'];
-        $data['user'] = $this->ionAuth->user($this->getUserId())->row();
-        $this->data['users'] = $this->ionAuth->users()->result();
-
         return view("admin/template", $data);
     }
 
@@ -393,10 +308,9 @@ class Orders extends BaseController
 
     public function orders_table()
     {
-        $business_id = $this->getBusinessId();
         $orders_model = new Orders_model();
-        $orders = $orders_model->get_delivery_boy_orders_list($business_id);
-        $total = $orders_model->count_of_orders($business_id);
+        $orders = $orders_model->get_delivery_boy_orders_list($this->business_id);
+        $total = $orders_model->count_of_orders($this->business_id);
 
         $rows = [];
         foreach ($orders as $order) {
@@ -490,28 +404,55 @@ class Orders extends BaseController
         return $buttons;
     }
 
+    function setViewData($page, $title)
+    {
+        $settings = get_settings('general', true);
+        return [
+            'version' => getAppVersion() ?? '2.0',
+
+            'code' => session('lang') ?? 'en',
+            'current_lang' => session('lang') ?? 'en',
+            'languages_locale' => fetch_details('languages', [], [], null, '0', 'id', 'ASC'),
+            'business_id' => $this->business_id,
+            'currency' => $settings['currency_symbol'] ?? '$',
+            'meta_keywords' => "subscriptions app, digital subscription, daily subscription, software, app, module",
+            'meta_description' => "Home - Welcome to Subscribers, an digital solution for your subscription based daily problems",
+            'page' => $page,
+            'company_title' => $title,
+            'title' => $title . " - " . $settings['title'] ?? "",
+            'user_id' => getUserId(),
+            'brands' => (new BrandModel())->findAll(),
+            'categories' => getActiveCategories(getUserId(), $this->business_id),
+            'status' => (new Status_model())->get_status($this->business_id) ?? "",
+            'customers' => getCustomers($this->business_id),
+
+            'user' => $this->ionAuth->user(getUserId())->row(),
+            'users' => $this->ionAuth->users()->result(),
+
+        ];
+    }
     public function view_orders($order_id = "")
     {
+
         if (!$this->ionAuth->loggedIn() || (!$this->ionAuth->isAdmin() && !$this->ionAuth->isTeamMember())) {
             return redirect()->to('login');
         }
 
-        $data = $this->getCommonData($this->getBusinessId());
-        $data['page'] = VIEWS . "view_order";
-        $data['title'] = "Order Details - " . $data['company_title'];
-        $data['vendor_id'] = $this->getUserId();
+        $data = $this->setViewData(VIEWS . "view_order", "Order Details");
+        $data['vendor_id'] = getUserId();
         $data['user'] = $this->ionAuth->user($data['vendor_id'])->row();
-        $this->data['users'] = $this->ionAuth->users()->result();
-
-        $order = fetch_details("orders", ["id" => $order_id]);
         $data['has_transactions'] = true;
 
-        if (isset($order[0]['business_id']) && $order[0]['business_id'] == $data['business_id']) {
-            $customer_id = $order[0]['customer_id'];
-            $customer = $this->getCustomerDetails($customer_id);
+        $order = fetch_details("orders", ["id" => $order_id]);
 
+        if (isset($order[0]['business_id']) && $order[0]['business_id'] == $data['business_id']) {
+
+            $customer_id = $order[0]['customer_id'];
+            dd($order);
+
+
+            $customer = $this->$this->customerModel->getCustomerFullDetail($customer_id);;
             $user_id = $customer['user_id'];
-            $customer_id = $customer['id'];
 
             $user = $this->ionAuth->user($user_id)->row();
             $order[0]['customer_name'] = $user->first_name;
@@ -538,26 +479,6 @@ class Orders extends BaseController
         }
 
         return view("admin/template", $data);
-    }
-
-    protected function getCustomerDetails($customer_id)
-    {
-        $customer = fetch_details("customers", ['user_id' => $customer_id]);
-
-        if (empty($customer)) {
-            $customer = fetch_details("customers", ['id' => $customer_id]);
-            return [
-                'id' => $customer[0]['id'],
-                'user_id' => $customer[0]['user_id'],
-                'balance' => $customer[0]['balance'] ?? ""
-            ];
-        }
-
-        return [
-            'id' => $customer[0]['id'],
-            'user_id' => $customer[0]['user_id'],
-            'balance' => $customer[0]['balance'] ?? ""
-        ];
     }
 
     protected function getOrderItems($order_id)
@@ -650,7 +571,6 @@ class Orders extends BaseController
             return $this->jsonErrorResponse($this->validation->getErrors());
         }
 
-        $business_id = $this->getBusinessId();
         $vendor_id = $this->ionAuth->getUserId();
         $payment_type = $payment_method;
         $payment_status = $this->request->getVar('payment_status');
@@ -679,7 +599,7 @@ class Orders extends BaseController
             return $this->jsonErrorResponse($stock_status['message']);
         }
 
-        $order_data = $this->prepareOrderData($vendor_id, $business_id, $customer_id, $payment_type, $payment_status, $final_total, $amount_paid);
+        $order_data = $this->prepareOrderData($vendor_id, $this->business_id, $customer_id, $payment_type, $payment_status, $final_total, $amount_paid);
         $order_model = new Orders_model();
         $order_model->save($order_data);
         $order_id = $order_model->getInsertID();
@@ -705,7 +625,7 @@ class Orders extends BaseController
             }
 
             if (isset($item->is_recursive) && $item->is_recursive == "1") {
-                $this->saveSubscription($item, $vendor_id, $business_id, $customer_id);
+                $this->saveSubscription($item, $vendor_id, $this->business_id, $customer_id);
             }
         }
 
@@ -917,7 +837,7 @@ class Orders extends BaseController
         $status_model = new Status_model();
         $status_model->save([
             'vendor_id' => $this->ionAuth->getUserId(),
-            'business_id' => $this->getBusinessId(),
+            'business_id' => $this->business_id,
             'status' => $this->request->getVar('status'),
             'operation' => $this->request->getVar('operation')
         ]);
@@ -986,7 +906,7 @@ class Orders extends BaseController
         $search = $this->request->getGet('search');
         if (!empty($search)) {
             $customer_model = new Customers_model();
-            $response = $customer_model->get_users($search, $this->getBusinessId());
+            $response = $customer_model->get_users($search, $this->business_id);
             echo $response;
         }
     }
@@ -1002,7 +922,7 @@ class Orders extends BaseController
         }
 
         $ionAuthModel = new \IonAuth\Libraries\IonAuth();
-        $business_id = $this->getBusinessId();
+        $business_id = $this->business_id;
 
         if (isset($_POST['user_id']) && !empty($_POST['user_id'])) {
             return $this->updateCustomer($ionAuthModel, $business_id);
@@ -1142,7 +1062,7 @@ class Orders extends BaseController
         ];
 
         $id = $this->ionAuth->register($identity, $password, $email, $additionalData, $group_id);
-        $business_id = $this->getBusinessId();
+        $business_id = $this->business_id;
         $balance = $_POST['balance'] ?? "";
         $status = $_POST['status'] ?? "1";
 
@@ -1237,12 +1157,10 @@ class Orders extends BaseController
 
         $orders_model = new Orders_model();
         $vendor_id = $_SESSION['user_id'];
-        $business_id = $this->getBusinessId();
-
         $order = [
             'vendor_id' => $vendor_id,
             'created_by' => $vendor_id,
-            'business_id' => $business_id,
+            'business_id' => $this->business_id,
             'customer_id' => $customer_id,
             'warehouse_id' => $warehouse_id,
             'order_no' => $this->request->getVar('order_no'),
@@ -1372,8 +1290,7 @@ class Orders extends BaseController
             return redirect()->to('login');
         }
 
-        $business_id = $this->getBusinessId();
-        if (empty($business_id) || check_data_in_table('businesses', $_SESSION['business_id'])) {
+        if (empty($this->business_id) || check_data_in_table('businesses', $_SESSION['business_id'])) {
             return redirect()->to("vendor/businesses");
         }
 
@@ -1383,9 +1300,8 @@ class Orders extends BaseController
 
     public function payment_reminder_table()
     {
-        $business_id = $this->getBusinessId();
         $orders_model = new Orders_model();
-        $orders = $orders_model->payment_reminder($business_id);
+        $orders = $orders_model->payment_reminder($this->business_id);
         $total = count($orders);
 
         $rows = [];
@@ -1450,10 +1366,9 @@ class Orders extends BaseController
         $order_id = $_GET['order_id'];
         $order_details = fetch_details('orders', ['id' => $order_id]);
         $customer_details = $this->ionAuth->user($order_details[0]['customer_id'])->row();
-        $business_id = $this->getBusinessId();
         $setting = get_settings('email', true);
         $company_title = get_settings('general', true);
-        $icon = get_business_icon($business_id);
+        $icon = get_business_icon($this->business_id);
 
         $message = $this->getReminderEmailTemplate($order_details, $customer_details, $company_title, $icon);
 

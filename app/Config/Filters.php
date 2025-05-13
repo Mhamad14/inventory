@@ -37,6 +37,8 @@ class Filters extends BaseFilters
         'performance'   => PerformanceMetrics::class,
         'checkpermissions' => \App\Filters\CheckPermissions::class,
         'checkRoles' => \App\Filters\CheckRoles::class,
+        'check_for_business_id' => \App\Filters\CheckRoles::class,
+
     ];
 
     /**
@@ -96,8 +98,8 @@ class Filters extends BaseFilters
      * @var array<string, list<string>>
      */
 
-     // made this comment cuz it fixes something the lang problem
-  //  public array $methods = ['post' => ['csrf', 'toolbar']];
+    // made this comment cuz it fixes something the lang problem
+    //  public array $methods = ['post' => ['csrf', 'toolbar']];
 
     /**
      * List of filter aliases that should run on any
@@ -116,5 +118,4 @@ class Filters extends BaseFilters
             ],
         ],
     ];
-
 }

@@ -11,6 +11,16 @@ class Customers_model extends Model
     protected $primaryKey = 'id';
     protected $allowedFields = ['id', 'user_id', 'business_id', 'vendor_id', 'balance', 'created_by', 'status'];
 
+    public function payBackPartialDebt($payment_amount){
+        
+        $customer_id = session('current_customer_id');
+        $business_id = session('business_id');
+
+        $this->db->query("CALL sp_PartialCustomerPayment(?, ?, ?)", [$payment_amount, $customer_id, $business_id]);
+
+        return $this->db->affectedRows() > 0;
+
+    }
     public function payBackAllDebt( $business_id)
     {
 
@@ -44,7 +54,7 @@ class Customers_model extends Model
         $result['debt'] = $this->calculate_customer_debit($result['customer_id'], $business_id);
         return $result;
     }
-    //Shahram: Added this line to get a customer full details
+    
     public function getCustomerFullDetail($user_id)
     {
         $customer = $this->db->table('customers')

@@ -10,7 +10,7 @@ class PermissionFilter implements FilterInterface
 {
     public function before(RequestInterface $request, $arguments = null)
     {
-        $ionAuth = \Config\Services::ionAuth(); // ✅ Get ionAuth correctly
+        $ionAuth = \Config\Services::ionAuth();
         $session = session();
 
         if (!$ionAuth->loggedIn() || (!$ionAuth->isAdmin() && !$ionAuth->isTeamMember())) {

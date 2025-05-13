@@ -33,6 +33,7 @@ $routes->group('admin/customers', ['filter' => 'permissioncheck','checkpermissio
     $routes->get('customer_orders_table', 'admin\Customers::customer_orders_table', ['action' => 'can_read']);
     $routes->get('(:any)/edit', 'admin\Customers::edit/$1', ['action' => 'can_update']);
     $routes->put('(:any)/payback_all_debt', 'admin\Customers::payBackAllDebt/$1', ['action' => 'can_update']);
+    $routes->put('payback_partial_debt', 'admin\Customers::payBackPartialDebt', ['action' => 'can_update']);
     $routes->put('(:any)', 'admin\Customers::update/$1', ['action' => 'can_update']);
 });
 
@@ -45,7 +46,7 @@ $routes->group('admin/delivery_boys', ['filter' => 'checkpermissions:module=deli
 });
 
 
-$routes->group('admin/orders', ['filter' => 'checkpermissions:module=orders'], function ($routes) {
+$routes->group('admin/orders', ['filter' =>'check_for_business_id', 'checkpermissions:module=orders'], function ($routes) {
     $routes->get('/', 'admin\Orders::index', ['filter' => 'checkpermissions:module=pos,action=can_create']);
 
     $routes->get('sales_order', 'admin\Orders::sales_order', ['filter' => 'checkpermissions:action=can_create']);

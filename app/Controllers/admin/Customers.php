@@ -40,11 +40,39 @@ class Customers extends BaseController
         return view("admin/template", $data);
     }
 
+    public function payBackPartialDebt()
+    {
+        $payment_amount = $this->request->getPost('partial_amount');
+        if (!is_numeric($payment_amount) || $payment_amount <= 0) {
+            return $this->response->setJSON([
+                'success' => false,
+                'message' => 'Invalid payment amount.',
+                'csrf_token' => csrf_token(),
+                'csrf_hash'  => csrf_hash(),
+            ]);
+        }
+        if ($this->customerModel->payBackPartialDebt($payment_amount)) {
+            return $this->response->setJSON([
+                'success'    => true,
+                'message' => 'Partial payment applied successfully.',
+                'csrf_token' => csrf_token(),
+                'csrf_hash'  => csrf_hash(),
+                'user_id'    => session('current_customer_id'),
+                // 'overallPayments' => $this->customerModel->getOverallPayments(session('current_customer_id'), $this->business_id),
+            ]);
+        } else {
+            return $this->response->setJSON([
+                'success'    => false,
+                'message' => 'No eligible orders found or error occurred.',
+                'csrf_token' => csrf_token(),
+                'csrf_hash'  => csrf_hash(),
+                'user_id'    => session('current_customer_id'),
+            ]);
+        }
+    }
     public function payBackAllDebt($id)
     {
-       
-
-        if ($this->customerModel->payBackAllDebt( $this->business_id)) {
+        if ($this->customerModel->payBackAllDebt($this->business_id)) {
             return $this->response->setJSON([
                 'success'    => true,
                 'message'    => 'Paid all debt back!',
@@ -52,9 +80,8 @@ class Customers extends BaseController
                 'csrf_token' => csrf_token(),
                 'csrf_hash'  => csrf_hash(),
                 'user_id'    => $id,
-                'overallPayments' => $this->customerModel->getOverallPayments(session('current_customer_id'), $this->business_id),
+                // 'overallPayments' => $this->customerModel->getOverallPayments(session('current_customer_id'), $this->business_id),
             ]);
-            
         } else {
             return $this->response->setJSON([
                 'success'    => false,
@@ -167,48 +194,6 @@ class Customers extends BaseController
         return view('admin/template', $data);
     }
 
-    public function save_status()
-    {
-        // Check if modifications are allowed
-        if (defined('ALLOW_MODIFICATION') && ALLOW_MODIFICATION == 0) {
-            return setJSON($this->response, true, [DEMO_MODE_ERROR]);
-        }
-
-        // Check if the user is logged in and is an admin
-        if (!$this->ionAuth->loggedIn() || !$this->ionAuth->isAdmin()) {
-            return redirect()->to('login');
-        }
-
-        if (subscription() !== 'active') {
-            return setJSON($this->response, true, ['Subscription is not active.']);
-        }
-        // Validate the input
-        $this->validation->setRules([
-            'customer_id' => 'required|trim',
-            'status' => 'required|trim'
-        ]);
-
-        if (!$this->validation->withRequest($this->request)->run()) {
-            return setJSON($this->response, true, $this->validation->getErrors());
-        }
-
-        // Get the input data
-        $customer_id = $this->request->getPost('customer_id');
-        $status = $this->request->getPost('status');
-
-        // Update the customer's status
-        $update = update_details(['status' => $status], ['user_id' => $customer_id], 'customers');
-
-        if (!$update) {
-            return setJSON($this->response, true, ['Failed to update customer status. Please try again.']);
-        }
-
-        // Set success response
-        session()->setFlashdata('toastMessage', 'Customer status updated successfully.');
-        session()->setFlashdata('toastMessageType', 'success');
-        return setJSON($this->response, false, 'Customer status updated successfully');
-    }
-
     // edit it a little
     public function customers_table()
     {
@@ -229,16 +214,13 @@ class Customers extends BaseController
         return $this->response->setJSON($response);
     }
 
-
-
-
     public function customer_orders_table()
     {
         $current_customer_id = session("current_customer_id");
 
         // Fetch customer details and total count
-        $rows = $this->customerModel->getCustomersOrderDetails($this->request, $this->business_id, $current_customer_id, );
-        $total = $this->customerModel->getTotalCustomerOrders($this->request, $this->business_id, $current_customer_id, );
+        $rows = $this->customerModel->getCustomersOrderDetails($this->request, $this->business_id, $current_customer_id,);
+        $total = $this->customerModel->getTotalCustomerOrders($this->request, $this->business_id, $current_customer_id,);
 
         return $this->response->setJSON([
             'total' => $total,
@@ -246,19 +228,18 @@ class Customers extends BaseController
         ]);
     }
 
-
     private function getData($tableName, $tableData, $page)
     {
-        $company_title = (isset($settings['title'])) ? $settings['title'] : "";
+        $settings = get_settings('general', true);
         $languages = getLanguages();
-        return $data = [
+        return [
             'version' => getAppVersion(),
             'code' => session('lang') ?? 'en',
             'current_lang' => session('lang') ?? 'en',
             'languages_locale' => $languages,
             'business_id' => $this->business_id,
             'page' => $page,
-            'title' => "Customers - " . $company_title,
+            'title' => "Customers - " . $settings['title'] ?? "",
             'from_title' => 'Customer Details',
             'meta_keywords' => "subscriptions app, digital subscription, daily subscription, software, app, module",
             'meta_description' => "Home - Welcome to Subscribers, a digital solution for your subscription-based daily problems",
