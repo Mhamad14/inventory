@@ -62,12 +62,14 @@ if (!function_exists('getLanguages')) {
 }
 
 if (!function_exists('getCustomers')) {
-    function getCustomers($business_id)
+    function getEmployees($business_id)
     {
-        return fetch_details("customers", ['business_id' => $business_id]) ?? [];
+        
+        return fetch_details("employees", ['busniess_id' => $business_id]) ?? [];
     }
 }
 
+if (!function_exists('handleMissingBusiness')) {
     function handleMissingBusiness()
     {
         $business_model = new \App\Models\Businesses_model();
@@ -83,3 +85,4 @@ if (!function_exists('getCustomers')) {
 
         return redirect()->to('admin/businesses');
     }
+}

@@ -39,6 +39,7 @@ class Customers extends BaseController
 
         // Prepare data for the view
         $data = $this->getData('customers', $customers, FORMS . 'customers');
+        
 
         return view("admin/template", $data);
     }
