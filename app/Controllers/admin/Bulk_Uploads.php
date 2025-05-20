@@ -1252,9 +1252,9 @@ class Bulk_Uploads extends BaseController
                                                             'name' => $tax['name'],
                                                             'percentage' => $tax['percentage']
                                                         ];
-                                                    }else{
+                                                    } else {
                                                         $response['error'] = true;
-                                                        $response['message'] = 'There is no such tax with id '.  $tax_id .' at row ' . $rowCount;
+                                                        $response['message'] = 'There is no such tax with id ' .  $tax_id . ' at row ' . $rowCount;
                                                         $response['csrf_token'] = csrf_token();
                                                         $response['csrf_hash'] = csrf_hash();
                                                         return $this->response->setJSON($response);
@@ -1267,7 +1267,7 @@ class Bulk_Uploads extends BaseController
                                         }
                                     }
 
-                                  
+
 
                                     if (empty($order_service_data['service_id'])) {
                                         $response['error'] = true;
@@ -1377,7 +1377,7 @@ class Bulk_Uploads extends BaseController
                                         // Add more fields to $order_item_data array as needed
                                     ];
 
-                                   
+
 
                                     if ($order_item_data['is_tax_included'] == 0) {
                                         if (empty($order_item_data['tax_details'])) {
@@ -1407,9 +1407,9 @@ class Bulk_Uploads extends BaseController
                                                             'name' => $tax['name'],
                                                             'percentage' => $tax['percentage']
                                                         ];
-                                                    }else{
+                                                    } else {
                                                         $response['error'] = true;
-                                                        $response['message'] = 'There is no such tax with id '.  $tax_id .' at row ' . $rowCount;
+                                                        $response['message'] = 'There is no such tax with id ' .  $tax_id . ' at row ' . $rowCount;
                                                         $response['csrf_token'] = csrf_token();
                                                         $response['csrf_hash'] = csrf_hash();
                                                         return $this->response->setJSON($response);
@@ -1422,7 +1422,7 @@ class Bulk_Uploads extends BaseController
                                         }
                                     }
 
-                                                                        if (empty($order_item_data['product_id'])) {
+                                    if (empty($order_item_data['product_id'])) {
                                         $response['error'] = true;
                                         $response['message'] = 'Product id  is empty at row ' . $rowCount;
                                         $response['csrf_token'] = csrf_token();
@@ -2810,4 +2810,5 @@ class Bulk_Uploads extends BaseController
             }
         }
     }
+    
 }
