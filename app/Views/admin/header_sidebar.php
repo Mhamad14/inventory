@@ -135,6 +135,12 @@
                 </ul>
             </li>
             <li class="dropdown">
+                <a href="#" class="nav-link has-dropdown"><i class="bi bi-file-ear text-light"></i><span><?= labels('employees', 'employees') ?></span></a>
+                <ul class="dropdown-menu">
+                    <li><a class="nav-link" href="<?= base_url('admin/employees/'); ?>"><?= labels('employees', 'Employees') ?></a></li>
+                </ul>
+            </li>
+            <li class="dropdown">
                 <a href="#" class="nav-link has-dropdown"><i class="bi bi-border-bottom text-info"></i><span><?= labels('products', 'Products') ?></span></a>
                 <ul class="dropdown-menu">
                     <li><a class="nav-link" href="<?= base_url('admin/categories'); ?>"><?= labels('categories', 'Categories') ?></a></li>

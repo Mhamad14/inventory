@@ -9,7 +9,7 @@ class CreateOrderDetailsView extends Migration
     public function up()
     {
         $this->db->query("
-            CREATE OR REPLACE VIEW order_details_view AS
+            CREATE OR REPLACE VIEW GetOrderDetails AS
             SELECT 
                 o.*,
                 ((o.final_total - o.returns_total) - o.amount_paid) AS debt,
