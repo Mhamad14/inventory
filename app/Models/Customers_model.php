@@ -11,9 +11,50 @@ class Customers_model extends Model
     protected $primaryKey = 'id';
     protected $allowedFields = ['id', 'user_id', 'business_id', 'vendor_id', 'balance', 'created_by', 'status'];
 
+    public function payBackPartialDebt($payment_amount){
+        
+        $customer_id = session('current_customer_id');
+        $business_id = session('business_id');
 
+        $this->db->query("CALL sp_PartialCustomerPayment(?, ?, ?)", [$payment_amount, $customer_id, $business_id]);
 
-    //Shahram: Added this line to get a customer full details
+        return $this->db->affectedRows() > 0;
+
+    }
+    public function payBackAllDebt( $business_id)
+    {
+
+        $customer_id = session('current_customer_id');
+
+        $builder = $this->db->table('orders');
+        $builder->set('amount_paid', 'final_total', false)
+            ->where('customer_id', $customer_id)
+            ->where('business_id', $business_id)
+            ->whereIn('payment_status', ['unpaid', 'partially_paid']);
+
+        $builder->update(['payment_status' => 'fully_paid']);
+
+        // log_message('debug', 'User ID is: ' . $customer->id);
+
+        return $this->db->affectedRows() > 0;
+    }
+
+    public function getOverallPayments($customer_id, $business_id)
+    {
+        $result = $this->db->table('orders')
+            ->select('customer_id, SUM(total) as sub_total, SUM(discount) as discount
+            , SUM(delivery_charges) as delivery_charges, SUM(final_total) as final_total,
+            SUM(amount_paid) as amount_paid,
+            SUM(returns_total) as returns_total')
+            ->where('customer_id', $customer_id)
+            ->where('business_id', $business_id)
+            ->get()
+            ->getRowArray();
+
+        $result['debt'] = $this->calculate_customer_debit($result['customer_id'], $business_id);
+        return $result;
+    }
+    
     public function getCustomerFullDetail($user_id)
     {
         $customer = $this->db->table('customers')
@@ -23,8 +64,10 @@ class Customers_model extends Model
             ->get()
             ->getRowArray();
         $customer['debt'] = $this->calculate_customer_debit($customer['id'], $customer['business_id']);
+
         return $customer;
     }
+
 
     public function count_of_customers($business_id = "")
     {
@@ -74,13 +117,14 @@ class Customers_model extends Model
         $builder->where('user_id ', $user_id);
         return $builder->get()->getResultArray();
     }
+
     //added this for knwing debit
     public function calculate_customer_debit($customer_id, $business_id)
     {
         $db = \Config\Database::connect();
         $builder = $db->table("orders");
 
-        $builder->select('SUM(final_total - amount_paid) as total_debit');
+        $builder->select('((SUM(final_total) - SUM(amount_paid)) ) as total_debit');
         $builder->where('customer_id', $customer_id); // Uses customers.id
         $builder->where('business_id', $business_id);
         $builder->groupStart()
@@ -104,12 +148,20 @@ class Customers_model extends Model
         $builder->where("(payment_status = 'unpaid' OR payment_status = 'partially_paid')");
         return $builder->get()->getResultArray();
     }
-    public function getTotalCustomerOrders($business_id = "", $customer_id = "", $filters = [])
+    public function getTotalCustomerOrders($request, $business_id = "", $customer_id = "",)
     {
         $db = \Config\Database::connect();
         $builder = $db->table("orders");
         $builder->where('business_id', $business_id);
         $builder->where('customer_id', $customer_id);
+
+        $filters = [
+            'search' => $request->getGet('search'),
+            'start_date' => $request->getGet('start_date'),
+            'end_date' => $request->getGet('end_date'),
+            'payment_status_filter' => $request->getGet('payment_status_filter'),
+            'customer_orders_type_filter' => $request->getGet('customer_orders_type_filter'),
+        ];
 
         // Search
         if (!empty($filters['search'])) {
@@ -143,20 +195,39 @@ class Customers_model extends Model
         // Return the total count
         return $builder->countAllResults();
     }
-    public function getCustomersOrderDetails(
-        $business_id = "",
-        $customer_id = "",
-        $limit = 10,
-        $offset = 0,
-        $sort = 'id',
-        $order = 'DESC',
-        $filters = []
-    ) {
+    public function calculateOrderDebt($order_id)
+    {
+        $result = $this->db->table('orders')
+            ->select('(final_total - amount_paid) as debt')
+            ->where('id', $order_id)
+            ->whereIn('payment_status', ['partially_paid', 'unpaid'])
+            ->get()
+            ->getRowArray();
+
+
+        return $result['debt'] ?? 0;
+    }
+
+    public function getCustomersOrderDetails($request, $business_id = "", $customer_id = "",)
+    {
         $db = \Config\Database::connect();
         $builder = $db->table("orders");
-        $builder->select('orders.*, ((final_total - amount_paid) - returns_total) as debt');
+        $builder->select('orders.*');
         $builder->where('orders.business_id', $business_id);
         $builder->where('orders.customer_id', $customer_id);
+
+        $filters = [
+            'search' => $request->getGet('search'),
+            'start_date' => $request->getGet('start_date'),
+            'end_date' => $request->getGet('end_date'),
+            'payment_status_filter' => $request->getGet('payment_status_filter'),
+            'customer_orders_type_filter' => $request->getGet('customer_orders_type_filter'),
+        ];
+
+        $limit = $request->getGet('limit') ?? 10;
+        $offset = $request->getGet('offset') ?? 0;
+        $sort = $request->getGet('sort') ?? 'id';
+        $order = $request->getGet('order') ?? 'DESC';
 
         // Search
         if (!empty($filters['search'])) {
@@ -166,6 +237,7 @@ class Customers_model extends Model
                 ->orLike('discount', $search)
                 ->orLike('amount_paid', $search)
                 ->orLike('created_at', $search)
+                ->orLike('id', $search)
                 ->groupEnd();
         }
 
@@ -191,9 +263,13 @@ class Customers_model extends Model
             ->get()
             ->getResultArray();
 
+        // Add debt calculation for each order
+        foreach ($customerOrders as &$customerOrder) { // Note the & for reference
+            $customerOrder['debt'] = $this->calculateOrderDebt($customerOrder['id']);
+        }
+
         return $customerOrders;
     }
-
 
     public function get_customers_details($business_id = "")
     {
