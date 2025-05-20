@@ -118,4 +118,3 @@ if (!function_exists('getCustomers')) {
     {
         return fetch_details("customers", ['business_id' => $business_id]) ?? [];
     }
-}
