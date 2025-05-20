@@ -81,12 +81,12 @@
 
     <!-- section: Customer Orders ..Start-->
     <div class="card mt-3">
-
         <div class="card-header">
             <h6 class="" style="cursor: pointer;"
                 data-toggle="collapse"
                 data-target="#ordersSectionBody"
-                aria-expanded="false">
+                aria-expanded="false"
+                aria-controls="ordersSectionBody">
                 <span id="ordersToggleIcon">▶</span>
                 <?= labels('customer_orders', "( " . $customer['first_name'] . " )" . ' Orders') ?>
             </h6>
@@ -228,6 +228,7 @@
                             </div>
                         </div>
                     </div>
+                    <!-- righ column .END -->
                 </div>
                 <div class="row">
                     <?php if (!empty($overallPayments['debt']) && $overallPayments['debt'] != 0 && $overallPayments['debt'] != "not defined"): ?>
@@ -254,29 +255,7 @@
 
 <script>
     // togle Customer Order section
-    toggleSection('#ordersSectionBody', '#ordersToggleIcon');
 
-    // togle Customer Details
-    toggleSection('#customerDetailsBody', '#toggleIcon');
-
-    toggleSection('#overallPaymentsSectionBody', '#overallPaymentsToggleIcon');
-
-    // for toglling sections
-    function toggleSection(sectionBody, toggleIcon) {
-        $(document).ready(function() {
-            $(sectionBody).on('show.bs.collapse', function() {
-                $(toggleIcon).html('▼');
-            }).on('hide.bs.collapse', function() {
-                $(toggleIcon).html('▶');
-            });
-        });
-    }
-
-    // restrict mobile number to enter text
-    restrictToNumbers('input[name="mobile"]', 'Only numbers are allowed for Mobile!');
-
-    // restrict partial_amount to only numbers
-    restrictToNumbers('input[name="partial_amount"]', 'Only numbers are allowed for Amount!');
 
     // filter orders list
     var start_date = "";
@@ -514,9 +493,19 @@
 
 
     });
+    toggleSection('#ordersSectionBody', '#ordersToggleIcon');
+
+    // togle Customer Details
+    toggleSection('#customerDetailsBody', '#toggleIcon');
+
+    toggleSection('#overallPaymentsSectionBody', '#overallPaymentsToggleIcon');
 
 
+    // restrict mobile number to enter text
+    restrictToNumbers('input[name="mobile"]', 'Only numbers are allowed for Mobile!');
 
+    // restrict partial_amount to only numbers
+    restrictToNumbers('input[name="partial_amount"]', 'Only numbers are allowed for Amount!');
     // hide error alert after 5 seconds
     setTimeout(function() {
         const alerts = document.querySelectorAll('.alert-danger');
@@ -541,27 +530,13 @@
         });
     }, 5000);
 
-    // validate balance
-    function restrictToNumbers(inputSelector, toastMessage = 'Only numbers are allowed!') {
-        document.querySelector(inputSelector).addEventListener('keydown', function(e) {
-            // Allow: Backspace, Delete, Tab, Escape, Enter, '.', and arrow keys
-            if (
-                [46, 8, 9, 27, 13, 110, 190].indexOf(e.keyCode) !== -1 ||
-                (e.keyCode >= 35 && e.keyCode <= 40) // Home, End, arrows
-            ) {
-                return; // Allow these keys
-            }
-
-            // Allow: Ctrl/Cmd+A, Ctrl/Cmd+C, Ctrl/Cmd+V, Ctrl/Cmd+X
-            if ((e.ctrlKey || e.metaKey) && [65, 67, 86, 88].indexOf(e.keyCode) !== -1) {
-                return;
-            }
-
-            // Only allow numbers (0-9)
-            if ((e.keyCode < 48 || e.keyCode > 57) && (e.keyCode < 96 || e.keyCode > 105)) {
-                e.preventDefault();
-                showToastMessage(toastMessage, 'error');
-            }
+    function toggleSection(sectionBody, toggleIcon) {
+        $(document).ready(function() {
+            $(sectionBody).on('show.bs.collapse', function() {
+                $(toggleIcon).html('▼');
+            }).on('hide.bs.collapse', function() {
+                $(toggleIcon).html('▶');
+            });
         });
     }
 </script>

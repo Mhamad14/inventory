@@ -32,7 +32,8 @@ class Orders extends BaseController
     protected $ionAuthModel;
 
     protected $business_id;
-    protected Customers_model $customerModel;
+    protected OrdersModel $ordersModel;
+    protected Orders_items_model $ordersItemsModel;
 
 
     public function __construct()
@@ -43,19 +44,72 @@ class Orders extends BaseController
         $this->configIonAuth = config('IonAuth');
         $this->session = \Config\Services::session();
         $this->business_id = session('business_id') ?? "";
-        $this->customerModel = new Customers_model();
+        $this->ordersModel = new OrdersModel();
+        $this->ordersItemsModel = new Orders_items_model();
     }
-
-
 
     public function index()
     {
-        if (!$this->ionAuth->loggedIn() || (!$this->ionAuth->isAdmin() && !$this->ionAuth->isTeamMember())) {
-            return redirect()->to('login');
-        }
-
         $data = $this->setViewData(FORMS . "orders", "Create Order");
         return view("admin/template", $data);
+    }
+
+    public function view_orders($order_id = "")
+    {
+        $data = $this->getData('order', $this->ordersModel->getOrderDetails($order_id), FORMS . "orders/show");
+        $data['status_list'] = fetch_details("status",[],['id','status']); // get status list for order item update
+        $data['warehouses'] = fetch_details("warehouses",[],['id','name']); // get status list for order item update
+        session()->set('order_id', $data['order']['id']);
+
+        return view("admin/template", $data);
+    }
+
+    private function getData($tableName, $tableData, $page)
+    {
+        $settings = get_settings('general', true);
+        $languages = getLanguages();
+        return [
+            'version' => getAppVersion(),
+            'code' => session('lang') ?? 'en',
+            'current_lang' => session('lang') ?? 'en',
+            'languages_locale' => $languages,
+            'business_id' => $this->business_id,
+            'page' => $page,
+            'title' => "Orders - " . $settings['title'] ?? "",
+            'from_title' => 'Customer Details',
+            'meta_keywords' => "subscriptions app, digital subscription, daily subscription, software, app, module",
+            'meta_description' => "Home - Welcome to Subscribers, a digital solution for your subscription-based daily problems",
+            $tableName => $tableData,
+            'user' => $this->ionAuth->user(session('user_id'))->row(),
+        ];
+    }
+
+    public function orders_items_table()
+    {
+        $rows = $this->ordersItemsModel->getOrderItemsWithDetails(session('order_id'));
+        return $this->response->setJSON(['rows' => array_map('prepareOrdersItemsRow', $rows)]);
+    }
+
+    protected function getOrderItems($order_id)
+    {
+        $orders_items = fetch_details("orders_items", ["order_id" => $order_id]);
+
+        if (!empty($orders_items)) {
+            foreach ($orders_items as $key => $item) {
+                $product = fetch_details("products", ['id' => $item['product_id']]);
+                $orders_items[$key]['image'] = $product[0]['image'] ?? "";
+
+                if (!empty($item['delivery_boy'])) {
+                    $delivery_boy = fetch_details('users', ['id' => $item['delivery_boy']]);
+                    $orders_items[$key]['delivery_boy_name'] = $delivery_boy[0]['first_name'] ?? "";
+                }
+
+                $status = fetch_details("status", ['id' => $item['status']]);
+                $orders_items[$key]['status_name'] = $status[0]['status'] ?? null;
+            }
+        }
+
+        return $orders_items ?? "";
     }
 
     public function process_return()
@@ -265,9 +319,7 @@ class Orders extends BaseController
 
     public function sales_order()
     {
-        if (!$this->ionAuth->loggedIn() || (!$this->ionAuth->isAdmin() && !$this->ionAuth->isTeamMember())) {
-            return redirect()->to('login');
-        }
+        
 
         $data = $this->setViewData(FORMS . "create_orders", "Create Order");
         $warehouse_model = new WarehouseModel();
@@ -280,7 +332,6 @@ class Orders extends BaseController
     {
 
         $data = $this->setViewData(VIEWS . "orders_list", 'Orders List');
-
 
         $orders = fetch_details('orders', ['business_id' => $this->business_id]);
         if (!empty($orders)) {
@@ -431,77 +482,6 @@ class Orders extends BaseController
 
         ];
     }
-    public function view_orders($order_id = "")
-    {
-
-        if (!$this->ionAuth->loggedIn() || (!$this->ionAuth->isAdmin() && !$this->ionAuth->isTeamMember())) {
-            return redirect()->to('login');
-        }
-
-        $data = $this->setViewData(VIEWS . "view_order", "Order Details");
-        $data['vendor_id'] = getUserId();
-        $data['user'] = $this->ionAuth->user($data['vendor_id'])->row();
-        $data['has_transactions'] = true;
-
-        $order = fetch_details("orders", ["id" => $order_id]);
-
-        if (isset($order[0]['business_id']) && $order[0]['business_id'] == $data['business_id']) {
-
-            $customer_id = $order[0]['customer_id'];
-            dd($order);
-
-
-            $customer = $this->$this->customerModel->getCustomerFullDetail($customer_id);;
-            $user_id = $customer['user_id'];
-
-            $user = $this->ionAuth->user($user_id)->row();
-            $order[0]['customer_name'] = $user->first_name;
-            $order[0]['customer_mobile'] = $user->mobile;
-            $order[0]['balance'] = $customer['balance'] ?? "";
-            $data['order'] = $order[0];
-
-            $data['status'] = (new Status_model())->get_status($data['business_id']) ?? "";
-            $data['delivery_boys'] = (new Delivery_boys_model())->delivery_boys($data['business_id']) ?? "";
-
-            if ($order[0]['payment_status'] == "fully_paid" && $order[0]['payment_method'] != "cash" && $order[0]['payment_method'] != "wallet") {
-                $db = \config\Database::connect();
-                $order_transaction_id = $db->table('customers_transactions')->select('*')->where(['order_id' => $order_id, 'customer_id' => $customer['id']])->get()->getResultArray();
-                $data['order']['order_transaction_id'] = $order_transaction_id[0]['transaction_id'] ?? '';
-                $data['has_transactions'] = false;
-            }
-
-            $data['items'] = $this->getOrderItems($order_id);
-            $data['services'] = $this->getOrderServices($order_id);
-        } else {
-            $data['items'] = "";
-            $data['services'] = "";
-            $this->session->setFlashdata('message', 'you dont have order of this business!');
-        }
-
-        return view("admin/template", $data);
-    }
-
-    protected function getOrderItems($order_id)
-    {
-        $orders_items = fetch_details("orders_items", ["order_id" => $order_id]);
-
-        if (!empty($orders_items)) {
-            foreach ($orders_items as $key => $item) {
-                $product = fetch_details("products", ['id' => $item['product_id']]);
-                $orders_items[$key]['image'] = $product[0]['image'] ?? "";
-
-                if (!empty($item['delivery_boy'])) {
-                    $delivery_boy = fetch_details('users', ['id' => $item['delivery_boy']]);
-                    $orders_items[$key]['delivery_boy_name'] = $delivery_boy[0]['first_name'] ?? "";
-                }
-
-                $status = fetch_details("status", ['id' => $item['status']]);
-                $orders_items[$key]['status_name'] = $status[0]['status'] ?? null;
-            }
-        }
-
-        return $orders_items ?? "";
-    }
 
     protected function getOrderServices($order_id)
     {
@@ -528,9 +508,7 @@ class Orders extends BaseController
 
     public function save_order()
     {
-        if (!$this->ionAuth->loggedIn() || (!$this->ionAuth->isAdmin() && !$this->ionAuth->isTeamMember())) {
-            return redirect()->to('login');
-        }
+        
 
         if (!isset($_POST['data']) || empty($_POST['data'])) {
             return $this->jsonErrorResponse('Please add order item');
@@ -817,10 +795,6 @@ class Orders extends BaseController
 
     public function create_status()
     {
-        if (!$this->ionAuth->loggedIn() || (!$this->ionAuth->isAdmin() && !$this->ionAuth->isTeamMember())) {
-            return redirect()->to('login');
-        }
-
         if (!isset($_POST) || empty($_POST)) {
             return redirect()->back()->withInput();
         }
@@ -913,9 +887,7 @@ class Orders extends BaseController
 
     public function save()
     {
-        if (!$this->ionAuth->loggedIn() || (!$this->ionAuth->isAdmin() && !$this->ionAuth->isTeamMember())) {
-            return redirect()->to('login');
-        }
+        
 
         if (!isset($_POST) || empty($_POST)) {
             return redirect()->back()->withInput();
@@ -1083,9 +1055,7 @@ class Orders extends BaseController
 
     public function save_sales_order()
     {
-        if (!$this->ionAuth->loggedIn() || (!$this->ionAuth->isAdmin() && !$this->ionAuth->isTeamMember())) {
-            return redirect()->to('login');
-        }
+        
 
         if (!isset($_POST) || empty($_POST)) {
             return redirect()->back();
@@ -1286,10 +1256,6 @@ class Orders extends BaseController
     }
     public function payment_reminder()
     {
-        if (!$this->ionAuth->loggedIn() || (!$this->ionAuth->isAdmin() && !$this->ionAuth->isTeamMember())) {
-            return redirect()->to('login');
-        }
-
         if (empty($this->business_id) || check_data_in_table('businesses', $_SESSION['business_id'])) {
             return redirect()->to("vendor/businesses");
         }
@@ -1357,10 +1323,6 @@ class Orders extends BaseController
     {
         if (defined('ALLOW_MODIFICATION') && ALLOW_MODIFICATION == 0) {
             return $this->jsonErrorResponse(DEMO_MODE_ERROR);
-        }
-
-        if (!$this->ionAuth->loggedIn() || (!$this->ionAuth->isAdmin() && !$this->ionAuth->isTeamMember())) {
-            return redirect()->to('login');
         }
 
         $order_id = $_GET['order_id'];

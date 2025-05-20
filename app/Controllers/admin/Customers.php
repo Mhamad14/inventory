@@ -165,11 +165,9 @@ class Customers extends BaseController
             ->update($data);
 
         // Update customers table
-        $db->table('customers')
-            ->where('user_id', $user_id)
-            ->update([
-                'status' => $this->request->getPost('status'),
-            ]);
+        $db->table('customers')->where('user_id', $user_id)->update([
+            'status' => $this->request->getPost('status'),
+        ]);
 
         // Return success JSON
         return $this->response->setJSON([

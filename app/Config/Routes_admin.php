@@ -26,7 +26,7 @@ $routes->group('admin/home', function($routes) {
 });
 
 //,checkpermissions:module=customers
-$routes->group('admin/customers', ['filter' => 'permissioncheck','checkpermissions:module=customers'], function ($routes) {
+$routes->group('admin/customers', ['filter' =>'checkpermissions:module=customers|permissioncheck'], function ($routes) {
     $routes->get('/', 'admin\Customers::index', ['action' => 'can_read']);
     $routes->post('save_status', 'admin\Customers::save_status', ['action' => 'can_update']);
     $routes->get('customers_table', 'admin\Customers::customers_table', ['action' => 'can_read']);
@@ -46,14 +46,15 @@ $routes->group('admin/delivery_boys', ['filter' => 'checkpermissions:module=deli
 });
 
 
-$routes->group('admin/orders', ['filter' =>'check_for_business_id', 'checkpermissions:module=orders'], function ($routes) {
+$routes->group('admin/orders', ['filter' =>'checkpermissions:module=orders','permissioncheck'], function ($routes) {
     $routes->get('/', 'admin\Orders::index', ['filter' => 'checkpermissions:module=pos,action=can_create']);
+    $routes->get('orders', 'admin\Orders::orders', ['filter' => 'checkpermissions:action=can_read']);
 
     $routes->get('sales_order', 'admin\Orders::sales_order', ['filter' => 'checkpermissions:action=can_create']);
     $routes->post('save_sales_order', 'admin\Orders::save_sales_order', ['filter' => 'checkpermissions:action=can_create']);
 
-    $routes->get('orders', 'admin\Orders::orders', ['filter' => 'checkpermissions:action=can_read']);
     $routes->get('orders_table', 'admin\Orders::orders_table', ['filter' => 'checkpermissions:action=can_read']);
+    $routes->get('orders_items_table', 'admin\Orders::orders_items_table', ['filter' => 'checkpermissions:action=can_read']);
     $routes->get('view_orders/(:any)', 'admin\Orders::view_orders/$1', ['filter' => 'checkpermissions:action=can_read']);
 
     $routes->post('save_order', 'admin\Orders::save_order', ['filter' => 'checkpermissions:action=can_create']);

@@ -271,7 +271,6 @@ class Customers_model extends Model
         return $customerOrders;
     }
 
-
     public function get_customers_details($business_id = "")
     {
         $db = \Config\Database::connect();
