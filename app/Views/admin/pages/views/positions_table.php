@@ -1,9 +1,9 @@
 <div class="main-content">
     <div class="section">
         <div class="section-header">
-            <h1><?= labels('employees', 'Employees') ?></h1>
+            <h1><?= labels('positions', 'positions') ?></h1>
             <div class="section-header-breadcrumb d-flex align-items-center gap-2">
-                <a class="btn btn-primary text-white me-2" href="<?= base_url('admin/employees/new'); ?>" title="<?= labels('add_employee', 'Add employee') ?>">
+                <a class="btn btn-primary text-white me-2" href="<?= base_url('admin/positions/new'); ?>" title="<?= labels('add_position', 'Add position') ?>">
                     <i class="fas fa-plus"></i>
                 </a>
             </div>
@@ -22,7 +22,7 @@
                                 data-toggle="table"
                                 data-search-highlight="true"
                                 data-page-list="[5, 10, 25, 50, 100, 200, All]"
-                                data-url="<?= base_url('admin/employees/employees_table'); ?>"
+                                data-url="<?= base_url('admin/positions/positions_table'); ?>"
                                 data-side-pagination="server"
                                 data-pagination="true"
                                 data-search="true"
@@ -31,11 +31,7 @@
                                     <tr>
                                         <th data-field="id" data-sortable="true" data-visible="false"><?= labels('id', 'ID') ?></th>
                                         <th data-field="name" data-sortable="true"><?= labels('name', 'Name') ?></th>
-                                        <th data-field="position" data-sortable="true"><?= labels('position', 'Position') ?></th>
-                                        <th data-field="position_id" data-sortable="true" data-visible="false"><?= labels('position_id', 'Position_id') ?></th>
-                                        <th data-field="address" data-sortable="true"><?= labels('address', 'Address') ?></th>
-                                        <th data-field="mobile" data-sortable="true"><?= labels('mobile', 'Contact Number') ?></th>
-                                        <th data-field="salary" data-sortable="true"><?= labels('salary', 'Salary') ?></th>
+                                        <th data-field="description" data-sortable="true"><?= labels('description', 'Description') ?></th>
                                         <th data-field="action"><?= labels('action', 'Action') ?></th>
                                     </tr>
                                 </thead>
