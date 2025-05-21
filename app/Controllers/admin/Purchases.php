@@ -20,86 +20,60 @@ class Purchases extends BaseController
     protected $session;
     protected $data;
     protected $settings;
+    protected $business_id;
     public function __construct()
     {
         $this->ionAuth = new \App\Libraries\IonAuth();
         $this->validation = \Config\Services::validation();
-        helper(['form', 'url', 'filesystem']);
+        helper(['form', 'url', 'filesystem', 'purchase']);
         $this->configIonAuth = config('IonAuth');
         $this->session       = \Config\Services::session();
+        $this->business_id = session('business_id') ?? "";
     }
     public function index()
     {
-        if (!$this->ionAuth->loggedIn() || (!$this->ionAuth->isAdmin() && !$this->ionAuth->isTeamMember())) {
-            return redirect()->to('login');
-        } else {
-            if (! isset($_SESSION['business_id']) || empty($_SESSION['business_id'])) {
-                // business id is not set 
-                $business_model = new Businesses_model();
-                $allbusiness = $business_model->findAll();
-                if (empty($allbusiness)) {
-                    session()->setFlashdata('message', 'Please create a business !');
-                    session()->setFlashdata('type', 'error');
-                    return redirect()->to('admin/businesses');
-                } else {
-                    session()->setFlashdata('message', 'Please select a business !');
-                    session()->setFlashdata('type', 'error');
-                    return redirect()->to('admin/businesses');
+
+
+        $orders = fetch_details('purchases', ['business_id' => $this->business_id]);
+
+        if (isset($orders) && !empty($orders)) {
+            foreach ($orders as $order) {
+                if (floatval($order['amount_paid']) == floatval($order['total'])) {
+                    update_details(['payment_status' => 'fully_paid'], ['id' => $order['id']], "purchases");
+                }
+                if (floatval($order['amount_paid']) < floatval($order['total'])) {
+                    update_details(['payment_status' => 'partially_paid'], ['id' => $order['id']], "purchases");
+                }
+                if (floatval($order['amount_paid']) == 0.00) {
+                    update_details(['payment_status' => 'unpaid'], ['id' => $order['id']], "purchases");
                 }
             }
-            $version = fetch_details('updates', [], ['version'], '1', '0', 'id', 'DESC')[0]['version'];
-            $data['version'] = $version;
-            $session = session();
-            $lang = $session->get('lang');
-            if (empty($lang)) {
-                $lang = 'en';
-            }
-            $data['code'] = $lang;
-            $data['current_lang'] = $lang;
-            $data['languages_locale'] = fetch_details('languages', [], [], null, '0', 'id', 'ASC');
-            $settings = get_settings('general', true);
-            $company_title = (isset($settings['title'])) ? $settings['title'] : "";
-            $data['page'] = VIEWS . 'purchases_table';
-            $data['title'] = "Purchase List - " . $company_title;
-            $data['meta_keywords'] = "subscriptions app, digital subscription, daily subscription, software, app, module";
-            $data['meta_description'] = "Home - Welcome to Subscribers, an digital solution for your subscription based daily problems";
-            $user_id = $_SESSION['user_id'];
-            $id = 0;
-            if ($this->ionAuth->isTeamMember()) {
-                $id = get_vendor_for_teamMember($user_id);
-            } else {
-                $id = $user_id;
-            }
-
-            $business_id = isset($_SESSION['business_id']) ? $_SESSION['business_id'] : "";
-            $data['business_id'] = $business_id;
-            $data['vendor_id'] = $id;
-            $data['user'] = $this->ionAuth->user($id)->row();
-            $status_model = new Status_model();
-            $status = $status_model->get_status($business_id);
-            $data['currency'] = (isset($settings['currency_symbol'])) ? $settings['currency_symbol'] : '₹';
-            $data['status'] = isset($status) ? $status : "";
-            $tax_model = new Tax_model();
-            $data['taxes'] = $tax_model->findAll();
-            $data['order_type'] = 'order';
-
-            $orders = fetch_details('purchases', ['business_id' => $business_id]);
-
-            if (isset($orders) && !empty($orders)) {
-                foreach ($orders as $order) {
-                    if (floatval($order['amount_paid']) == floatval($order['total'])) {
-                        update_details(['payment_status' => 'fully_paid'], ['id' => $order['id']], "purchases");
-                    }
-                    if (floatval($order['amount_paid']) < floatval($order['total'])) {
-                        update_details(['payment_status' => 'partially_paid'], ['id' => $order['id']], "purchases");
-                    }
-                    if (floatval($order['amount_paid']) == 0.00) {
-                        update_details(['payment_status' => 'unpaid'], ['id' => $order['id']], "purchases");
-                    }
-                }
-            }
-            return view("admin/template", $data);
         }
+        $data = $this->getData('purchases',fetch_details('purchases', ['business_id' => $this->business_id]), FORMS . 'purchases');
+        $data['order_type'] = 'order';
+        return view("admin/template", $data);
+    }
+    private function getData($tableName, $tableData, $page)
+    {
+        $settings = get_settings('general', true);
+        $languages = getLanguages();
+        return [
+            'version' => getAppVersion(),
+            'code' => session('lang') ?? 'en',
+            'current_lang' => session('lang') ?? 'en',
+            'languages_locale' => $languages,
+            'business_id' => $this->business_id,
+            'page' => $page,
+            'title' => "Orders - " . $settings['title'] ?? "",
+            'from_title' => 'Customer Details',
+            'meta_keywords' => "subscriptions app, digital subscription, daily subscription, software, app, module",
+            'meta_description' => "Home - Welcome to Subscribers, a digital solution for your subscription-based daily problems",
+            $tableName => $tableData,
+            'user' => $this->ionAuth->user(session('user_id'))->row(),
+            'user_id' => getUserId(),
+            'vendor_id' => getUserId(),
+            'currency' => $settings['currency_symbol'] ?? '₹',
+        ];
     }
 
     public function purchase_orders($type = '')
@@ -169,171 +143,167 @@ class Purchases extends BaseController
     {
         if (!$this->ionAuth->loggedIn() || (!$this->ionAuth->isAdmin() && !$this->ionAuth->isTeamMember())) {
             return redirect()->to('login');
+        }
+
+        $rules = [
+            'purchase_date' => [
+                'rules' => 'required',
+                'label' => 'Purchase Date',
+            ],
+            'supplier_id' => [
+                'rules' => 'required',
+                'label' => 'Supplier',
+            ],
+            'products' => [
+                'rules' => 'required',
+                'label' => 'Products',
+            ],
+            'status' => [
+                'rules' => 'required',
+                'label' => 'Status',
+            ],
+            'payment_status' => [
+                'rules' => 'required',
+                'label' => 'Payment Status',
+            ],
+            'warehouse_id' => [
+                'rules' => 'required',
+                'label' => 'Warehouse',
+            ],
+        ];
+
+        // Add conditional rules for "partially_paid"
+        if ($this->request->getVar('payment_status') == "partially_paid") {
+            $rules['amount_paid'] = [
+                'rules' => 'required',
+                'label' => 'Amount Paid',
+            ];
+        }
+
+        // Add conditional rules for other statuses
+        if ($this->request->getVar('payment_status') != "unpaid" && $this->request->getVar('payment_status') != "cancelled") {
+            $rules['payment_method'] = [
+                'rules' => 'required',
+                'label' => 'Payment Method',
+            ];
+        }
+
+        // Set the validation rules
+        $this->validation->setRules($rules);
+
+        if (!$this->validation->withRequest($this->request)->run()) {
+            $errors = $this->validation->getErrors();
+            $response = [
+                'error' => true,
+                'message' => $errors,
+                'data' => []
+            ];
+            $response['csrf_token'] = csrf_token();
+            $response['csrf_hash'] = csrf_hash();
+            return $this->response->setJSON($response);
         } else {
-            if (isset($_POST) && !empty($_POST)) {
-                $rules = [
-                    'purchase_date' => [
-                        'rules' => 'required',
-                        'label' => 'Purchase Date',
-                    ],
-                    'supplier_id' => [
-                        'rules' => 'required',
-                        'label' => 'Supplier',
-                    ],
-                    'products' => [
-                        'rules' => 'required',
-                        'label' => 'Products',
-                    ],
-                    'status' => [
-                        'rules' => 'required',
-                        'label' => 'Status',
-                    ],
-                    'payment_status' => [
-                        'rules' => 'required',
-                        'label' => 'Payment Status',
-                    ],
-                    'warehouse_id' => [
-                        'rules' => 'required',
-                        'label' => 'Warehouse',
-                    ],
-                ];
-                
-                // Add conditional rules for "partially_paid"
-                if ($this->request->getVar('payment_status') == "partially_paid") {
-                    $rules['amount_paid'] = [
-                        'rules' => 'required',
-                        'label' => 'Amount Paid',
-                    ];
+            $tax_ids = '[]';
+            $warehouse_id = $this->request->getVar('warehouse_id');
+
+            $tax_ids_input = $this->request->getVar('order_taxes');
+            if ($tax_ids_input) {
+                $tax_ids_input = json_decode($tax_ids_input);
+                $tax_ids = [];
+                if (is_array($tax_ids_input)) {
+                    foreach ($tax_ids_input as $tax) {
+                        $tax_ids[] = $tax->id;
+                    }
                 }
-                
-                // Add conditional rules for other statuses
-                if ( $this->request->getVar('payment_status') != "unpaid" && $this->request->getVar('payment_status') != "cancelled"  ) {
-                    $rules['payment_method'] = [
-                        'rules' => 'required',
-                        'label' => 'Payment Method',
-                    ];
-                }
-                
-                // Set the validation rules
-                $this->validation->setRules($rules);
-    
-                if (!$this->validation->withRequest($this->request)->run()) {
-                    $errors = $this->validation->getErrors();
-                    $response = [
-                        'error' => true,
-                        'message' => $errors,
-                        'data' => []
-                    ];
-                    $response['csrf_token'] = csrf_token();
-                    $response['csrf_hash'] = csrf_hash();
-                    return $this->response->setJSON($response);
-                } else {
-                    $tax_ids = '[]';
-                    $warehouse_id = $this->request->getVar('warehouse_id');
-
-                    $tax_ids_input = $this->request->getVar('order_taxes');
-                    if ($tax_ids_input) {
-                        $tax_ids_input = json_decode($tax_ids_input);
-                        $tax_ids = [];
-                        if (is_array($tax_ids_input)) {
-                            foreach ($tax_ids_input as $tax) {
-                                $tax_ids[] = $tax->id;
-                            }
-                        }
-                        $tax_ids = json_encode($tax_ids);
-                    }
-                    $purchase_model = new Purchases_model();
-                    $user_id = session('user_id');
-                    $vendor_id = session('user_id');
-                    $business_id = session('business_id');
-                    if ($this->ionAuth->isTeamMember()) {
-                        $vendor_id = get_vendor_for_teamMember($user_id);
-                        if (! userHasPermission('expenses', 'can_update',  $user_id)) {
-                            session()->setFlashdata("permission_error", "You do not have permission to access");
-                            session()->setFlashdata("type", "error");
-                            return json_encode([
-                                'total' => 0,
-                                'rows' => [],
-                            ]);
-                        }
-                    }
-
-                    $payment_status = $this->request->getVar('payment_status');
-                    $payment_method = $this->request->getVar('payment_method');
-                    if ( $payment_status == "unpaid" || $payment_status == "cancelled"  ) {
-                        $payment_method = null;
-                    }else{
-                        $payment_method = $payment_method[0];
-                    }
-                    
-                    $amount_paid = 0;
-
-                    if ($payment_status == "fully_paid") {
-                        $amount_paid = $this->request->getVar('total');
-                    } else if ($payment_status == "partially_paid") {
-                        $amount_paid = $this->request->getVar('amount_paid');
-                    }
-
-                    $purchase =  array(
-                        'vendor_id' => $vendor_id,
-                        'business_id' => $business_id,
-                        'order_no' => $this->request->getVar('order_no'),
-                        'order_type' => $this->request->getVar('order_type'),
-                        'warehouse_id' => $warehouse_id,
-                        'purchase_date' => $this->request->getVar('purchase_date'),
-                        'supplier_id' => $this->request->getVar('supplier_id'),
-                        'tax_ids' =>  $tax_ids,
-                        'discount' => $this->request->getVar('order_discount'),
-                        'delivery_charges' => $this->request->getVar('shipping'),
-                        'payment_method' => $payment_method,
-                        'payment_status' => $payment_status,
-                        'amount_paid' => $amount_paid,
-                        'total' => $this->request->getVar('total'),
-                        'status' => $this->request->getVar('status'),
-                        'message' => $this->request->getVar('message'),
-                    );
-
-                    $purchase_model->save($purchase);
-                    $purchase_id = $purchase_model->getInsertID();
-
-                    $products = json_decode($_POST['products']);
-                    $count = count($products);
-                    for ($i = 0; $i < $count; $i++) {
-                        $products[($count - 1) - $i]->qty = $_POST['qty'][$i];
-                        $products[($count - 1) - $i]->discount = $_POST['discount'][$i];
-                    }
-                    foreach ($products as $item) {
-                        $purchase_items = array(
-                            'purchase_id' => $purchase_id,
-                            'product_variant_id' => $item->id,
-                            'quantity' => $item->qty,
-                            'price' => $item->price,
-                            'discount' => $item->discount,
-                            'status' => $this->request->getVar('status')
-                        );
-                        $Purchases_items_model = new Purchases_items_model();
-                        $Purchases_items_model->save($purchase_items);
-                        $order_type = $this->request->getVar('order_type');
-                        if ($order_type == "order") {
-                            update_stock(product_variant_ids: $item->id, qtns: $item->qty, type: 'plus');
-                            updateWarehouseStocks(warehouse_id: $warehouse_id,  product_variant_id: $item->id,  warehouse_stock: $item->qty, type: 1);
-                        } elseif ($order_type == "return") {
-                            update_stock(product_variant_ids: $item->id, qtns: $item->qty);
-                            updateWarehouseStocks(warehouse_id: $warehouse_id,  product_variant_id: $item->id,  warehouse_stock: $item->qty, type: 0);
-                        }
-                    }
-                    $response = [
-                        'error' => false,
-                        'message' => 'Purchase Order saved successfully',
-                        'data' => []
-                    ];
-                    $response['csrf_token'] = csrf_token();
-                    $response['csrf_hash'] = csrf_hash();
-                    return $this->response->setJSON($response);
-                }
-            } else {
-                return redirect()->back();
+                $tax_ids = json_encode($tax_ids);
             }
+            $purchase_model = new Purchases_model();
+            $user_id = session('user_id');
+            $vendor_id = session('user_id');
+            $business_id = session('business_id');
+            if ($this->ionAuth->isTeamMember()) {
+                $vendor_id = get_vendor_for_teamMember($user_id);
+                if (! userHasPermission('expenses', 'can_update',  $user_id)) {
+                    session()->setFlashdata("permission_error", "You do not have permission to access");
+                    session()->setFlashdata("type", "error");
+                    return json_encode([
+                        'total' => 0,
+                        'rows' => [],
+                    ]);
+                }
+            }
+
+            $payment_status = $this->request->getVar('payment_status');
+            $payment_method = $this->request->getVar('payment_method');
+            if ($payment_status == "unpaid" || $payment_status == "cancelled") {
+                $payment_method = null;
+            } else {
+                $payment_method = $payment_method[0];
+            }
+
+            $amount_paid = 0;
+
+            if ($payment_status == "fully_paid") {
+                $amount_paid = $this->request->getVar('total');
+            } else if ($payment_status == "partially_paid") {
+                $amount_paid = $this->request->getVar('amount_paid');
+            }
+
+            $purchase =  array(
+                'vendor_id' => $vendor_id,
+                'business_id' => $business_id,
+                'order_no' => $this->request->getVar('order_no'),
+                'order_type' => $this->request->getVar('order_type'),
+                'warehouse_id' => $warehouse_id,
+                'purchase_date' => $this->request->getVar('purchase_date'),
+                'supplier_id' => $this->request->getVar('supplier_id'),
+                'tax_ids' =>  $tax_ids,
+                'discount' => $this->request->getVar('order_discount'),
+                'delivery_charges' => $this->request->getVar('shipping'),
+                'payment_method' => $payment_method,
+                'payment_status' => $payment_status,
+                'amount_paid' => $amount_paid,
+                'total' => $this->request->getVar('total'),
+                'status' => $this->request->getVar('status'),
+                'message' => $this->request->getVar('message'),
+            );
+
+            $purchase_model->save($purchase);
+            $purchase_id = $purchase_model->getInsertID();
+
+            $products = json_decode($_POST['products']);
+            $count = count($products);
+            for ($i = 0; $i < $count; $i++) {
+                $products[($count - 1) - $i]->qty = $_POST['qty'][$i];
+                $products[($count - 1) - $i]->discount = $_POST['discount'][$i];
+            }
+            foreach ($products as $item) {
+                $purchase_items = array(
+                    'purchase_id' => $purchase_id,
+                    'product_variant_id' => $item->id,
+                    'quantity' => $item->qty,
+                    'price' => $item->price,
+                    'discount' => $item->discount,
+                    'status' => $this->request->getVar('status')
+                );
+                $Purchases_items_model = new Purchases_items_model();
+                $Purchases_items_model->save($purchase_items);
+                $order_type = $this->request->getVar('order_type');
+                if ($order_type == "order") {
+                    update_stock(product_variant_ids: $item->id, qtns: $item->qty, type: 'plus');
+                    updateWarehouseStocks(warehouse_id: $warehouse_id,  product_variant_id: $item->id,  warehouse_stock: $item->qty, type: 1);
+                } elseif ($order_type == "return") {
+                    update_stock(product_variant_ids: $item->id, qtns: $item->qty);
+                    updateWarehouseStocks(warehouse_id: $warehouse_id,  product_variant_id: $item->id,  warehouse_stock: $item->qty, type: 0);
+                }
+            }
+            $response = [
+                'error' => false,
+                'message' => 'Purchase Order saved successfully',
+                'data' => []
+            ];
+            $response['csrf_token'] = csrf_token();
+            $response['csrf_hash'] = csrf_hash();
+            return $this->response->setJSON($response);
         }
     }
 
@@ -597,7 +567,7 @@ class Purchases extends BaseController
             } else {
                 $order = [];
             }
-            
+
             return view("admin/template", $data);
         }
     }

@@ -24,7 +24,20 @@ $routes->group('admin/home', function ($routes) {
     $routes->get('fetch_purchases', 'admin\Home::fetch_purchases');
     $routes->get('switch_businesses/(:any)', 'admin\Home::switch_businesses/$1');
 });
-
+$routes->group('admin/purchases', ['filter' => 'checkpermissions:module=purchases','permissioncheck'], function ($routes) {
+    $routes->get('', 'admin\Purchases::index', ['filter' => 'checkpermissions:action=can_read']);
+    $routes->get('get_suppliers', 'admin\Purchases::get_suppliers', ['filter' => 'checkpermissions:action=can_read']);
+    $routes->get('purchase_table', 'admin\Purchases::purchase_table', ['filter' => 'checkpermissions:action=can_read']);
+    $routes->get('view_purchase/(:any)', 'admin\Purchases::view_purchase/$1', ['filter' => 'checkpermissions:action=can_read']);
+    $routes->get('purchase_orders/(:any)', 'admin\Purchases::purchase_orders/$1', ['filter' => 'checkpermissions:action=can_create']);
+    $routes->post('save', 'admin\Purchases::save', ['filter' => 'checkpermissions:action=can_create']);
+    $routes->post('update_status_bulk', 'admin\Purchases::update_status_bulk', ['filter' => 'checkpermissions:action=can_update']);
+    $routes->get('invoice/(:any)', 'admin\Purchases::invoice/$1', ['filter' => 'checkpermissions:action=can_read']);
+    $routes->get('invoice_table/(:any)', 'admin\Purchases::invoice_table/$1', ['filter' => 'checkpermissions:action=can_read']);
+    $routes->get('update_order_status', 'admin\Purchases::update_order_status', ['filter' => 'checkpermissions:action=can_read']);
+    $routes->get('purchase_return', 'admin\Purchases::purchase_return', ['filter' => 'checkpermissions:action=can_read']);
+    $routes->get('purchase_return_table', 'admin\Purchases::purchase_return_table', ['filter' => 'checkpermissions:action=can_read']);
+});
 //,checkpermissions:module=customers
 $routes->group('admin/customers', ['filter' =>'checkpermissions:module=customers|permissioncheck'], function ($routes) {
     $routes->get('/', 'admin\Customers::index', ['action' => 'can_read']);
@@ -198,20 +211,7 @@ $routes->post('admin/invoices/send', 'admin\Invoices::send', ['filter' => 'check
 
 $routes->get('admin/posprinter', 'admin\Posprinter::index', ['filter' => 'checkpermissions:module=posprinter,action=can_read']);
 
-$routes->group('admin/purchases', ['filter' => 'checkpermissions:module=purchases'], function ($routes) {
-    $routes->get('', 'admin\Purchases::index', ['filter' => 'checkpermissions:action=can_read']);
-    $routes->get('get_suppliers', 'admin\Purchases::get_suppliers', ['filter' => 'checkpermissions:action=can_read']);
-    $routes->get('purchase_table', 'admin\Purchases::purchase_table', ['filter' => 'checkpermissions:action=can_read']);
-    $routes->get('view_purchase/(:any)', 'admin\Purchases::view_purchase/$1', ['filter' => 'checkpermissions:action=can_read']);
-    $routes->get('purchase_orders/(:any)', 'admin\Purchases::purchase_orders/$1', ['filter' => 'checkpermissions:action=can_create']);
-    $routes->post('save', 'admin\Purchases::save', ['filter' => 'checkpermissions:action=can_create']);
-    $routes->post('update_status_bulk', 'admin\Purchases::update_status_bulk', ['filter' => 'checkpermissions:action=can_update']);
-    $routes->get('invoice/(:any)', 'admin\Purchases::invoice/$1', ['filter' => 'checkpermissions:action=can_read']);
-    $routes->get('invoice_table/(:any)', 'admin\Purchases::invoice_table/$1', ['filter' => 'checkpermissions:action=can_read']);
-    $routes->get('update_order_status', 'admin\Purchases::update_order_status', ['filter' => 'checkpermissions:action=can_read']);
-    $routes->get('purchase_return', 'admin\Purchases::purchase_return', ['filter' => 'checkpermissions:action=can_read']);
-    $routes->get('purchase_return_table', 'admin\Purchases::purchase_return_table', ['filter' => 'checkpermissions:action=can_read']);
-});
+
 
 // Bulk Uploads and Transactions
 
