@@ -39,7 +39,7 @@
                                     <?php } else { ?>
                                         <label for="purchase_date">Return Date</label><span class="asterisk text-danger"> *</span>
                                     <?php } ?>
-                                    <input type="date" class="form-control" id="purchase_date" name="purchase_date">
+                                    <input type="date" class="form-control" id="purchase_date" name="purchase_date" value="<?=date('Y-m-d')?>">
                                 </div>
                             </div>
                             <div class="col-md-3">

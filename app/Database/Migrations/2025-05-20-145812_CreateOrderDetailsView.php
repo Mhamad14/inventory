@@ -9,11 +9,11 @@ class CreateOrderDetailsView extends Migration
     public function up()
     {
         $this->db->query("
-            DROP PROCEDURE IF EXISTS getOrderDetails;
+            DROP PROCEDURE IF EXISTS GetOrderDetails;
         ");
 
         $this->db->query("
-            CREATE PROCEDURE getOrderDetails(IN order_id INT)
+            CREATE PROCEDURE GetOrderDetails(IN order_id INT)
             BEGIN
                 SELECT 
                     o.*,
@@ -44,6 +44,6 @@ class CreateOrderDetailsView extends Migration
 
     public function down()
     {
-        $this->db->query("DROP PROCEDURE IF EXISTS getOrderDetails");
+        $this->db->query("DROP PROCEDURE IF EXISTS GetOrderDetails");
     }
 }

@@ -21,6 +21,10 @@ class Purchases extends BaseController
     protected $data;
     protected $settings;
     protected $business_id;
+
+    protected $status_model;
+    protected $warehouse_model;
+    protected $tax_model;
     public function __construct()
     {
         $this->ionAuth = new \App\Libraries\IonAuth();
@@ -29,31 +33,17 @@ class Purchases extends BaseController
         $this->configIonAuth = config('IonAuth');
         $this->session       = \Config\Services::session();
         $this->business_id = session('business_id') ?? "";
+        $this->status_model = new Status_model();
+        $this->warehouse_model = new WarehouseModel();
+        $this->tax_model = new Tax_model();
     }
     public function index()
     {
-
-
-        $orders = fetch_details('purchases', ['business_id' => $this->business_id]);
-
-        if (isset($orders) && !empty($orders)) {
-            foreach ($orders as $order) {
-                if (floatval($order['amount_paid']) == floatval($order['total'])) {
-                    update_details(['payment_status' => 'fully_paid'], ['id' => $order['id']], "purchases");
-                }
-                if (floatval($order['amount_paid']) < floatval($order['total'])) {
-                    update_details(['payment_status' => 'partially_paid'], ['id' => $order['id']], "purchases");
-                }
-                if (floatval($order['amount_paid']) == 0.00) {
-                    update_details(['payment_status' => 'unpaid'], ['id' => $order['id']], "purchases");
-                }
-            }
-        }
-        $data = $this->getData('purchases',fetch_details('purchases', ['business_id' => $this->business_id]), FORMS . 'purchases');
+        $data = $this->getData('purchases', fetch_details('purchases', ['business_id' => $this->business_id]), VIEWS . 'purchases_table');
         $data['order_type'] = 'order';
         return view("admin/template", $data);
     }
-    private function getData($tableName, $tableData, $page)
+    private function getData($tableName, $tableData, $page, $optionalData1 = '', $optionalData1Value = '', $optionalData2 = '', $optionalData2Value = '',)
     {
         $settings = get_settings('general', true);
         $languages = getLanguages();
@@ -65,7 +55,7 @@ class Purchases extends BaseController
             'business_id' => $this->business_id,
             'page' => $page,
             'title' => "Orders - " . $settings['title'] ?? "",
-            'from_title' => 'Customer Details',
+            'from_title' => 'Purchase',
             'meta_keywords' => "subscriptions app, digital subscription, daily subscription, software, app, module",
             'meta_description' => "Home - Welcome to Subscribers, a digital solution for your subscription-based daily problems",
             $tableName => $tableData,
@@ -73,58 +63,33 @@ class Purchases extends BaseController
             'user_id' => getUserId(),
             'vendor_id' => getUserId(),
             'currency' => $settings['currency_symbol'] ?? '₹',
+            $optionalData1 => $optionalData1Value,
+            $optionalData2 => $optionalData2Value,
         ];
     }
 
     public function purchase_orders($type = '')
-
     {
-        if (!$this->ionAuth->loggedIn() || (!$this->ionAuth->isAdmin() && !$this->ionAuth->isTeamMember())) {
-            return redirect()->to('login');
-        } else {
-            $version = fetch_details('updates', [], ['version'], '1', '0', 'id', 'DESC')[0]['version'];
-            $data['version'] = $version;
-            $session = session();
-            $lang = $session->get('lang');
-            if (empty($lang)) {
-                $lang = 'en';
-            }
-            $uri = current_url(true);
-            // $orderType = $uri->getSegment(6);
-            $data['code'] = $lang;
-            $data['current_lang'] = $lang;
-            $data['languages_locale'] = fetch_details('languages', [], [], null, '0', 'id', 'ASC');
-            $settings = get_settings('general', true);
-            $company_title = (isset($settings['title'])) ? $settings['title'] : "";
-            $data['page'] = FORMS . 'purchases';
-            $data['title'] = "Purchase Order- " . $company_title;
-            $data['meta_keywords'] = "subscriptions app, digital subscription, daily subscription, software, app, module";
-            $data['meta_description'] = "Home - Welcome to Subscribers, an digital solution for your subscription based daily problems";
-            $id = $_SESSION['user_id'];
-            $business_id = isset($_SESSION['business_id']) ? $_SESSION['business_id'] : "";
-            $data['vendor_id'] = $id;
-            $data['user'] = $this->ionAuth->user($id)->row();
-            $status_model = new Status_model();
-            $status = $status_model->get_status($business_id);
-            $data['currency'] = (isset($settings['currency_symbol'])) ? $settings['currency_symbol'] : '₹';
-            $data['status'] = isset($status) ? $status : "";
-            $data['order_type'] = $type;
-            $tax_model = new Tax_model();
-            $data['taxes'] = $tax_model->findAll();
+        $data = $this->getdata(
+            'taxes',
+            $this->tax_model->findAll(),
+            FORMS . 'purchases',
+            'status',
+            $this->status_model->get_status($this->business_id),
+            'warehouses',
+            $this->warehouse_model->where('business_id', $this->business_id)->get()->getResultArray()
+        );
+        $data['order_type'] = $type;
 
-            $warehouse_model = new WarehouseModel();
-            $data['warehouses']  =  $warehouse_model->where('business_id', $business_id)->get()->getResultArray();
-
-            return view("admin/template", $data);
-        }
+        return view("admin/template", $data);
     }
+    
     public function get_suppliers()
     {
-        $id = $_SESSION['user_id'];
         $suppliers_model = new Suppliers_model();
         $search = $this->request->getGet('search');
         if (!empty($search)) {
-            $response = $suppliers_model->search_suppliers($search, $id);
+            $response = $suppliers_model->search_suppliers($search);
 
             $response = json_decode($response);
             $data = [];
@@ -141,10 +106,6 @@ class Purchases extends BaseController
 
     public function save()
     {
-        if (!$this->ionAuth->loggedIn() || (!$this->ionAuth->isAdmin() && !$this->ionAuth->isTeamMember())) {
-            return redirect()->to('login');
-        }
-
         $rules = [
             'purchase_date' => [
                 'rules' => 'required',
@@ -373,74 +334,68 @@ class Purchases extends BaseController
 
     public function view_purchase($purchase_id)
     {
-        if (!$this->ionAuth->loggedIn() || (!$this->ionAuth->isAdmin() && !$this->ionAuth->isTeamMember())) {
-            return redirect()->to('login');
-        } else {
-
-            $version = fetch_details('updates', [], ['version'], '1', '0', 'id', 'DESC')[0]['version'];
-            $data['version'] = $version;
-            $session = session();
-            $lang = $session->get('lang');
-            if (empty($lang)) {
-                $lang = 'en';
-            }
-            $data['code'] = $lang;
-            $data['current_lang'] = $lang;
-            $data['languages_locale'] = fetch_details('languages', [], [], null, '0', 'id', 'ASC');
-            $settings = get_settings('general', true);
-            $company_title = (isset($settings['title'])) ? $settings['title'] : "";
-            $data['page'] = VIEWS . 'view_purchase';
-            $data['title'] = "Purchase Order Details - " . $company_title;
-            $data['meta_keywords'] = "subscriptions app, digital subscription, daily subscription, software, app, module";
-            $data['meta_description'] = "Home - Welcome to Subscribers, an digital solution for your subscription based daily problems";
-            $id = $_SESSION['user_id'];
-            $business_id = isset($_SESSION['business_id']) ? $_SESSION['business_id'] : "";
-            $data['vendor_id'] = $id;
-            $data['user'] = $this->ionAuth->user($id)->row();
-            $status_model = new Status_model();
-            $status = $status_model->get_status($business_id);
-            $data['status'] = isset($status) ? $status : "";
-            $data['currency'] = (isset($settings['currency_symbol'])) ? $settings['currency_symbol'] : '₹';
-            $data['has_transactions'] = true;
-            $purchase = get_purchase_items($purchase_id)[0];
-            $supplier = fetch_details("suppliers", ['user_id' => $purchase['supplier_id']]);
-            if (empty($supplier)) {
-                // If no customer is found by "user_id", assume "customer_id" refers directly to the "customers" table "id"
-                $supplier = fetch_details("suppliers", ['id' => $purchase['supplier_id']]);
-                $supplier_id = $supplier[0]['id'];   // Update customer_id to the correct "customers" table ID
-            } else {
-                $supplier_id = $supplier[0]['id']; // Update customer_id to the correct "customers" table ID
-            }
-
-
-
-            if (!empty($purchase['payment_status'])  && $purchase['payment_status'] == "fully_paid" &&  $purchase['payment_status'] != "unpaid" && $purchase['payment_status'] != "partially_paid" && $purchase['payment_status'] != "cancelled") {
-                if (!empty($purchase['payment_method']) && $purchase['payment_method'] != "cash" && $purchase['payment_method'] != "wallet") {
-                    $db = \config\Database::connect();
-                    $order_transaction_id = $db->table('customers_transactions')->select('*')->where(['order_id' => $purchase_id, 'supplier_id' => $supplier_id])->get()->getResultArray();
-                    $order_transaction_id = (isset($order_transaction_id[0]) && !empty($order_transaction_id[0]['transaction_id'])) ? $order_transaction_id[0]['transaction_id'] : '';
-                    $data['order']['order_transaction_id']  = $order_transaction_id;
-                }
-                $data['has_transactions'] = false;
-            }
-
-            // echo "<pre>";
-            // print_r($purchase);
-            // echo "<br>" ;
-            // print_r($data);
-            // die();
-            $data['order'] = $purchase;
-            $data['order']['supplier_name'] = get_supplier($supplier[0]['user_id']);
-            $data['items'] = $purchase['items'];
-
-
-            return view("admin/template", $data);
+        $version = fetch_details('updates', [], ['version'], '1', '0', 'id', 'DESC')[0]['version'];
+        $data['version'] = $version;
+        $session = session();
+        $lang = $session->get('lang');
+        if (empty($lang)) {
+            $lang = 'en';
         }
+        $data['code'] = $lang;
+        $data['current_lang'] = $lang;
+        $data['languages_locale'] = fetch_details('languages', [], [], null, '0', 'id', 'ASC');
+        $settings = get_settings('general', true);
+        $company_title = (isset($settings['title'])) ? $settings['title'] : "";
+        $data['page'] = VIEWS . 'view_purchase';
+        $data['title'] = "Purchase Order Details - " . $company_title;
+        $data['meta_keywords'] = "subscriptions app, digital subscription, daily subscription, software, app, module";
+        $data['meta_description'] = "Home - Welcome to Subscribers, an digital solution for your subscription based daily problems";
+        $id = $_SESSION['user_id'];
+        $business_id = isset($_SESSION['business_id']) ? $_SESSION['business_id'] : "";
+        $data['vendor_id'] = $id;
+        $data['user'] = $this->ionAuth->user($id)->row();
+        $status_model = new Status_model();
+        $status = $status_model->get_status($business_id);
+        $data['status'] = isset($status) ? $status : "";
+        $data['currency'] = (isset($settings['currency_symbol'])) ? $settings['currency_symbol'] : '₹';
+        $data['has_transactions'] = true;
+        $purchase = get_purchase_items($purchase_id)[0];
+        $supplier = fetch_details("suppliers", ['user_id' => $purchase['supplier_id']]);
+        if (empty($supplier)) {
+            // If no customer is found by "user_id", assume "customer_id" refers directly to the "customers" table "id"
+            $supplier = fetch_details("suppliers", ['id' => $purchase['supplier_id']]);
+            $supplier_id = $supplier[0]['id'];   // Update customer_id to the correct "customers" table ID
+        } else {
+            $supplier_id = $supplier[0]['id']; // Update customer_id to the correct "customers" table ID
+        }
+
+
+
+        if (!empty($purchase['payment_status'])  && $purchase['payment_status'] == "fully_paid" &&  $purchase['payment_status'] != "unpaid" && $purchase['payment_status'] != "partially_paid" && $purchase['payment_status'] != "cancelled") {
+            if (!empty($purchase['payment_method']) && $purchase['payment_method'] != "cash" && $purchase['payment_method'] != "wallet") {
+                $db = \config\Database::connect();
+                $order_transaction_id = $db->table('customers_transactions')->select('*')->where(['order_id' => $purchase_id, 'supplier_id' => $supplier_id])->get()->getResultArray();
+                $order_transaction_id = (isset($order_transaction_id[0]) && !empty($order_transaction_id[0]['transaction_id'])) ? $order_transaction_id[0]['transaction_id'] : '';
+                $data['order']['order_transaction_id']  = $order_transaction_id;
+            }
+            $data['has_transactions'] = false;
+        }
+
+        // echo "<pre>";
+        // print_r($purchase);
+        // echo "<br>" ;
+        // print_r($data);
+        // die();
+        $data['order'] = $purchase;
+        $data['order']['supplier_name'] = get_supplier($supplier[0]['user_id']);
+        $data['items'] = $purchase['items'];
+
+
+        return view("admin/template", $data);
     }
 
     public function update_status_bulk()
     {
-
         $status = $_POST['status'];
         $item_id = $_POST['item_ids'];
         $msg = "";
@@ -498,78 +453,73 @@ class Purchases extends BaseController
     }
 
     public function invoice($purchase_id)
-
     {
-        if (!$this->ionAuth->loggedIn() || (!$this->ionAuth->isAdmin() && !$this->ionAuth->isTeamMember())) {
-            return redirect()->to('login');
-        } else {
-            $version = fetch_details('updates', [], ['version'], '1', '0', 'id', 'DESC')[0]['version'];
-            $data['version'] = $version;
-            $business_id = isset($_SESSION['business_id']) ? $_SESSION['business_id'] : "";
-            $session = session();
-            $lang = $session->get('lang');
-            if (empty($lang)) {
-                $lang = 'en';
-            }
-            $data['code'] = $lang;
-            $data['current_lang'] = $lang;
-            $data['languages_locale'] = fetch_details('languages', [], [], null, '0', 'id', 'ASC');
-            $settings = get_settings('general', true);
-            $data['currency'] = (isset($settings['currency_symbol'])) ? $settings['currency_symbol'] : '₹';
-            $company_title = (isset($settings['title'])) ? $settings['title'] : "";
-            $data['page'] = VIEWS . "purchase_invoice";
-
-            $data['title'] = "Invoice - " . $company_title;
-            $data['meta_keywords'] = "subscriptions app, digital subscription, daily subscription, software, app, module";
-            $data['meta_description'] = "Home - Welcome to Subscribers, an digital solution for your subscription based daily problems";
-            $user_id = $_SESSION['user_id'];
-            $id = 0;
-            if ($this->ionAuth->isTeamMember()) {
-                $id = get_vendor_for_teamMember($user_id);
-            } else {
-                $id = $user_id;
-            }
-            $data['business_id'] = $business_id;
-            $data['user'] = $this->ionAuth->user($id)->row();
-            $purchase_model = new Purchases_model();
-            $tax_model = new Tax_model();
-            $order = $purchase_model->get_purchase_invoice($purchase_id, $business_id);
-            $subTotal = 0;
-            foreach ($order as $order_item) {
-                $subTotal += floatval($order_item['quantity'] * $order_item['price']) - floatval($order_item['discount']);
-            }
-            if (isset($order) && !empty($order)) {
-                $data['order'] = $order[0];
-                if (gettype(value: json_decode($order[0]['tax_ids']))  != 'array') {
-                    $tax = $tax_model->find($order[0]['tax_ids']);
-                    $taxes = [];
-                    if (! empty($tax)) {
-                        $taxes[] = [
-                            'id' => $tax['id'],
-                            'name' => $tax['name'],
-                            'percentage' => $tax['percentage'],
-                        ];
-                    }
-                    $data['tax'] = $taxes;
-                } else {
-                    $taxes = [];
-                    foreach (json_decode($order[0]['tax_ids']) as $tax_id) {
-                        $tax = $tax_model->find($tax_id);
-                        $taxes[] = [
-                            'id' => $tax['id'],
-                            'name' => $tax['name'],
-                            'percentage' => $tax['percentage'],
-                        ];
-                    }
-                    $data['tax'] = $taxes;
-                }
-                $data['sub_total'] = $subTotal;
-            } else {
-                $order = [];
-            }
-
-            return view("admin/template", $data);
+        $version = fetch_details('updates', [], ['version'], '1', '0', 'id', 'DESC')[0]['version'];
+        $data['version'] = $version;
+        $business_id = isset($_SESSION['business_id']) ? $_SESSION['business_id'] : "";
+        $session = session();
+        $lang = $session->get('lang');
+        if (empty($lang)) {
+            $lang = 'en';
         }
+        $data['code'] = $lang;
+        $data['current_lang'] = $lang;
+        $data['languages_locale'] = fetch_details('languages', [], [], null, '0', 'id', 'ASC');
+        $settings = get_settings('general', true);
+        $data['currency'] = (isset($settings['currency_symbol'])) ? $settings['currency_symbol'] : '₹';
+        $company_title = (isset($settings['title'])) ? $settings['title'] : "";
+        $data['page'] = VIEWS . "purchase_invoice";
+
+        $data['title'] = "Invoice - " . $company_title;
+        $data['meta_keywords'] = "subscriptions app, digital subscription, daily subscription, software, app, module";
+        $data['meta_description'] = "Home - Welcome to Subscribers, an digital solution for your subscription based daily problems";
+        $user_id = $_SESSION['user_id'];
+        $id = 0;
+        if ($this->ionAuth->isTeamMember()) {
+            $id = get_vendor_for_teamMember($user_id);
+        } else {
+            $id = $user_id;
+        }
+        $data['business_id'] = $business_id;
+        $data['user'] = $this->ionAuth->user($id)->row();
+        $purchase_model = new Purchases_model();
+        $tax_model = new Tax_model();
+        $order = $purchase_model->get_purchase_invoice($purchase_id, $business_id);
+        $subTotal = 0;
+        foreach ($order as $order_item) {
+            $subTotal += floatval($order_item['quantity'] * $order_item['price']) - floatval($order_item['discount']);
+        }
+        if (isset($order) && !empty($order)) {
+            $data['order'] = $order[0];
+            if (gettype(value: json_decode($order[0]['tax_ids']))  != 'array') {
+                $tax = $tax_model->find($order[0]['tax_ids']);
+                $taxes = [];
+                if (! empty($tax)) {
+                    $taxes[] = [
+                        'id' => $tax['id'],
+                        'name' => $tax['name'],
+                        'percentage' => $tax['percentage'],
+                    ];
+                }
+                $data['tax'] = $taxes;
+            } else {
+                $taxes = [];
+                foreach (json_decode($order[0]['tax_ids']) as $tax_id) {
+                    $tax = $tax_model->find($tax_id);
+                    $taxes[] = [
+                        'id' => $tax['id'],
+                        'name' => $tax['name'],
+                        'percentage' => $tax['percentage'],
+                    ];
+                }
+                $data['tax'] = $taxes;
+            }
+            $data['sub_total'] = $subTotal;
+        } else {
+            $order = [];
+        }
+
+        return view("admin/template", $data);
     }
 
     public function invoice_table($purchase_id)
@@ -616,75 +566,56 @@ class Purchases extends BaseController
 
     public function purchase_return()
     {
-        if (!$this->ionAuth->loggedIn() || (!$this->ionAuth->isAdmin() && !$this->ionAuth->isTeamMember())) {
-            return redirect()->to('login');
-        } else {
-            if (! isset($_SESSION['business_id']) || empty($_SESSION['business_id'])) {
-                // business id is not set 
-                $business_model = new Businesses_model();
-                $allbusiness = $business_model->findAll();
-                if (empty($allbusiness)) {
-                    session()->setFlashdata('message', 'Please create a business !');
-                    session()->setFlashdata('type', 'error');
-                    return redirect()->to('admin/businesses');
-                } else {
-                    session()->setFlashdata('message', 'Please select a business !');
-                    session()->setFlashdata('type', 'error');
-                    return redirect()->to('admin/businesses');
-                }
-            }
-
-            $version = fetch_details('updates', [], ['version'], '1', '0', 'id', 'DESC')[0]['version'];
-            $data['version'] = $version;
-            $session = session();
-            $lang = $session->get('lang');
-            if (empty($lang)) {
-                $lang = 'en';
-            }
-            $data['code'] = $lang;
-            $data['current_lang'] = $lang;
-            $data['languages_locale'] = fetch_details('languages', [], [], null, '0', 'id', 'ASC');
-            $settings = get_settings('general', true);
-            $company_title = (isset($settings['title'])) ? $settings['title'] : "";
-            $data['page'] = VIEWS . 'purchases_return';
-            $data['title'] = "Purchase Return List - " . $company_title;
-            $data['meta_keywords'] = "subscriptions app, digital subscription, daily subscription, software, app, module";
-            $data['meta_description'] = "Home - Welcome to Subscribers, an digital solution for your subscription based daily problems";
-            $user_id = $_SESSION['user_id'];
-            $id = 0;
-            if ($this->ionAuth->isTeamMember()) {
-                $id = get_vendor_for_teamMember($user_id);
-            } else {
-                $id = $user_id;
-            }
-            $business_id = isset($_SESSION['business_id']) ? $_SESSION['business_id'] : "";
-            $data['vendor_id'] = $id;
-            $data['user'] = $this->ionAuth->user($id)->row();
-            $status_model = new Status_model();
-            $status = $status_model->get_status($business_id);
-            $data['currency'] = (isset($settings['currency_symbol'])) ? $settings['currency_symbol'] : '₹';
-            $data['status'] = isset($status) ? $status : "";
-            $tax_model = new Tax_model();
-            $data['taxes'] = $tax_model->findAll();
-            $data['order_type'] = 'return';
-            $orders = fetch_details('purchases', ['business_id' => $business_id]);
-
-            if (isset($orders) && !empty($orders)) {
-                foreach ($orders as $order) {
-                    if (floatval($order['amount_paid']) == floatval($order['total'])) {
-                        update_details(['payment_status' => 'fully_paid'], ['id' => $order['id']], "purchases");
-                    }
-                    if (floatval($order['amount_paid']) < floatval($order['total'])) {
-                        update_details(['payment_status' => 'partially_paid'], ['id' => $order['id']], "purchases");
-                    }
-                    if (floatval($order['amount_paid']) == 0.00) {
-                        update_details(['payment_status' => 'unpaid'], ['id' => $order['id']], "purchases");
-                    }
-                }
-            }
-
-            return view("admin/template", $data);
+        $version = fetch_details('updates', [], ['version'], '1', '0', 'id', 'DESC')[0]['version'];
+        $data['version'] = $version;
+        $session = session();
+        $lang = $session->get('lang');
+        if (empty($lang)) {
+            $lang = 'en';
         }
+        $data['code'] = $lang;
+        $data['current_lang'] = $lang;
+        $data['languages_locale'] = fetch_details('languages', [], [], null, '0', 'id', 'ASC');
+        $settings = get_settings('general', true);
+        $company_title = (isset($settings['title'])) ? $settings['title'] : "";
+        $data['page'] = VIEWS . 'purchases_return';
+        $data['title'] = "Purchase Return List - " . $company_title;
+        $data['meta_keywords'] = "subscriptions app, digital subscription, daily subscription, software, app, module";
+        $data['meta_description'] = "Home - Welcome to Subscribers, an digital solution for your subscription based daily problems";
+        $user_id = $_SESSION['user_id'];
+        $id = 0;
+        if ($this->ionAuth->isTeamMember()) {
+            $id = get_vendor_for_teamMember($user_id);
+        } else {
+            $id = $user_id;
+        }
+        $business_id = isset($_SESSION['business_id']) ? $_SESSION['business_id'] : "";
+        $data['vendor_id'] = $id;
+        $data['user'] = $this->ionAuth->user($id)->row();
+        $status_model = new Status_model();
+        $status = $status_model->get_status($business_id);
+        $data['currency'] = (isset($settings['currency_symbol'])) ? $settings['currency_symbol'] : '₹';
+        $data['status'] = isset($status) ? $status : "";
+        $tax_model = new Tax_model();
+        $data['taxes'] = $tax_model->findAll();
+        $data['order_type'] = 'return';
+        $orders = fetch_details('purchases', ['business_id' => $business_id]);
+
+        if (isset($orders) && !empty($orders)) {
+            foreach ($orders as $order) {
+                if (floatval($order['amount_paid']) == floatval($order['total'])) {
+                    update_details(['payment_status' => 'fully_paid'], ['id' => $order['id']], "purchases");
+                }
+                if (floatval($order['amount_paid']) < floatval($order['total'])) {
+                    update_details(['payment_status' => 'partially_paid'], ['id' => $order['id']], "purchases");
+                }
+                if (floatval($order['amount_paid']) == 0.00) {
+                    update_details(['payment_status' => 'unpaid'], ['id' => $order['id']], "purchases");
+                }
+            }
+        }
+
+        return view("admin/template", $data);
     }
 
     public function purchase_return_table()
