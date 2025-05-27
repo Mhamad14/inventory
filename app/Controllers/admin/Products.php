@@ -24,701 +24,263 @@ class Products extends BaseController
     protected $configIonAuth;
     protected $session;
     protected $data;
+    protected $business_id;
+
+    protected $category_model;
+    protected $warehouse_model;
+    protected $brand_model;
+    protected $tax_model;
+    protected $units_model;
+    protected $products_model;
+    protected $products_variants_model;
+    protected $warehouse_product_stock_model;
     public function __construct()
     {
         $this->ionAuth = new \App\Libraries\IonAuth();
         $this->validation = \Config\Services::validation();
-        helper(['form', 'url', 'filesystem']);
+        helper(['form', 'url', 'filesystem', 'products']);
         $this->configIonAuth = config('IonAuth');
         $this->session       = \Config\Services::session();
+
+        $this->business_id = session('business_id');
+        $this->category_model = new Categories_model();
+        $this->warehouse_model = new WarehouseModel();
+        $this->brand_model = new BrandModel();
+        $this->tax_model = new Tax_model();
+        $this->units_model = new Units_model();
+        $this->products_model = new Products_model();
+        $this->products_variants_model = new products_variants_model();
+        $this->warehouse_product_stock_model = new WarehouseProductStockModel();
     }
     public function index()
     {
-        if (!$this->ionAuth->loggedIn() || (!$this->ionAuth->isAdmin() && !$this->ionAuth->isTeamMember())) {
-            return redirect()->to('login');
-        } else {
-            if (! isset($_SESSION['business_id']) || empty($_SESSION['business_id'])) {
-                // business id is not set 
-                $business_model = new Businesses_model();
-                $allbusiness = $business_model->findAll();
-                if (empty($allbusiness)) {
-                    session()->setFlashdata('message', 'Please create a business !');
-                    session()->setFlashdata('type', 'error');
-                    return redirect()->to('admin/businesses');
-                } else {
-                    session()->setFlashdata('message', 'Please select a business !');
-                    session()->setFlashdata('type', 'error');
-                    return redirect()->to('admin/businesses');
-                }
-            }
-            $version = fetch_details('updates', [], ['version'], '1', '0', 'id', 'DESC')[0]['version'];
-            $data['version'] = $version;
-            $session = session();
-            $lang = $session->get('lang');
-            if (empty($lang)) {
-                $lang = 'en';
-            }
-            $data['code'] = $lang;
-            $data['current_lang'] = $lang;
-            $data['languages_locale'] = fetch_details('languages', [], [], null, '0', 'id', 'ASC');
-
-            $settings = get_settings('general', true);
-            $company_title = (isset($settings['title'])) ? $settings['title'] : "";
-            $data['page'] = VIEWS . "products_table";
-            $data['title'] = "Products - " . $company_title;
-            $data['meta_keywords'] = "subscriptions app, digital subscription, daily subscription, software, app, module";
-            $data['meta_description'] = "Home - Welcome to Subscribers, an digital solution for your subscription based daily problems";
-            $user_id = $_SESSION['user_id'];
-            $id = 0;
-            if ($this->ionAuth->isTeamMember()) {
-                $id = get_vendor_for_teamMember($user_id);
-            } else {
-                $id = $user_id;
-            }
-            $category_model = new Categories_model();
-
-            $data['brands'] = (new BrandModel())->findAll();
-            $business_id = isset($_SESSION['business_id']) ? $_SESSION['business_id'] : "";
-            $data['categories'] =  $category_model->get_categories($id, $business_id);
-
-            $data['business_id'] = $business_id;
-            $data['user'] = $this->ionAuth->user($id)->row();
-            return view("admin/template", $data);
-        }
+        $data = $this->getdata('Products', 'brands', (new BrandModel())->findAll(), VIEWS . "products_table", 'categories', (new Categories_model())->get_categories(getUserId(), $this->business_id));
+        return view("admin/template", $data);
     }
+
+    private function getData($fromTitle, $tableName, $tableData, $page, $optionalData1 = '', $optionalData1Value = '', $optionalData2 = '', $optionalData2Value = '',)
+    {
+        $settings = get_settings('general', true);
+        $languages = getLanguages();
+        return [
+            'version' => getAppVersion(),
+            'code' => session('lang') ?? 'en',
+            'current_lang' => session('lang') ?? 'en',
+            'languages_locale' => $languages,
+            'business_id' => $this->business_id,
+            'page' => $page,
+            'title' => "Products - " . $settings['title'] ?? "",
+            'from_title' => $fromTitle,
+            'meta_keywords' => "subscriptions app, digital subscription, daily subscription, software, app, module",
+            'meta_description' => "Home - Welcome to Subscribers, a digital solution for your subscription-based daily problems",
+            $tableName => $tableData,
+            'user' => $this->ionAuth->user(session('user_id'))->row(),
+            'user_id' => getUserId(),
+            'vendor_id' => getUserId(),
+            'currency' => $settings['currency_symbol'] ?? '₹',
+            $optionalData1 => $optionalData1Value,
+            $optionalData2 => $optionalData2Value,
+        ];
+    }
+
     public function stock($flag = "")
     {
-        if (!$this->ionAuth->loggedIn() || (!$this->ionAuth->isAdmin() && !$this->ionAuth->isTeamMember())) {
-            return redirect()->to('login');
-        } else {
-            if (! isset($_SESSION['business_id']) || empty($_SESSION['business_id'])) {
-                // business id is not set 
-                $business_model = new Businesses_model();
-                $allbusiness = $business_model->findAll();
-                if (empty($allbusiness)) {
-                    session()->setFlashdata('message', 'Please create a business !');
-                    session()->setFlashdata('type', 'error');
-                    return redirect()->to('admin/businesses');
-                } else {
-                    session()->setFlashdata('message', 'Please select a business !');
-                    session()->setFlashdata('type', 'error');
-                    return redirect()->to('admin/businesses');
-                }
-            }
-            $version = fetch_details('updates', [], ['version'], '1', '0', 'id', 'DESC')[0]['version'];
-            $data['version'] = $version;
-            $session = session();
-            $lang = $session->get('lang');
-            if (empty($lang)) {
-                $lang = 'en';
-            }
-            $data['code'] = $lang;
-            $data['current_lang'] = $lang;
-            $data['languages_locale'] = fetch_details('languages', [], [], null, '0', 'id', 'ASC');
-            $data['flag'] = $flag;
-            $settings = get_settings('general', true);
-            $company_title = (isset($settings['title'])) ? $settings['title'] : "";
-            $data['page'] = VIEWS . "stock_table";
-            $data['title'] = "Products - " . $company_title;
-            $data['meta_keywords'] = "subscriptions app, digital subscription, daily subscription, software, app, module";
-            $data['meta_description'] = "Home - Welcome to Subscribers, an digital solution for your subscription based daily problems";
-            $user_id = $_SESSION['user_id'];
-            $id = 0;
-            if ($this->ionAuth->isTeamMember()) {
-                $id = get_vendor_for_teamMember($user_id);
-            } else {
-                $id = $user_id;
-            }
-            $business_id = isset($_SESSION['business_id']) ? $_SESSION['business_id'] : "";
-            $data['business_id'] = $business_id;
+        // $data = $this->getdata('categories', $this->category_model->get_categories(getUserId(), $this->business_id), VIEWS . "stock_table");
+        $data['flag'] = $flag;
 
-            $category_model = new Categories_model();
-            $data['categories'] =  $category_model->get_categories($id, $business_id);
-
-            $data['user'] = $this->ionAuth->user($id)->row();
-            return view("admin/template", $data);
-        }
+        return view("admin/template", $data);
     }
 
     public function Add_products()
     {
-
-        if (!$this->ionAuth->loggedIn() || (!$this->ionAuth->isAdmin() && !$this->ionAuth->isTeamMember())) {
-            return redirect()->to('login');
-        } else {
-            if (check_data_in_table('businesses', $_SESSION['business_id'])) {
-                return redirect()->to("admin/businesses");
-            } else {
-                if (isset($_SESSION['business_id'])) {
-                    if (check_data_in_table('businesses', $_SESSION['business_id'])) {
-                        return redirect()->to("admin/businesses");
-                    }
-                }
-                $version = fetch_details('updates', [], ['version'], '1', '0', 'id', 'DESC')[0]['version'];
-                $data['version'] = $version;
-                $session = session();
-                $lang = $session->get('lang');
-                if (empty($lang)) {
-                    $lang = 'en';
-                }
-                $data['code'] = $lang;
-                $data['current_lang'] = $lang;
-                $data['languages_locale'] = fetch_details('languages', [], [], null, '0', 'id', 'ASC');
-                $settings = get_settings('general', true);
-                $company_title = (isset($settings['title'])) ? $settings['title'] : "";
-                $data['page'] = FORMS . "product";
-                $data['title'] = "Add Products - " . $company_title;
-                $data['from_title'] = "add_product";
-                $data['meta_keywords'] = "subscriptions app, digital subscription, daily subscription, software, app, module";
-                $data['meta_description'] = "Home - Welcome to Subscribers, an digital solution for your subscription based daily problems";
-                $user_id = $_SESSION['user_id'];
-                $id = 0;
-                if ($this->ionAuth->isTeamMember()) {
-                    $id = get_vendor_for_teamMember($user_id);
-                } else {
-                    $id = $user_id;
-                }
-                $business_id = isset($_SESSION['business_id']) ? $_SESSION['business_id'] : "";
-
-                $data['user'] = $this->ionAuth->user($id)->row();
-                // get all units
-                $units_model = new Units_model();
-                $data['units'] =  $units_model->get_units_for_forms($id);
-                // get all warehouses 
-                $warehouse_model = new WarehouseModel();
-                $all_warehouses  =  $warehouse_model->where('business_id', $business_id)->get()->getResultArray();
-                $data['all_warehouses'] = $all_warehouses; // this for setting all warehouse in input tag , So that it can be use in js for adding warehouse check for class=addWarehouseBtn click event in custom.vendor.js  and id=add_variant click event ; 
-
-                // get all categories
-                $category_model = new Categories_model();
-                $data['categories'] = $category_model->get_categories($id, $business_id);
-                // get all taxies
-                $tax_model = new Tax_model();
-                $data['taxes'] = $tax_model->findAll();
-
-                // get all brands
-                $brand_model = new BrandModel();
-                $data['brands'] = $brand_model->findAll();
+        $user_id = getUserId();
+        $data = $this->getData(
+            'Add Products',
+            'categories',
+            $this->category_model->get_categories($user_id, $this->business_id),
+            FORMS . "product",
+            'brands',
+            $this->brand_model->where('business_id', $this->business_id)->findAll(),
+            'units',
+            $this->units_model->get_units_for_forms($user_id),
+        );
 
 
-                $warehouse_model = new WarehouseModel();
-                $data['warehouses']  =  $warehouse_model->where('business_id', $business_id)->get()->getResultArray();
-
-                return view("admin/template", $data);
-            }
-        }
+        return view("admin/template", $data);
     }
+
     public function save_products()
     {
         if (defined('ALLOW_MODIFICATION') && ALLOW_MODIFICATION == 0) {
-            $response = [
+            return $this->response->setJSON(csrfResponseData([
                 'error' => true,
                 'message' => [DEMO_MODE_ERROR],
-                'csrfName' => csrf_token(),
-                'csrfHash' => csrf_hash(),
                 'data' => []
-            ];
-
-            return $this->response->setJSON($response);
+            ]));
         }
-        if (!$this->ionAuth->loggedIn() || (!$this->ionAuth->isAdmin() && !$this->ionAuth->isTeamMember())) {
-            return redirect()->to('login');
-        } else {
-            if (isset($_POST) && !empty($_POST)) {
-                $products_model = new products_model();
-                $old_icon = $this->request->getVar('old_image');
 
-                if (isset($_POST['product_id']) && !empty($_POST['product_id'])) {
-                    $this->validation->setRules([
-                        'name' => [
-                            'rules' => 'required',
-                            'label' => 'Name'
-                        ],
-                        'description' => [
-                            'rules' => 'required',
-                            'label' => 'Description'
-                        ],
-                        'product_type' => [
-                            'rules' => 'required',
-                            'label' => 'Product type'
-                        ]
-                    ]);
-                } else {
-                    $this->validation->setRules([
-                        'name' => [
-                            'rules' => 'required',
-                            'label' => 'Name'
-                        ],
-                        'description' => [
-                            'rules' => 'required',
-                            'label' => 'Description'
-                        ],
-                        'product_type' => [
-                            'rules' => 'required',
-                            'label' => 'Product type'
-                        ],
-                        'variant_name' => [
-                            'rules' => 'required',
-                            'label' => 'Variant name'
-                        ]
-                    ]);
-                }
+        if (empty($_POST)) {
+            return false;
+        }
 
-                $path = './public/uploads/products/';
-                if (!empty($_FILES['image']) && isset($_FILES['image'])) {
-                    $file =  $this->request->getFile('image');
-                    if ($file->isValid()) {
-                        if ($file->move($path)) {
-                            if (fileExists($old_icon) && !empty($old_icon)) {
-                                unlink($old_icon);
-                            }
-                            $image = 'public/uploads/products/' . $file->getName();
-                        }
-                    } else {
-                        $image = $old_icon;
-                    }
-                }
+        // validation rules
+        $this->validation->setRules([
+            'name' => 'required',
+            'description' => 'required',
+            'variant_name' => 'required',
+            'unit_id.*' => 'required|numeric'
+        ]);
 
-                if (!$this->validation->withRequest($this->request)->run()) {
-                    $errors = $this->validation->getErrors();
-                    $response = [
-                        'error' => true,
-                        'message' => $errors,
-                        'data' => []
-                    ];
-                    $response['csrf_token'] = csrf_token();
-                    $response['csrf_hash'] = csrf_hash();
-                    return $this->response->setJSON($response);
-                } else {
-                    if ($this->ionAuth->isTeamMember()) {
-                        $vendor_id = get_vendor_for_teamMember($this->ionAuth->getUserId());
-                    } else {
-                        $vendor_id = $_SESSION['user_id'];
-                    }
+        if (!$this->validation->withRequest($this->request)->run()) {
+            return $this->response->setJSON(csrfResponseData([
+                'error' => true,
+                'message' => $this->validation->getErrors(),
+                'data' => []
+            ]));
+        }
 
-                    // checking manually whether warehouse is selected or not for each variant.
-                    $checking_warehouses = $this->request->getVar('warehouses');
-                    foreach ($checking_warehouses as $warehouse => $keys) {
-                        foreach ($keys['warehouse_ids'] as $warehouse_id) {
-
-                            if (empty($warehouse_id)) {
-                                $response = [
-                                    'error' => true,
-                                    'message' => ["Please select Warehouse for all variants "],
-                                    'data' => []
-                                ];
-                                $response['csrf_token'] = csrf_token();
-                                $response['csrf_hash'] = csrf_hash();
-                                return $this->response->setJSON($response);
-                            }
-                        }
-                    }
-
-
-                    $status = isset($_POST['status']) ? "1" : "0";
-                    $is_tax_included = isset($_POST['is_tax_inlcuded']) ? "1" : "0";
-
-                    $tax_ids = '[]';
-
-                    if ($is_tax_included === "0") {
-                        $tax_ids_input = $this->request->getVar('tax_ids');
-                        if ($tax_ids_input) {
-                            $tax_ids_input = json_decode($tax_ids_input);
-                            $tax_ids = [];
-                            if (is_array($tax_ids_input)) {
-                                foreach ($tax_ids_input as $tax) {
-                                    $tax_ids[] = $tax->id;
-                                }
-                            }
-                            $tax_ids = json_encode($tax_ids);
-                        }
-                    }
-
-                    $business_id = isset($_SESSION['business_id']) ? $_SESSION['business_id'] : "";
-                    $edit_product_id = isset($_POST['product_id']) ? $_POST['product_id'] : "";
-                    $stock_management_type = $this->request->getVar('stock_management_type');
-                    $brand_id = $this->request->getVar('brand_id');
-                    $brand_id = isset($brand_id) && ! empty($brand_id) ? $brand_id : null;
-
-                    if (isset($_POST['product_id'])) {
-                        if ($this->ionAuth->isTeamMember()) {
-                            if (!empty($this->request->getVar(index: 'product_id'))) {
-                                if (! userHasPermission('products', 'can_update', session('user_id'))) {
-                                    $response = [
-                                        'error' => true,
-                                        'message' => ['You do not have permission for this action'],
-                                        'data' => []
-                                    ];
-                                    $response['csrf_token'] = csrf_token();
-                                    $response['csrf_hash'] = csrf_hash();
-                                    return $this->response->setJSON($response);
-                                }
-                            } else {
-                                if (! userHasPermission('products', 'can_create', session('user_id'))) {
-                                    $response = [
-                                        'error' => true,
-                                        'message' => 'You do not have permission for this action',
-                                        'data' => []
-                                    ];
-                                    $response['csrf_token'] = csrf_token();
-                                    $response['csrf_hash'] = csrf_hash();
-                                    return $this->response->setJSON($response);
-                                }
-                            }
-                        }
-                    }
-
-                    $products = array(
-                        'id' => $edit_product_id,
-                        'vendor_id' => $vendor_id,
-                        'business_id' => $business_id,
-                        'category_id' => $this->request->getVar('category_id'),
-                        'tax_ids' => $tax_ids,
-                        'name' => $this->request->getVar('name'),
-                        'description' => $this->request->getVar('description'),
-                        'image' => $image,
-                        'type' => $this->request->getVar('product_type'),
-                        'stock_management' => $stock_management_type,
-                        'stock' => $this->request->getVar('simple_product_stock'),
-                        'qty_alert' => $this->request->getVar('simple_product_qty_alert'),
-                        'unit_id' => $this->request->getVar('simple_product_unit_id'),
-                        'brand_id' => $brand_id,
-                        'is_tax_included' => $is_tax_included,
-                        'status' => $status,
-                    );
-                    $products_model->save($products);
-                    $products_variants_model = new products_variants_model();
-                    if (isset($_POST['product_id']) && !empty($_POST['product_id'])) {
-                        $product_id = $_POST['product_id'];
-                    } else {
-                        $product_id = $products_model->getInsertID();
-                    }
-
-                    $variant_id = "";
-
-                    $warehouse_product_stock_model = new WarehouseProductStockModel();
-                    $currentDateTime = date('Y-m-d H:i:s');
-
-                    $variantName = $this->request->getVar('variant_name');
-                    $warehouses = $this->request->getVar('warehouses');
-                    $barcodes =  $this->request->getVar('variant_barcode');
-
-                    if ($variantName) {
-                        $variant_count = count($variantName);
-                        $variant_ids = $this->request->getVar('variant_id');
-                        $variants = [];
-
-                        for ($i = 0; $i < $variant_count; $i++) {
-
-                            if (isset($variant_ids[$i])) {
-                                $variants['id'] = $variant_ids[$i];
-                            }
-
-                            if ($stock_management_type == 1) {
-                                $variants['stock'] =  '0';
-                                $variants['qty_alert'] = '0';
-                                $variants['unit_id'] = '0';
-                            } else {
-                                if (isset($this->request->getVar('qty_alert')[$i])) {
-                                    $variants['qty_alert'] = $this->request->getVar('qty_alert')[$i];
-                                } else {
-                                    $variants['qty_alert'] = '0';
-                                }
-                                $variants['stock'] = $this->request->getVar('stock')[$i];
-                                $variants['unit_id']  = $this->request->getVar('unit_id')[$i];
-                            }
-
-
-                            $variants['product_id'] = $product_id;
-                            $variants['variant_name'] = $this->request->getVar('variant_name')[$i];
-                            $variants['barcode'] = isset($barcodes[$i])  && !empty($barcodes[$i]) ? $barcodes[$i] : null;
-                            $variants['sale_price'] = $this->request->getVar('sale_price')[$i];
-                            $variants['purchase_price'] = $this->request->getVar('purchase_price')[$i];
-
-                            $products_variants_model->save($variants);
-                            $products_variants_id = isset($variants['id']) ? $variants['id'] :  $products_variants_model->getInsertID();
-
-                            if (isset($warehouses[$i])) {
-                                $warehouse_ids = $warehouses[$i]['warehouse_ids'];
-                                $warehouse_stock = $warehouses[$i]['warehouse_stock'];
-                                $warehouse_qty_alert = $warehouses[$i]['warehouse_qty_alert'];
-                                // Loop through each warehouse related to this variant
-                                for ($k = 0; $k < count($warehouse_ids); $k++) {
-                                    $warehouse_id = empty($warehouse_ids[$k]) ? "1" : $warehouse_ids[$k];
-                                    $stock = empty($warehouse_stock[$k]) ? "0" : $warehouse_stock[$k];
-                                    $qty_alert = empty($warehouse_qty_alert[$k])  ? "0" : $warehouse_qty_alert[$k];
-                                    // Prepare the data for storage
-                                    $data = [
-                                        'warehouse_id' => $warehouse_id,
-                                        'product_variant_id' =>  $products_variants_id,  // Correct variant ID
-                                        'stock' =>  $stock,
-                                        'qty_alert' => $qty_alert,
-                                        'vendor_id' => $vendor_id,
-                                        'business_id' => $business_id,
-                                        'updated_at' => $currentDateTime,
-                                    ];
-
-                                    $existing_recode =  $warehouse_product_stock_model->where(['warehouse_id' => $warehouse_id, 'product_variant_id' => $products_variants_id])->get()->getResultArray();
-
-                                    if (!empty($existing_recode)) {
-                                        $data['id'] = $existing_recode[0]['id'];
-                                        $data['updated_at'] = $currentDateTime;
-                                    } else {
-                                        $data['created_at'] = $currentDateTime;
-                                    }
-
-                                    $warehouse_product_stock_model->save($data);
-                                }
-                            }
-                            if (isset($variants['id'])) {
-                                unset($variants['id']);
-                            }
-                        }
-                    }
-
-                    $response = [
-                        'error' => false,
-                        'message' => 'Product saved successfully',
-                        'data' => []
-                    ];
-                    $response['csrf_token'] = csrf_token();
-                    $response['csrf_hash'] = csrf_hash();
-                    return $this->response->setJSON($response);
-                }
-            } else {
-                return false;
+        $product_id = $this->request->getVar('product_id');
+        if ($this->ionAuth->isTeamMember()) {
+            $permission = $product_id ? 'can_update' : 'can_create';
+            if (!userHasPermission('products', $permission, session('user_id'))) {
+                return $this->response->setJSON(csrfResponseData([
+                    'success' => false,
+                    'message' => ['You do not have permission for this action'],
+                    'data' => []
+                ]));
             }
         }
+
+        // image choosing
+        $old_icon = $this->request->getVar('old_image');
+        $path = './public/uploads/products/';
+        if (!empty($_FILES['image']) && isset($_FILES['image'])) {
+            $file =  $this->request->getFile('image');
+            if ($file->isValid()) {
+                if ($file->move($path)) {
+                    if (fileExists($old_icon) && !empty($old_icon)) {
+                        unlink($old_icon);
+                    }
+                    $image = 'public/uploads/products/' . $file->getName();
+                }
+            } else {
+                $image = $old_icon;
+            }
+        }
+
+        $status = isset($_POST['status']) ? "1" : "0";
+        $brand_id = $this->request->getVar('brand_id') ?? null;
+
+        $product_data = [
+            'id' => $product_id,
+            'vendor_id' => getUserId(),
+            'business_id' => $this->business_id,
+            'category_id' => $this->request->getVar('category_id'),
+            'name' => $this->request->getVar('name'),
+            'description' => $this->request->getVar('description'),
+            'image' => $image,
+            'brand_id' => $brand_id,
+            'status' => $status
+        ];
+
+        $this->products_model->save($product_data);
+
+        $product_id = $product_id ?: $this->products_model->getInsertID();
+        $variantName = $this->request->getVar('variant_name');
+        $barcodes =  $this->request->getVar('variant_barcode');
+
+        if ($variantName) {
+            $variant_count = count($variantName);
+            $variant_ids = $this->request->getVar('variant_id');
+            $variants = [];
+
+            for ($i = 0; $i < $variant_count; $i++) {
+                if (isset($variant_ids[$i])) {
+                    $variants['id'] = $variant_ids[$i];
+                }
+
+                if (isset($this->request->getVar('qty_alert')[$i])) {
+                    $variants['qty_alert'] = $this->request->getVar('qty_alert')[$i];
+                } else {
+                    $variants['qty_alert'] = '0';
+                }
+                $variants['unit_id']  = $this->request->getVar('unit_id')[$i];
+                $variants['product_id'] = $product_id;
+                $variants['variant_name'] = $this->request->getVar('variant_name')[$i];
+                $variants['barcode'] = isset($barcodes[$i])  && !empty($barcodes[$i]) ? $barcodes[$i] : null;
+                $variants['status'] = $status;
+                $this->products_variants_model->save($variants);
+
+                if (isset($variants['id'])) {
+                    unset($variants['id']);
+                }
+            }
+        }
+
+        $response = [
+            'success' => true,
+            'message' => 'Product saved successfully',
+            'data' => []
+        ];
+        $response['csrf_token'] = csrf_token();
+        $response['csrf_hash'] = csrf_hash();
+        return $this->response->setJSON($response);
     }
     public function products_table()
     {
-        $business_id = isset($_SESSION['business_id']) ? $_SESSION['business_id'] : "";
-        $category_id = (!empty($_GET['category_id'])) ? $_GET['category_id'] : "";
-        $brand_id = (!empty($_GET['brand_id'])) ? $_GET['brand_id'] : "";
-        $limit = (!empty($_GET['limit'])) ? $_GET['limit'] : 10;
-        $offset = (!empty($_GET['offset'])) ? $_GET['offset'] : 0;
-        $sort = (!empty($_GET['sort'])) ? $_GET['sort'] : "id";
-        $order = (!empty($_GET['order'])) ? $_GET['order'] : "DESC";
-        $search = (!empty($_GET['search'])) ? $_GET['search'] : '';
-
-        // echo "<pre>";
-        // print_R($brand_id);
-        // die();
-
-        $products = fetch_products($business_id, $category_id, $brand_id, $search, $limit, $offset, $sort, $order);
-
-        $business_name = isset($_SESSION['business_name']) ? $_SESSION['business_name'] : "";
-        $total = $products['total'];
-        $units_model = new Units_model();
-        $category_model = new Categories_model();
-        $tax_model = new Tax_model();
-        $i = 0;
-
-        foreach ($products['products'] as $product) {
-            $product_unit_name = "";
-            $category_name = "";
-            $tax_name = "";
-            $tax_percentage = 0.00;
-
-            if (isset($product['unit_id']) && $product['unit_id'] != "0") {
-                $unit_id = $product['unit_id'];
-                $product_unit = $units_model->find($unit_id);
-                $product_unit_name = $product_unit['name'];
-            }
-
-            if (isset($product['category_id']) && $product['category_id'] != "0") {
-                $category_id = $product['category_id'];
-                $category = $category_model->find($category_id);
-                $category_name = $category['name'];
-            }
-
-            if (isset($product['tax_id']) && $product['tax_id'] != "0") {
-                $tax = $tax_model->find($product['tax_id']);
-                $tax_name = $tax['name'];
-                $tax_percentage = $tax['percentage'];
-            }
-
-            $status = ($product['status'] == 1)
-                ? "<span class='badge badge-primary'>Active</span>"
-                : "<span class='badge' style='background-color:#ed1307'>Deactive</span>";
-
-            $product['image'] = '<div class="image-box-100 "><a href="' . base_url($product['image'])  . '" data-lightbox="image-1">
-             <img src="' . base_url($product['image']) . '" class="image-100 image-box-100 img-fluid" />
-            </a></div>';
-
-            $product['is_tax_included'] = ($product['is_tax_included'] == 1) ? "Included" : "Excluded";
-
-            if ($product['stock_management'] == 1) {
-                $product['stock_management'] = "<p class='badge badge-success'>on</p>";
-                if ($product['stock'] == "0") {
-                    $product['stock'] = "<p class='badge badge-danger'>Out of stock</p>";
-                } elseif ($product['stock'] <= $product['qty_alert']) {
-                    $product['stock'] = $product['stock'] . "<br><p class='badge badge-info'>Low stock</p>";
-                } else {
-                    $product['stock'] = $product['stock'] . "<br><p class='badge badge-success'>In stock</p>";
-                }
-            } elseif ($product['stock_management'] == 2) {
-                $product['stock_management'] = "<p class='badge badge-success'>on</p>";
-                $product['stock'] = "<p class='badge badge-info'>View variants table for stock information</p>";
-            } else {
-                $product['stock_management'] = "<p class='badge badge-secondary'>off</p>";
-                $product['stock'] = "<p class='badge badge-secondary'>NA</p>";
-                $product['qty_alert'] = "<p class='badge badge-secondary'>NA</p>";
-            }
-            $vendor_model = new Vendors_model;
-            $vendor = $vendor_model->find($product['vendor_id']);
-            $vendor_first_name = $vendor['first_name'];
-
-
-            $product_id = $product['id'];
-            $edit_product = "<a href='" . site_url('admin/products/edit_product') . "/" . $product_id . "' class='btn btn-primary btn-sm' data-toggle='tooltip' data-placement='bottom' title='Edit'><i class='bi bi-pencil'></i></a> ";
-            $edit_product .= "<a href='javascript:void(0)' data-id='" . $product_id . "' class='btn btn-warning btn-sm' data-toggle='tooltip' data-placement='bottom' title='View' data-bs-toggle='modal' data-bs-target='#variants_Modal'><i class='bi bi-eye'></i></a>";
-            $edit_product .= "<a href='javascript:void(0)' onclick='generate_barcode(" . $product_id . ")' class='btn btn-info btn-sm m-1' data-toggle='tooltip' data-placement='bottom' title='Barcode' data-bs-toggle='modal' data-bs-target='#barcode_Modal'><i class='bi bi-upc-scan'></i></a>";
-
-            $rows[$i] = [
-                'id' => $product['id'],
-                'name' => ucwords($product['name']),
-                'description' => $product['description'],
-                'image' => $product['image'],
-                'type' => $product['type'],
-                'stock_management' => $product['stock_management'],
-                'stock' => $product['stock'],
-                'qty_alert' => $product['qty_alert'],
-                'unit_id' => $product_unit_name,
-                'is_tax_included' => $product['is_tax_included'],
-                'status' => $status,
-                'category_id' => $category_name,
-                'vendor_id' => $vendor_first_name,
-                'business_name' => $business_name,
-                'tax_id' => $tax_percentage . '% ' . $tax_name,
-                'action' => $edit_product
-            ];
-            $i++;
-        }
-
-        $array = [
-            'total' => $total,
-            'rows' => $rows ?? []
-        ];
-
-        echo json_encode($array);
+        $rows = $this->products_model->get_all_products($this->business_id);
+        return $this->response->setJSON([
+            'rows' => array_map('prepareProductsRow', $rows['data']),
+            'total' => $rows['total']
+        ]);
     }
 
     public function edit_product($product_id = "")
     {
-        if (!$this->ionAuth->loggedIn() || (!$this->ionAuth->isAdmin() && !$this->ionAuth->isTeamMember())) {
-            return redirect()->to('login');
-        } else {
-            $version = fetch_details('updates', [], ['version'], '1', '0', 'id', 'DESC')[0]['version'];
-            $data['version'] = $version;
-            $session = session();
-            $lang = $session->get('lang');
-            if (empty($lang)) {
-                $lang = 'en';
-            }
-            $data['code'] = $lang;
-            $data['current_lang'] = $lang;
-            $data['languages_locale'] = fetch_details('languages', [], [], null, '0', 'id', 'ASC');
-            $settings = get_settings('general', true);
-            $company_title = (isset($settings['title'])) ? $settings['title'] : "";
-            $data['page'] = FORMS . "product";
-            $data['title'] = "Edit Products - " . $company_title;
-            $data['from_title'] = "edit_product";
-            $data['meta_keywords'] = "subscriptions app, digital subscription, daily subscription, software, app, module";
-            $data['meta_description'] = "Home - Welcome to Subscribers, an digital solution for your subscription based daily problems";
-            $business_id = isset($_SESSION['business_id']) ? $_SESSION['business_id'] : "";
-            $user_id = $_SESSION['user_id'];
-            $id = 0;
-            if ($this->ionAuth->isTeamMember()) {
-                $id = get_vendor_for_teamMember($user_id);
-            } else {
-                $id = $user_id;
-            }
-            $data['user'] = $this->ionAuth->user($id)->row();
-            $units_model = new Units_model();
-            $data['units'] =  $units_model->get_units_for_forms($id);
-            $business_id = session('business_id');
-            $warehouse_model = new WarehouseModel();
-            $all_warehouses  =  $warehouse_model->where('business_id', $business_id)->get()->getResultArray();
-            $data['all_warehouses'] = $all_warehouses;
-            $category_model = new Categories_model();
-            $data['categories'] = $category_model->get_categories($id, $business_id);
-            $tax_model = new Tax_model();
 
-            // get all brands
-            $data['brands'] = (new BrandModel())->findAll();
+        $user_id = getUserId();
 
-            $products = get_products_with_variants($product_id);
-            // if product not found then return 404 page
-            if (empty($products)) {
-                return view("errors/html/error_404");
-            }
+        $data = $this->getData(
+            'edit_product',
+            'categories',
+            $this->category_model->get_categories($user_id, $this->business_id),
+            FORMS . "product",
+            'brands',
+            $this->brand_model->where('business_id', $this->business_id)->findAll(),
+            'units',
+            $this->units_model->get_units_for_forms($user_id)
+        );
 
-            $data['products'] = isset($products[0]) ? $products[0] : "";
-            $products_tax_ids = json_decode($data['products']['tax_ids']);
-            $products_tax_value  = [];
-
-            if (gettype($products_tax_ids) != "array") {
-                if ($products_tax_ids != 0) {
-                    $tax = $tax_model->find($products_tax_ids);
-                    $products_tax_value[] = [
-                        'value' => $tax['name'],
-                        'id' => $tax['id'],
-                    ];
-                }
-            } else {
-                foreach ($products_tax_ids as $tax_id) {
-                    $tax = $tax_model->find($tax_id);
-                    $products_tax_value[] = [
-                        'value' => $tax['name'],
-                        'id' => $tax['id'],
-                    ];
-                }
-            }
-            $data['products_tax_value'] = json_encode($products_tax_value);
-
-
-            $data['warehouses']  =  $warehouse_model->where('business_id', $business_id)->get()->getResultArray();
-            $warehouse_product_stock_model = new WarehouseProductStockModel();
-
-            $variants = isset($products[0]['variants']) ? $products[0]['variants'] : "";
-
-            foreach ($variants as $key => $variant) {
-
-                // Fetch the warehouse product data based on product variant ID
-                $warehouse_product = $warehouse_product_stock_model->where('product_variant_id', $variant['id'])->get()->getResultArray();
-                foreach ($warehouse_product as $row) {
-                    // Assign warehouse data to the current variant
-                    $variants[$key]['warehouse_data'][] = $row;
-                }
-
-                // Check if unit_id is set and not "0"
-                if (isset($variant['unit_id']) && $variant['unit_id'] != "0") {
-                    $variant_unit = $units_model->find($variant['unit_id']);
-                    $variant_unit_name = $variant_unit['name'];
-                    $variants[$key]['variant_unit_name'] = $variant_unit_name;
-                }
-            }
-
-            $data['variants'] = $variants;
-            if (isset($products[0]['unit_id']) && $products[0]['unit_id'] != "0") {
-
-                $unit_id = $products[0]['unit_id'];
-                $product_unit = $units_model->find($unit_id);
-                $data['product_unit_name'] = $product_unit['name'];
-            }
-            if (isset($products[0]['tax_id']) && $products[0]['tax_id'] != "0") {
-                $tax_name = $tax_model->find($products[0]['tax_id']);
-                $data['tax_name'] = $tax_name['name'];
-                $data['percentage'] = $tax_name['percentage'];
-            }
-            if (isset($products[0]['category_id']) && $products[0]['category_id'] != "0") {
-                $category_id = $products[0]['category_id'];
-                $category = $category_model->find($category_id);
-                $data['category_name'] = $category['name'];
-            }
-            return view("admin/template", $data);
+        $products = get_products_with_variants($product_id);
+        if (empty($products)) {
+            return view("errors/html/error_404");
         }
+
+        $product = $products[0];
+        $data['products'] = $product;
+
+        // Attach unit name to variants
+        foreach ($product['variants'] as &$variant) {
+            if (!empty($variant['unit_id'])) {
+                $unit = $this->units_model->find($variant['unit_id']);
+                $variant['variant_unit_name'] = $unit['name'] ?? '';
+            }
+        }
+        $data['variants'] = $product['variants'];
+
+        // Attach category name
+        if (!empty($product['category_id'])) {
+            $category = $this->category_model->find($product['category_id']);
+            $data['category_name'] = $category['name'] ?? '';
+        }
+
+        // Attach brand name
+        if (!empty($product['brand_id'])) {
+            $brand = $this->brand_model->find($product['brand_id']);
+            $data['brand_name'] = $brand['name'] ?? '';
+        }
+
+        return view("admin/template", $data);
     }
     public function update_variant_status()
     {
@@ -778,8 +340,6 @@ class Products extends BaseController
                 'id' => $variant['id'],
                 'product_id' =>  $variant['product_id'],
                 'variant_name' => ucwords($variant['variant_name']),
-                'sale_price' =>  decimal_points($variant['sale_price']),
-                'purchase_price' =>  decimal_points($variant['purchase_price']),
                 'stock' =>  $variant['stock'],
                 'qty_alert' =>  $variant['qty_alert'],
                 'unit_id' =>  $product_unit_name,
@@ -796,187 +356,115 @@ class Products extends BaseController
     }
     public function remove_variant($variant_id)
     {
-
-        if (!$this->ionAuth->loggedIn() || (!$this->ionAuth->isAdmin() && !$this->ionAuth->isTeamMember())) {
-            return redirect()->to('login');
+        $variant_model = new products_variants_model();
+        $status = $variant_model->where("id", $variant_id)->delete();
+        if ($status) {
+            $response = [
+                'error' => false,
+                'message' => 'Product variant removed succesfully',
+                'data' => []
+            ];
         } else {
-
-            $variant_model = new products_variants_model();
-            $status = $variant_model->where("id", $variant_id)->delete();
-            if ($status) {
-                $response = [
-                    'error' => false,
-                    'message' => 'Product variant removed succesfully',
-                    'data' => []
-                ];
-            } else {
-                $response = [
-                    'error' => true,
-                    'message' => 'variant does not exist...',
-                    'data' => []
-                ];
-            }
-            return $this->response->setJSON($response);
+            $response = [
+                'error' => true,
+                'message' => 'variant does not exist...',
+                'data' => []
+            ];
         }
+        return $this->response->setJSON($response);
     }
 
     public function json()
     {
-        $business_id = isset($_SESSION['business_id']) ? $_SESSION['business_id'] : "";
-        $product_id = ($this->request->getGet('id') != '') ? $this->request->getGet('id') : '';
 
+        // session('user_id')->set();
+        // Use helper to safely fetch GET parameters
+        $data = $this->request->getGet();
+
+        $product_id = $data['id'] ?? '';
         $settings = get_settings('general', true);
-        $currency = (isset($settings['currency_symbol'])) ? $settings['currency_symbol'] : '$';
-        $data = $_GET;
-        $data['business_id'] = $business_id;
+        $currency = $settings['currency_symbol'] ?? '$';
+        $data['business_id'] = $this->business_id;
+
+        // Build validation rules dynamically
         $rules = [
             'business_id' => 'required|numeric',
         ];
-        if ($this->request->getGet('category_id')) {
+        if (!empty($data['category_id'])) {
             $rules['category_id'] = 'numeric';
         }
-        if ($this->request->getGet('limit')) {
+        if (!empty($data['limit'])) {
             $rules['limit'] = 'numeric|greater_than_equal_to[1]|less_than[250]';
         }
-        if ($this->request->getGet('offset')) {
+        if (!empty($data['offset'])) {
             $rules['offset'] = 'numeric|greater_than_equal_to[0]';
         }
+
+        // Validate input
         $this->validation->setRules($rules);
         if (!$this->validation->run($data)) {
-            $errors = $this->validation->getErrors();
-            $response = [
+            return csrfResponseData([
                 'error' => true,
-                'message' => $errors,
+                'message' => $this->validation->getErrors(),
                 'data' => []
-            ];
-            $response['csrf_token'] = csrf_token();
-            $response['csrf_hash'] = csrf_hash();
-            return $this->response->setJSON($response);
-        } else {
-            $business_id = $data['business_id'];
-            $category_id = (!empty($data['category_id'])) ? $data['category_id'] : "";
-            $brand_id = (!empty($data['brand_id'])) ? $data['brand_id'] : "";
-            $limit = (!empty($data['limit'])) ? $data['limit'] : 10;
-            $offset = (!empty($data['offset'])) ? $data['offset'] : 0;
-            $sort = (!empty($data['sort'])) ? $data['sort'] : 'id';
-            $order = (!empty($data['order'])) ? $data['order'] : 'DESC';
-            $search = (!empty($data['search'])) ? $data['search'] : '';
-            $products = fetch_products($business_id, $category_id,  $brand_id, $search, $limit, $offset, $sort, $order, '', [], ['product_id' => $product_id]);
-            $final_product_list = array();
-            $final_vars = [];
-            $temp_arr = $products['products'];
-
-            $variants_array = array();
-            $tax_model = new Tax_model();
-            if (isset($temp_arr) && !empty($temp_arr)) {
-                foreach ($temp_arr as $val) {
-                    $variants = count($val['variants']);
-                    for ($i = 0; $i < $variants; $i++) {
-                        $val['variants'][$i]['image'] = $val['image'];
-                        $val['variants'][$i]['name'] = $val['name'];
-                        $val['variants'][$i]['category'] = category_name($val['category_id']);
-                    }
-
-                    $tax_ids = json_decode($val['tax_ids']);
-                    // Note percentage and percentages are different ;
-                    $percentage = 1;
-                    $percentages = [];
-
-                    // checking if the tax_ids is array or int
-                    if (gettype($tax_ids) != "array") {
-                        if ($tax_ids != 0) {
-                            $taxes = fetch_details("tax", ['id' => $tax_ids]);
-                            $percentage = isset($taxes[0]['percentage']) ? $taxes[0]['percentage'] : "1";
-                        }
-                    } else {
-                        // if tax_ids is array then get get percentage 
-                        foreach ($tax_ids as $tax) {
-                            $taxes = fetch_details("tax", ['id' => $tax]);
-                            $per = isset($taxes[0]['percentage']) ? $taxes[0]['percentage'] : "1";
-                            $percentages[] = $per;
-                        }
-                    }
-                    $is_tax_inlcuded = $val['is_tax_included'];
-                    if ($is_tax_inlcuded != "1") {
-                        for ($i = 0; $i < $variants; $i++) {
-                            $sale_price = $val['variants'][$i]['sale_price'];
-                            $taxable_amount_price = 0;
-                            if (! empty($percentages)) {
-
-                                foreach ($percentages as $prec) {
-
-                                    $taxable_amount_price += floatval($sale_price) * (floatval($prec) / 100);
-                                }
-                            } else {
-                                $taxable_amount_price = floatval($sale_price) * (floatval($percentage) / 100);
-                            }
-
-                            $price = floatval($sale_price) + $taxable_amount_price;
-                            $val['variants'][$i]['sale_price'] = $price;
-
-                            $purchase_price = $val['variants'][$i]['purchase_price'];
-                            $taxable_amount = 0;
-                            if (! empty($percentages)) {
-                                foreach ($percentages as $prec) {
-                                    $taxable_amount += floatval($purchase_price) * (floatval($prec) / 100);
-                                }
-                            } else {
-                                $taxable_amount = floatval($purchase_price) * (floatval($percentage) / 100);
-                            }
-
-                            $purchase = floatval($purchase_price) + $taxable_amount;
-                            $val['variants'][$i]['purchase_price'] = $purchase;
-                        }
-                    } else {
-                        $val['variants'] = $val['variants'];
-                    }
-                    $final_product_list[] = $val;
-                }
-            }
-            // getting only varients array for the select2 search. 
-
-            $variants_array = array_column($final_product_list, 'variants');
-            $count = count($variants_array);
-            for ($i = 0; $i < $count; $i++) {
-                foreach ($variants_array[$i] as $row) {
-                    array_push($final_vars, $row);
-                }
-            }
-
-            $response['variants'] = $final_vars;
-            $response['error'] = (!empty($products['products'])) ? false : true;
-            $response['message'] = (!empty($products['products'])) ? "Products fetched successfully" : "No products found!";
-            $response['total'] = $products['total'];
-            $response['data'] = $final_product_list;
-            $response['currency'] = $currency;
-            return $this->response->setJSON($response);
+            ]);
         }
+
+        // Assign validated values with defaults
+        $business_id = $data['business_id'];
+        $category_id = $data['category_id'] ?? '';
+        $brand_id    = $data['brand_id'] ?? '';
+        $limit       = $data['limit'] ?? 10;
+        $offset      = $data['offset'] ?? 0;
+        $sort        = $data['sort'] ?? 'id';
+        $order       = $data['order'] ?? 'DESC';
+        $search      = $data['search'] ?? '';
+
+        // Fetch products
+        $products = fetch_products($business_id, $category_id, $brand_id, $search, $limit, $offset, $sort, $order, '', [], ['product_id' => $product_id]);
+
+        $final_product_list = [];
+        $final_variants = [];
+
+        // Process and transform product data
+        foreach ($products['products'] ?? [] as $product) {
+            $category_name = category_name($product['category_id']);
+            foreach ($product['variants'] as &$variant) {
+                $variant['image']    = $product['image'];
+                $variant['name']     = $product['name'];
+                $variant['category'] = $category_name;
+                $final_variants[]    = $variant;
+            }
+            $final_product_list[] = $product;
+        }
+        // Build and return JSON response
+        return $this->response->setJSON([
+            'error'    => empty($products['products']),
+            'message'  => !empty($products['products']) ? 'Products fetched successfully' : 'No products found!',
+            'data'     => $final_product_list,
+            'variants' => $final_variants,
+            'total'    => $products['total'],
+            'currency' => $currency,
+        ]);
     }
+
+
+
+
 
     public function stock_table($flag = "")
     {
-        $business_id = isset($_SESSION['business_id']) ? $_SESSION['business_id'] : "";
-        $model = new Products_model();
-        $products = $model->get_product_details($business_id, $flag);
+        $products = $this->products_model->get_product_details($this->business_id, $flag);
         $i = 0;
         if (!empty($products)) {
             foreach ($products as $product) {
-                if ($product['stock_management'] == "1") {
-                    $product['stock_management'] == "Product";
-                } elseif ($product['stock_management'] == "2") {
-                    $product['stock_management'] == "Variable";
-                } else {
-                    $product['stock_management'] == "NA";
-                }
 
                 $rows[$i] = [
                     "product_id" => $product['product_id'],
                     "product" => $product['product'],
                     "variant_name" => $product['variant_name'],
                     "stock" => $product['stock'],
-                    "qty_alert" => $product['qty_alert'],
-                    "stock_management" => $product['stock_management'],
-                    "action" => '<a type="button" class="btn btn-primary text-white" data-bs-toggle="modal"  data-stock ="' . $product['stock'] . '" data-product_id ="' . $product['product_id'] . '"  data-stock_management ="' . $product['stock_management'] . '" data-bs-target="#new_stock"><i class="fas fa-edit"></i>'
+                    "action" => '<a type="button" class="btn btn-primary text-white" data-bs-toggle="modal"  data-stock ="' . $product['stock'] . '" data-product_id ="' . $product['product_id'] . '" data-bs-target="#new_stock"><i class="fas fa-edit"></i>'
                 ];
                 $i++;
             }
@@ -988,198 +476,181 @@ class Products extends BaseController
 
     public function manage_stock()
     {
-        if (!$this->ionAuth->loggedIn() || (!$this->ionAuth->isAdmin() && !$this->ionAuth->isTeamMember())) {
-            return redirect()->to('login');
-        } else {
-            if (! isset($_SESSION['business_id']) || empty($_SESSION['business_id'])) {
-                // business id is not set 
-                $business_model = new Businesses_model();
-                $allbusiness = $business_model->findAll();
-                if (empty($allbusiness)) {
-                    session()->setFlashdata('message', 'Please create a business !');
-                    session()->setFlashdata('type', 'error');
-                    return redirect()->to('admin/businesses');
-                } else {
-                    session()->setFlashdata('message', 'Please select a business !');
-                    session()->setFlashdata('type', 'error');
-                    return redirect()->to('admin/businesses');
-                }
-            }
-            $version = fetch_details('updates', [], ['version'], '1', '0', 'id', 'DESC')[0]['version'];
-            $data['version'] = $version;
-            $session = session();
-            $lang = $session->get('lang');
-            if (empty($lang)) {
-                $lang = 'en';
-            }
-            $data['code'] = $lang;
-            $data['current_lang'] = $lang;
-            $data['languages_locale'] = fetch_details('languages', [], [], null, '0', 'id', 'ASC');
-            $settings = get_settings('general', true);
-            $company_title = (isset($settings['title'])) ? $settings['title'] : "";
-            $data['page'] = VIEWS . "manage_stock";
-            $data['title'] = "Stock Management - " . $company_title;
-            $data['meta_keywords'] = "subscriptions app, digital subscription, daily subscription, software, app, module";
-            $data['meta_description'] = "Home - Welcome to Subscribers, an digital solution for your subscription based daily problems";
-            $user_id = $_SESSION['user_id'];
-            $id = 0;
-            if ($this->ionAuth->isTeamMember()) {
-                $id = get_vendor_for_teamMember($user_id);
+        if (! isset($_SESSION['business_id']) || empty($_SESSION['business_id'])) {
+            // business id is not set 
+            $business_model = new Businesses_model();
+            $allbusiness = $business_model->findAll();
+            if (empty($allbusiness)) {
+                session()->setFlashdata('message', 'Please create a business !');
+                session()->setFlashdata('type', 'error');
+                return redirect()->to('admin/businesses');
             } else {
-                $id = $user_id;
+                session()->setFlashdata('message', 'Please select a business !');
+                session()->setFlashdata('type', 'error');
+                return redirect()->to('admin/businesses');
             }
-            $business_id = isset($_SESSION['business_id']) ? $_SESSION['business_id'] : "";
-            $data['business_id'] = $business_id;
-            $warehouse_model = new WarehouseModel();
-            $data['warehouses']  =  $warehouse_model->where('business_id', $business_id)->get()->getResultArray();
-            $data['user'] = $this->ionAuth->user($id)->row();
-
-            return view("admin/template", $data);
         }
+        $version = fetch_details('updates', [], ['version'], '1', '0', 'id', 'DESC')[0]['version'];
+        $data['version'] = $version;
+        $session = session();
+        $lang = $session->get('lang');
+        if (empty($lang)) {
+            $lang = 'en';
+        }
+        $data['code'] = $lang;
+        $data['current_lang'] = $lang;
+        $data['languages_locale'] = fetch_details('languages', [], [], null, '0', 'id', 'ASC');
+        $settings = get_settings('general', true);
+        $company_title = (isset($settings['title'])) ? $settings['title'] : "";
+        $data['page'] = VIEWS . "manage_stock";
+        $data['title'] = "Stock Management - " . $company_title;
+        $data['meta_keywords'] = "subscriptions app, digital subscription, daily subscription, software, app, module";
+        $data['meta_description'] = "Home - Welcome to Subscribers, an digital solution for your subscription based daily problems";
+        $user_id = $_SESSION['user_id'];
+        $id = 0;
+        if ($this->ionAuth->isTeamMember()) {
+            $id = get_vendor_for_teamMember($user_id);
+        } else {
+            $id = $user_id;
+        }
+        $business_id = isset($_SESSION['business_id']) ? $_SESSION['business_id'] : "";
+        $data['business_id'] = $business_id;
+        $warehouse_model = new WarehouseModel();
+        $data['warehouses']  =  $warehouse_model->where('business_id', $business_id)->get()->getResultArray();
+        $data['user'] = $this->ionAuth->user($id)->row();
+
+        return view("admin/template", $data);
     }
     public function fetch_stock()
     {
-        $business_id = isset($_SESSION['business_id']) ? $_SESSION['business_id'] : "";
-        $products = fetch_stock($business_id, 'stock_management', ['1', '2']);
-        $final_product_list = array();
+        // $products = fetch_stock($this->business_id, 'stock_management', ['1', '2']);
+        // $final_product_list = array();
 
-        foreach ($products as $product) {
+        // foreach ($products as $product) {
 
-            $stock = $product['stock_management'] == '1' ? $product['product_stock'] : $product['variant_stock'];
-            $name =  $product['name'] . " - " . $product['variant_name'];
-            $product_id = $product['stock_management'] == '1' ? $product['id'] : $product['variant_id'];
-            $val['stock_management'] = $product['stock_management'];
-            $val['image'] = $product['image'];
-            $val['id'] = $product_id;
-            $val['name'] = $name;
-            $val['stock'] = $stock;
-            $final_product_list[] = $val;
-        }
-        $response['data'] = $final_product_list;
-        return $this->response->setJSON($response);
+        //     $stock = $product['stock_management'] == '1' ? $product['product_stock'] : $product['variant_stock'];
+        //     $name =  $product['name'] . " - " . $product['variant_name'];
+        //     $product_id = $product['stock_management'] == '1' ? $product['id'] : $product['variant_id'];
+        //     $val['stock_management'] = $product['stock_management'];
+        //     $val['image'] = $product['image'];
+        //     $val['id'] = $product_id;
+        //     $val['name'] = $name;
+        //     $val['stock'] = $stock;
+        //     $final_product_list[] = $val;
+        // }
+        // $response['data'] = $final_product_list;
+        // return $this->response->setJSON($response);
     }
 
     //  new adjustment stock
     public function save_adjustment()
     {
-        if (!$this->ionAuth->loggedIn() || (!$this->ionAuth->isAdmin() && !$this->ionAuth->isTeamMember())) {
-            return redirect()->to('login');
-        } else {
-            if (isset($_POST) && !empty($_POST)) {
-                $this->validation->setRules([
-                    'product' => 'required|numeric',
-                    'variant_id' => 'required|numeric',
-                    'stock_management' => 'required|numeric',
-                    'current_stock' => 'required|numeric',
-                    'quantity' => 'required|numeric|greater_than[0]',
-                    'type' => 'required',
-                ]);
-                if (isset($_POST['warehouse_id']) &&  empty($_POST['warehouse_id'])) {
-                    $errors = ["Warehouse is required !"];
+        if (isset($_POST) && !empty($_POST)) {
+            $this->validation->setRules([
+                'product' => 'required|numeric',
+                'variant_id' => 'required|numeric',
+                'current_stock' => 'required|numeric',
+                'quantity' => 'required|numeric|greater_than[0]',
+                'type' => 'required',
+            ]);
+            if (isset($_POST['warehouse_id']) &&  empty($_POST['warehouse_id'])) {
+                $errors = ["Warehouse is required !"];
+                $response = [
+                    'error' => true,
+                    'message' => $errors,
+                    'data' => []
+                ];
+                $response['csrf_token'] = csrf_token();
+                $response['csrf_hash'] = csrf_hash();
+                return $this->response->setJSON($response);
+            }
+            if (!$this->validation->withRequest($this->request)->run()) {
+                $errors = $this->validation->getErrors();
+                $response = [
+                    'error' => true,
+                    'message' => $errors,
+                    'data' => []
+                ];
+                $response['csrf_token'] = csrf_token();
+                $response['csrf_hash'] = csrf_hash();
+                return $this->response->setJSON($response);
+            } else {
+                // product is post is a product id
+                $stock = 0;
+                $variant_id = $this->request->getVar('variant_id');
+                $quantity = $this->request->getVar('quantity');
+                $warehouse_id = $this->request->getVar('warehouse_id');
+                // check if the selected products_variants are in selected warehouse or not.
+                $warehouse_product_stock =  new WarehouseProductStockModel();
+
+                $warehouse_product_list  = $warehouse_product_stock->where([
+                    'warehouse_id' => $warehouse_id,
+                    'product_variant_id' => $variant_id
+                ])->get()->getResultArray();
+
+                if (empty($warehouse_product_list)) {
                     $response = [
                         'error' => true,
-                        'message' => $errors,
+                        'message' =>  ["Product is not available in selected warehouse !"],
                         'data' => []
                     ];
                     $response['csrf_token'] = csrf_token();
                     $response['csrf_hash'] = csrf_hash();
                     return $this->response->setJSON($response);
                 }
-                if (!$this->validation->withRequest($this->request)->run()) {
-                    $errors = $this->validation->getErrors();
-                    $response = [
-                        'error' => true,
-                        'message' => $errors,
-                        'data' => []
-                    ];
-                    $response['csrf_token'] = csrf_token();
-                    $response['csrf_hash'] = csrf_hash();
-                    return $this->response->setJSON($response);
-                } else {
-                    // product is post is a product id
-                    $stock = 0;
-                    $variant_id = $this->request->getVar('variant_id');
-                    $quantity = $this->request->getVar('quantity');
-                    $warehouse_id = $this->request->getVar('warehouse_id');
-                    // check if the selected products_variants are in selected warehouse or not.
-                    $warehouse_product_stock =  new WarehouseProductStockModel();
 
-                    $warehouse_product_list  = $warehouse_product_stock->where([
-                        'warehouse_id' => $warehouse_id,
-                        'product_variant_id' => $variant_id
-                    ])->get()->getResultArray();
 
-                    if (empty($warehouse_product_list)) {
+                if ($_POST['type'] == 'add') {
+                    $stock = floatval($_POST['current_stock']) + floatval($_POST['quantity']);
+                    updateWarehouseStocks(warehouse_id: $warehouse_id, product_variant_id: $variant_id, warehouse_stock: $quantity, type: 1);
+                }
+                if ($_POST['type'] == 'subtract') {
+                    $current_stock = floatval($_POST['current_stock']);
+                    $current_quantity = floatval($_POST['quantity']);
+                    if ($current_stock  < $current_quantity) {
                         $response = [
                             'error' => true,
-                            'message' =>  ["Product is not available in selected warehouse !"],
+                            'message' => ['name' => "Quantity must be less than Current Stock fo Subtraction  !"],
                             'data' => []
                         ];
                         $response['csrf_token'] = csrf_token();
                         $response['csrf_hash'] = csrf_hash();
                         return $this->response->setJSON($response);
                     }
-
-
-                    if ($_POST['type'] == 'add') {
-                        $stock = floatval($_POST['current_stock']) + floatval($_POST['quantity']);
-                        updateWarehouseStocks(warehouse_id: $warehouse_id, product_variant_id: $variant_id, warehouse_stock: $quantity, type: 1);
-                    }
-                    if ($_POST['type'] == 'subtract') {
-                        $current_stock = floatval($_POST['current_stock']);
-                        $current_quantity = floatval($_POST['quantity']);
-                        if ($current_stock  < $current_quantity) {
-                            $response = [
-                                'error' => true,
-                                'message' => ['name' => "Quantity must be less than Current Stock fo Subtraction  !"],
-                                'data' => []
-                            ];
-                            $response['csrf_token'] = csrf_token();
-                            $response['csrf_hash'] = csrf_hash();
-                            return $this->response->setJSON($response);
-                        }
-                        $stock = floatval($_POST['current_stock']) - floatval($_POST['quantity']);
-                        updateWarehouseStocks(warehouse_id: $warehouse_id, product_variant_id: $variant_id, warehouse_stock: $quantity, type: 0);
-                    }
-                    if ($_POST['stock_management'] == '1') {
-                        update_details(['stock' => (string) $stock], ['id' => $_POST['product']], 'products');
-                    }
-                    if ($_POST['stock_management'] == '2') {
-                        update_details(['stock' => (string) $stock], ['id' => $_POST['product']], 'products_variants');
-                    }
-                    $response = [
-                        'error' => false,
-                        'message' => 'Product Stock Updated Successfully',
-                    ];
-                    $response['csrf_token'] = csrf_token();
-                    $response['csrf_hash'] = csrf_hash();
-
-                    return $this->response->setJSON($response);
+                    $stock = floatval($_POST['current_stock']) - floatval($_POST['quantity']);
+                    updateWarehouseStocks(warehouse_id: $warehouse_id, product_variant_id: $variant_id, warehouse_stock: $quantity, type: 0);
                 }
-            } else {
-                return redirect()->back();
+
+                update_details(['stock' => (string) $stock], ['id' => $_POST['product']], 'products_variants');
+
+                $response = [
+                    'error' => false,
+                    'message' => 'Product Stock Updated Successfully',
+                ];
+                $response['csrf_token'] = csrf_token();
+                $response['csrf_hash'] = csrf_hash();
+
+                return $this->response->setJSON($response);
             }
+        } else {
+            return redirect()->back();
         }
     }
 
     public function table()
     {
         $business_id = isset($_SESSION['business_id']) ? $_SESSION['business_id'] : "";
-        $products = fetch_stock($business_id, 'stock_management', ['1', '2']);
+        $products = fetch_stock($business_id);
         $i = 0;
         $warehouse_product_stock_model = new WarehouseProductStockModel();
 
         if (!empty($products)) {
             foreach ($products as $product) {
 
-                if ($product['stock_management'] == "1") {
-                    $product['stock_management'] == "Product";
-                } elseif ($product['stock_management'] == "2") {
-                    $product['stock_management'] == "Variable";
-                } else {
-                    $product['stock_management'] == "NA";
-                }
-                $stock = $product['stock_management'] == '1' ? $product['product_stock'] : $product['variant_stock'];
+
+                $product['stock_management'] == "NA";
+
+                $stock = $product['variant_stock'];
                 $name =  $product['name'] . " - " . $product['variant_name'];
                 $product_id = $product['stock_management'] == '1' ? $product['id'] : $product['variant_id'];
                 $variant_id = $product['variant_id'];
@@ -1295,52 +766,13 @@ class Products extends BaseController
 
     public function stock_alert()
     {
-        if (!$this->ionAuth->loggedIn()) {
-            return redirect()->to('login');
-        }
-    
-        $business_id = isset($_SESSION['business_id']) ? $_SESSION['business_id'] : "";
-        
-        if (empty($business_id)) {
-            return $this->response->setJSON([
-                'error' => true,
-                'message' => 'Business ID is required'
-            ]);
-        }
-    
         try {
-            // Get product-level low stock
-            $productModel = new Products_model();
-            $lowProductStock = $productModel->get_low_product_stock($business_id);
-            
-            // Get variant-level low stock
             $variantModel = new Products_variants_model();
-            $lowVariantStock = $variantModel->get_low_variant_stock($business_id);
-            
+            $lowVariantStock = $variantModel->get_low_variant_stock($this->business_id);
+
             $rows = [];
             $i = 0;
-    
-            // Process product-level alerts
-            foreach ($lowProductStock as $product) {
-                $rows[$i] = [
-                    "product_id" => $product['id'],
-                    "variant_id" => null,
-                    "product" => $product['name'],
-                    "variant_name" => null,
-                    "stock" => $product['stock'],
-                    "qty_alert" => $product['qty_alert'],
-                    "stock_management" => "Product",
-                    "stock_management_type" => 1,
-                    "action" => '<a type="button" class="btn btn-primary text-white" data-bs-toggle="modal" 
-                                data-stock="'.$product['stock'].'" 
-                                data-product_id="'.$product['id'].'"  
-                                data-stock_management="1" 
-                                data-bs-target="#new_stock">
-                                <i class="fas fa-edit"></i></a>'
-                ];
-                $i++;
-            }
-    
+
             // Process variant-level alerts
             foreach ($lowVariantStock as $variant) {
                 $rows[$i] = [
@@ -1350,24 +782,22 @@ class Products extends BaseController
                     "variant_name" => $variant['variant_name'],
                     "stock" => $variant['stock'],
                     "qty_alert" => $variant['qty_alert'],
-                    "stock_management" => "Variant",
-                    "stock_management_type" => 2,
+
                     "action" => '<a type="button" class="btn btn-primary text-white" data-bs-toggle="modal" 
-                                data-stock="'.$variant['stock'].'" 
-                                data-product_id="'.$variant['product_id'].'" 
-                                data-variant_id="'.$variant['id'].'" 
+                                data-stock="' . $variant['stock'] . '" 
+                                data-product_id="' . $variant['product_id'] . '" 
+                                data-variant_id="' . $variant['id'] . '" 
                                 data-stock_management="2" 
                                 data-bs-target="#new_stock">
                                 <i class="fas fa-edit"></i></a>'
                 ];
                 $i++;
             }
-    
+
             return $this->response->setJSON([
                 'rows' => $rows,
                 'total' => count($rows)
             ]);
-            
         } catch (\Exception $e) {
             log_message('error', 'Stock alert error: ' . $e->getMessage());
             return $this->response->setStatusCode(500)->setJSON([
@@ -1390,10 +820,6 @@ class Products extends BaseController
 
     public function save_transfer()
     {
-        if (!$this->ionAuth->loggedIn() || (!$this->ionAuth->isAdmin() && !$this->ionAuth->isTeamMember())) {
-            return redirect()->to('login');
-        }
-
         $this->validation->setRules([
             'ts_variant_id' => ['rules' => 'required', 'label' => 'Product'],
             'ts_name' => ['rules' => 'required', 'label' => 'Product'],

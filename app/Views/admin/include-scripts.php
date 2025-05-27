@@ -1,6 +1,7 @@
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 <script src="<?= base_url("public/backend/assets/js/lightbox-plus-jquery.min.js") ?>"></script>
-<script src="<?= base_url("public/backend/assets/js/bootstrap-table.min.js") ?>"> </script>
 <script src="<?= base_url("public/backend/assets/js/jquery.validate.min.js") ?>"> </script>
+<script src="<?= base_url("public/backend/assets/js/bootstrap-table.min.js") ?>"> </script>
 <script src="<?= base_url("public/backend/assets/js/popper.min.js") ?>"> </script>
 <script src="<?= base_url("public/backend/assets/js/bootstrap.min.js") ?>"> </script>
 <script src="<?= base_url("public/backend/assets/js/stackpath.bootstrap.min.js") ?>"> </script>

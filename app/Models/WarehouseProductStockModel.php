@@ -44,6 +44,20 @@ class WarehouseProductStockModel extends Model
     protected $beforeDelete   = [];
     protected $afterDelete    = [];
 
+
+
+    public function increaseWarehouseStock($warehouse_id, $product_variant_id, $quantity)
+    {
+        $this->db->query("select ");
+
+        $db = \Config\Database::connect();
+        $builder = $db->table("warehouse_product_stock");
+
+        $builder->set('stock', "stock + {$quantity}", false);
+        $builder->where(['warehouse_id' => $warehouse_id, 'product_variant_id' => $product_variant_id]);
+        return $builder->update();
+    }
+
     public function get_warehouses_data_for_variants($variant_ids)
     {
         foreach ($variant_ids as $id) {

@@ -139,7 +139,6 @@ class Customers_model extends Model
     // $routes->get('(:any)/edit', 'admin\Customers::edit', ['action' => 'can_update']);
     public function get_customer_orders($user_id, $business_id)
     {
-
         $db = \Config\Database::connect();
         $builder = $db->table("orders");
         $builder->select('*');

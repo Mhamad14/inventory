@@ -111,6 +111,7 @@ class Filters extends BaseFilters
      * @var array<string, array<string, list<string>>>
      */
     public array $filters = [
+        'permissioncheck' => ['before' => ['admin/purchases*', '']],
         'checkpermissions' => ['before' => ['admin/*']], // Apply the 'checkpermissions' filter to 'admin/*' routes
         'checkRoles' => [
             'before' => [

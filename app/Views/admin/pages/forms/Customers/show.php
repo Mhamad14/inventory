@@ -489,9 +489,6 @@
                 return false; // Stop form submission for customer form
             }
         });
-
-
-
     });
     toggleSection('#ordersSectionBody', '#ordersToggleIcon');
 

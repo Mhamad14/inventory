@@ -1,5 +1,6 @@
 <div class="main-content">
     <section class="section">
+        <!-- header -->
         <div class="section-header">
             <?php if (!empty($order_type) && $order_type == 'order') { ?>
                 <h1>Purchase Orders</h1>
@@ -16,8 +17,14 @@
             </div>
         </div>
 
+        <!-- Purchase form  ..START-->
         <div class="section-body">
             <form action="<?= base_url('admin/purchases/save') ?>" id="purchase_form" accept-charset="utf-8" method="POST">
+                <?= csrf_field("csrf_test_name") ?> <!-- CSRF Token -->
+
+                <input type="text" hidden name="order_type" value="<?= !empty($order_type) ? $order_type : 'order' ?>">
+                <input type="hidden" name="products" id="products_input" />
+
                 <div class="card">
                     <div class="card-header">
                         <h4><?= labels('bill_from', 'Bill From') ?></h4>
@@ -26,20 +33,12 @@
                         <div class="row">
                             <div class="col-12 col-md-6 col-lg-4">
                                 <div class="form-group">
-                                    <label for="order_no">Order No</label>
-                                    <input type="text" class="form-control" id="purchase_order_no" name="order_no" placeholder="Please Enter Purchase Order No">
-                                    <input type="hidden" class="form-control" id="products" name="products">
-                                    <input type="hidden" name="order_type" id="order_type" value="<?= $order_type ?>">
-                                </div>
-                            </div>
-                            <div class="col-12 col-md-6 col-lg-4">
-                                <div class="form-group">
                                     <?php if (!empty($order_type) && $order_type == 'order') { ?>
                                         <label for="purchase_date">Purchase Date</label><span class="asterisk text-danger"> *</span>
                                     <?php } else { ?>
                                         <label for="purchase_date">Return Date</label><span class="asterisk text-danger"> *</span>
                                     <?php } ?>
-                                    <input type="date" class="form-control" id="purchase_date" name="purchase_date" value="<?=date('Y-m-d')?>">
+                                    <input type="date" class="form-control" id="purchase_date" name="purchase_date" value="<?= date('Y-m-d') ?>">
                                 </div>
                             </div>
                             <div class="col-md-3">
@@ -82,15 +81,19 @@
                                 <table class='table-striped' data-toolbar="#remove" id='purchase_order' data-toggle="table" data-click-to-select="true" data-toggle="table" data-url="" data-click-to-select="true" data-page-list="[5, 10, 20, 50, 100, 200]" data-page-size="20" data-show-columns="true" data-mobile-responsive="true" data-toolbar="#toolbar" data-maintain-selected="true" data-query-params="queryParams" data-pagination="true">
                                     <thead>
                                         <tr>
-                                            <th data-field="state" data-checkbox="true"></th>
+                                            <th data-field="state" data-checkbox="true" data-width="20"></th>
                                             <th data-field="id" data-sortable="true" data-visible="false" data-card-visible="false"><?= labels('id', 'id') ?></th>
-                                            <th data-field="sr" data-sortable="true" data-visible="true"><?= labels('sr', 'Sr') ?></th>
+                                            <!-- <th data-field="sr" data-sortable="true" data-width="20" data-visible="true"><?= "" //labels('sr', 'Sr') 
+                                                                                                                                ?></th> -->
                                             <th data-field="image" data-sortable="true" data-visible="true"><?= labels('image', 'Image') ?></th>
                                             <th data-field="name" data-sortable="true" data-visible="true"><?= labels('name', 'Name') ?></th>
                                             <th data-field="quantity" data-sortable="true" data-visible="true"><?= labels('qty', 'Qty') ?></th>
-                                            <th data-field="price" data-editable="true" data-sortable="true" data-visible="true"><?= labels('price', 'Price') . " <small>(Inclusive of Tax)</small>" ?></th>
+                                            <th data-field="price" data-editable="true" data-sortable="true" data-visible="true"><?= labels('cost_price', 'Cost Price') ?></th>
+                                            <th data-field="sell_price" data-editable="true" data-sortable="true" data-visible="true"><?= labels('sell_price', 'Sell Price') ?></th>
+                                            <th data-field="expire" data-editable="true" data-sortable="true" data-visible="true"><?= labels('expiration_date', 'Expiration Date') ?></th>
                                             <th data-field="discount" data-sortable="true" data-visible="true"><?= labels('discount', 'Discount') . "<small> $currency</small>" ?></th>
                                             <th data-field="total" data-sortable="true" data-visible="true"><?= labels('sub_total', 'SubTotal') ?></th>
+                                            <th data-field="hidden_inputs" data-visible="false"></th>
                                         </tr>
                                     </thead>
                                 </table>
@@ -102,14 +105,6 @@
                         <div class="row">
 
                             <div class="col-md">
-                                <div class="form-group">
-                                    <label for="order_taxes"><?= labels('order_tax', 'Order Tax') ?> </label>
-                                    <div>
-                                        <input name='order_taxes' id="order_taxes"
-                                            class='some_class_name mb-3 p-1'
-                                            placeholder='write some tags'>
-                                    </div>
-                                </div>
                                 <div class="row">
                                     <div class="col-md">
                                         <div class="form-group">
@@ -140,10 +135,23 @@
                                 </div>
 
 
-                                <div>
-                                    <h6><strong><?= labels('total', 'Total') ?></strong></h6>
-                                    <h4 class="cart-value h6 m-1 px-2" id="sub_total" data-currency="<?= $currency ?>"></h4>
-                                    <input type="hidden" name="total" id="total">
+                                <div class="row">
+                                    <div class="col">
+                                        <h6 class="h6"><strong><?= labels('total', 'Total') ?></strong></h6>
+                                        <h4 class="text-info h6 m-1 px-2" id="sub_total" data-currency="<?= $currency ?>"></h4>
+                                        <input type="hidden" name="total" id="total">
+                                    </div>
+                                    <div class="col">
+                                        <h6 class="h6"><strong><?= labels('sell_total', 'Sell Total') ?></strong></h6>
+                                        <h4 class="text-black h6 m-1 px-2" id="sell_total" data-currency="<?= $currency ?>"></h4>
+                                        <input type="hidden" name="total" id="sell_total">
+                                    </div>
+                                    <div class="col">
+                                        <h6 class="h6"><strong><?= labels('estimated_profit', 'Estimated Profit') ?></strong></h6>
+                                        <h4 class="text-success h6 m-1 px-2" id="profit_total" data-currency="<?= $currency ?>"></h4>
+                                        <input type="hidden" name="total" id="profit_total">
+                                    </div>
+
                                 </div>
 
                                 <div class="row">
@@ -161,38 +169,6 @@
                                                 <input type="number" class="form-control" id="amount_paid_item" value="" placeholder="0.00" name="amount_paid" min="0.00">
                                             </div>
                                         </div>
-
-                                        <div class="section-title">Payment Methods</div>
-
-                                        <div class="custom-control custom-radio cash_payment ">
-                                            <input type="radio" id="cod" name="payment_method[]" value="cash" class="custom-control-input payment_method">
-                                            <label class="custom-control-label" for="cod"> Cash</label>
-                                        </div>
-                                        <div class="custom-control custom-radio card_payment ">
-                                            <input type="radio" id="card_payment" name="payment_method[]" value="card_payment" class="custom-control-input payment_method">
-                                            <label class="custom-control-label" for="card_payment">Card Payment</label>
-                                        </div>
-
-                                        <div class="custom-control custom-radio bar_code ">
-                                            <input type="radio" id="bar_code" name="payment_method[]" value="bar_code" class="custom-control-input payment_method">
-                                            <label class="custom-control-label" for="bar_code"> Bar Code / QR Code Scan</label>
-                                        </div>
-
-                                        <div class="custom-control custom-radio net_banking ">
-                                            <input type="radio" id="net_banking" name="payment_method[]" value="net_banking" class="custom-control-input payment_method">
-                                            <label class="custom-control-label" for="net_banking">Net Banking</label>
-                                        </div>
-
-                                        <div class="custom-control custom-radio online_payment ">
-                                            <input type="radio" id="online_payment" name="payment_method[]" value="online_payment" class="custom-control-input payment_method">
-                                            <label class="custom-control-label" for="online_payment">Online Payment</label>
-                                        </div>
-
-                                        <div class="custom-control custom-radio other">
-                                            <input type="radio" id="other" name="payment_method[]" value="other" class="custom-control-input payment_method">
-                                            <label class="custom-control-label" for="other"> Other</label>
-                                        </div>
-                                       
                                     </div>
                                 </div>
                                 <div class="form-group">
@@ -219,6 +195,7 @@
                 </div>
             </form>
         </div>
+
     </section>
 </div>
 <div class="modal edit-modal-lg">
@@ -285,3 +262,170 @@
         </div>
     </div>
 </div>
+
+<script>
+    $(document).ready(function() {
+
+        // Other form handlers, for example for the customer form
+        $("#purchase_form").validate({
+            rules: {
+                supplier_id: {
+                    required: true,
+                },
+                warehouse_id: {
+                    required: true,
+                },
+                purchase_date: {
+                    required: true,
+                    dateISO: true,
+                },
+                status: {
+                    required: true,
+                },
+                // This targets at least one product being added
+                products: {
+                    required: true,
+                }
+            },
+            messages: {
+                supplier_id: {
+                    required: "Supplier is required",
+                },
+                warehouse_id: {
+                    required: "Warehouse is required",
+                },
+                purchase_date: {
+                    required: "Purchase date is required",
+                    dateISO: "Please enter a valid date (YYYY-MM-DD).",
+                },
+                status: {
+                    required: "Status is required",
+                },
+                products: {
+                    required: "Please add at least one product.",
+                }
+            },
+
+            highlight: function(element) {
+                $(element).removeClass("is-valid").addClass("is-invalid");
+            },
+            unhighlight: function(element) {
+                $(element).removeClass("is-invalid").addClass("is-valid");
+            },
+            errorPlacement: function(error, element) {
+                error.addClass("invalid-feedback");
+
+                // Special handling for select2
+                if (element.hasClass("select2-hidden-accessible")) {
+                    error.insertAfter(element.next(".select2-container"));
+                } else {
+                    error.insertAfter(element);
+                }
+            },
+
+
+
+            submitHandler: function(form) {
+                if (variant_data.length === 0) {
+                    showToastMessage("You must add at least one product.", "error");
+                    return false;
+                }
+
+                let isValid = true;
+
+                $("#purchase_order tbody tr").each(function() {
+                    let row = $(this);
+                    let qty = parseFloat(row.find(".qty").val()) || 0;
+                    let price = parseFloat(row.find(".price").val());
+                    let sellPrice = parseFloat(row.find(".sell_price").val());
+                    let discount = parseFloat(row.find(".discount").val());
+                    let expire = row.find(".expire").val();
+                    let today = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
+                    // Check if expire is empty
+                    if (!expire) {
+                        isValid = false;
+                        showToastMessage("Expiration date is required.", "error");
+                        row.find(".expire").addClass("is-invalid");
+                        return false; // Exit the .each() loop
+                    }
+                    if (!sellPrice) {
+                        isValid = false;
+                        showToastMessage("Sell Price is required.", "error");
+                        row.find(".sell_price").addClass("is-invalid");
+                        return false; // Exit the .each() loop
+                    }
+                    if (!price) {
+                        isValid = false;
+                        showToastMessage("Cost Price is required.", "error");
+                        row.find(".price").addClass("is-invalid");
+                        return false; // Exit the .each() loop
+                    }
+                    // Quantity validation
+                    if (qty <= 0) {
+                        isValid = false;
+                        showToastMessage("Quantity must be greater than 0.", "error");
+                        return false;
+                    }
+
+                    // Price validation
+                    if (price < 0) {
+                        isValid = false;
+                        showToastMessage("Price must not be negative.", "error");
+                        return false;
+                    }
+
+                    // Sell price validation
+                    if (sellPrice < 0) {
+                        isValid = false;
+                        showToastMessage("Sell price must not be negative.", "error");
+                        return false;
+                    }
+
+                    // Expiration date validation
+                    if (expire && expire < today) {
+                        isValid = false;
+                        showToastMessage("Expiration date cannot be in the past.", "error");
+                        return false;
+                    }
+
+                    // Discount validation
+                    let subtotal = qty * price;
+                    if (discount < 0 || discount > subtotal) {
+                        isValid = false;
+                        showToastMessage("Discount must be between 0 and subtotal.", "error");
+                        return false;
+                    }
+                });
+
+                if (!isValid) return false;
+
+                let formData = new FormData(form);
+                formData.append(csrf_token, csrf_hash);
+
+                $.ajax({
+                    url: form.action,
+                    type: 'POST',
+                    data: formData,
+                    processData: false,
+                    contentType: false,
+                    dataType: 'json',
+                    success: function(response) {
+                        csrf_token = response["csrf_token"];
+                        csrf_hash = response["csrf_hash"];
+                        if (response.success) {
+                            showToastMessage(response.message, 'success');
+                            // location.href = base_url + "/admin/purchases";
+
+                        } else {
+                            showToastMessage(response.message, 'error');
+                        }
+                    },
+                    error: function() {
+                        showToastMessage('An error occurred during the request.', 'error');
+                    }
+                });
+                return false; // Stop form submission for customer form
+            }
+        });
+    });
+</script>

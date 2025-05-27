@@ -7,6 +7,8 @@ use App\Models\Units_model;
 use App\Libraries\Razorpay;
 
 
+use CodeIgniter\HTTP\Response;
+
 /**
  * Updates the stock of a product variant in a warehouse.
  * 
@@ -18,7 +20,7 @@ use App\Libraries\Razorpay;
  * @param {double} $warehouse_stock      The amount to adjust the stock by.
  * @param {int|null} $type            The type of operation: 0 for subtraction, 1 for addition. Default is null.
  */
-function updateWarehouseStocks($warehouse_id, $product_variant_id, $warehouse_stock, $type)
+function updateWarehouseStocks($warehouse_id, $product_variant_id, $warehouse_stock, $type, $response = '')
 {
     $db = \Config\Database::connect();
     $db->transStart();
@@ -31,6 +33,8 @@ function updateWarehouseStocks($warehouse_id, $product_variant_id, $warehouse_st
         ->get()
         ->getRow();
 
+    log_message('debug', 'Query result: ' . print_r($result, true));
+
     if ($result) {
         $stock = (float) $result->stock;
 
@@ -38,6 +42,7 @@ function updateWarehouseStocks($warehouse_id, $product_variant_id, $warehouse_st
             $stock += (float) $warehouse_stock;
         } else {
             if ($stock < ($warehouse_stock)) {
+
                 throw new Exception("Insufficient stock in warehouse_id: $warehouse_id for product_variant_id: $product_variant_id");
             }
             $stock -= (float)$warehouse_stock;
@@ -51,7 +56,15 @@ function updateWarehouseStocks($warehouse_id, $product_variant_id, $warehouse_st
             'updated_at' => date('Y-m-d H:i:s'),
         ]);
     } else {
-        throw new Exception("No records found for warehouse_id: $warehouse_id and product_variant_id: $product_variant_id");
+
+        $response = [
+            'error' => false,
+            'message' => 'Purchase Order saved successfully',
+            'data' => []
+        ];
+        $response['csrf_token'] = csrf_token();
+        $response['csrf_hash'] = csrf_hash();
+        return json_encode($response);
     }
 
     $db->transComplete();
@@ -210,14 +223,18 @@ function get_products_with_variants($product_id)
 
     $products = fetch_details('products', ['id' => $product_id]);
     $products_variants = fetch_details('products_variants', ['product_id' => $product_id]);
-    for ($i = 0; $i < count($products); $i++) {
-        $products[$i]['variants'] = array();
-        for ($j = 0; $j < count($products_variants); $j++) {
-            if ($products[$i]['id'] == $products_variants[$j]['product_id']) {
-                array_push($products[$i]['variants'], $products_variants[$j]);
-            }
-        }
+
+    // Group variants by product_id
+    $variants_by_product = [];
+    foreach ($products_variants as $variant) {
+        $variants_by_product[$variant['product_id']][] = $variant;
     }
+
+    // Attach variants to products
+    foreach ($products as &$product) {
+        $product['variants'] = $variants_by_product[$product['id']] ?? [];
+    }
+
     return $products;
 }
 function get_supplier($supplier_id)
@@ -444,6 +461,8 @@ function fetch_stock($business_id = '', $where_in_key = '', $where_in_value = []
     return $res;
 }
 
+function getProducts() {}
+
 
 // not in use yet 
 function fetch_products($business_id = "", $category_id = "", $brand_id = "", $search = "", $limit = "10", $offset = "0", $sort = "id", $order = "DESC", $where_in_key = '', $where_in_value = [], $extra_data = [])
@@ -458,12 +477,8 @@ function fetch_products($business_id = "", $category_id = "", $brand_id = "", $s
         $where['brand_id'] = $brand_id;
     }
 
-    $where['status'] = "1";
-
-    if (!empty($extra_data)) {
-        if ($extra_data['product_id'] != '' && isset($extra_data['product_id'])) {
-            $where['id'] = $extra_data['product_id'];
-        }
+    if (!empty($extra_data['product_id'])) {
+        $where['id'] = $extra_data['product_id'];
     }
 
     $multipleWhere = [];
@@ -472,29 +487,28 @@ function fetch_products($business_id = "", $category_id = "", $brand_id = "", $s
             '`id`' => $search,
             '`category_id`' => $search,
             '`business_id`' => $search,
-            '`tax_ids`' => $search,
             '`name`' => $search,
             '`description`' => $search,
             '`image`' => $search,
-            '`type`' => $search,
-            '`stock_management`' => $search,
             '`stock`' => $search,
-            '`unit_id`' => $search,
-            '`is_tax_included`' => $search,
             '`status`' => $search,
         ];
     }
 
     $products = fetch_details('products', $where, [], $limit, $offset, $sort, $order, $where_in_key, $where_in_value, $multipleWhere);
-    $total = fetch_details('products', $where, ['COUNT(`id`) as total'], '', 0, $sort, $order, '', '', $multipleWhere);
-    for ($i = 0; $i < count($products); $i++) {
-        $product_id = isset($products[$i]['id']) ? $products[$i]['id'] : "";
-        $products_variants = fetch_details('products_variants', ['product_id' => $product_id]);
-        $products[$i]['variants'] = $products_variants;
+    // Get total count
+    $total_result = fetch_details('products', $where, ['COUNT(`id`) as total'], '', 0, '', '', '', '', $multipleWhere);
+    $total = $total_result[0]['total'] ?? 0;
+
+    // Append product variants
+    foreach ($products as &$product) {
+        $product['variants'] = fetch_details('products_variants', ['product_id' => $product['id']]);
     }
-    $response['total'] = (!empty($total[0]['total'])) ? $total[0]['total'] : 0;
-    $response['products'] = $products;
-    return $response;
+
+    return  [
+        'total'    => $total,
+        'products' => $products
+    ];
 }
 
 function product_stock($business_id = "")
@@ -1110,81 +1124,52 @@ function update_stock($product_variant_ids, $qtns, $type = '')
 			2 => Variant level(variable product)		
 				-Stock will be stored in product_variant table	
 		*/
-    $db      = \Config\Database::connect();
-    $res = $db->table('products as p')
-        ->select('p.*,pv.*,p.id as p_id,pv.id as pv_id,p.stock as p_stock,pv.stock as pv_stock')
-        ->where('pv.id = ', $product_variant_ids)
-        ->join('products_variants as pv', 'p.id = pv.product_id ', "left")
-        ->get()->getResultArray();
+    $db = \Config\Database::connect();
 
+    $productVariantData = $db->table('products as p')
+        ->select('p.*, pv.*, p.id as product_id, pv.id as variant_id, p.stock as product_stock, pv.stock as variant_stock')
+        ->join('products_variants as pv', 'p.id = pv.product_id', 'left')
+        ->where('pv.id', $product_variant_ids)
+        ->get()
+        ->getResultArray();
 
-    for ($i = 0; $i < count($res); $i++) {
-        if (($res[$i]['stock_management'] != null || $res[$i]['stock_management'] != "")) {
+    foreach ($productVariantData as $item) {
+        $stockManagementType = $item['stock_management'];
 
-            /* Case 1 : Simple Product(simple product) */
-            if ($res[$i]['stock_management'] == 0) {
-                if ($type == 'plus') {
-                    if ($res[$i]['p_stock'] != null) {
-                        $stock = ($res[$i]['p_stock']) + ($qtns);
-                        $db->table('products')->where('id', $res[$i]['p_id'])->update(['stock' => $stock]);
-                        if ($stock > 0) {
-                            return true;
-                        }
-                    }
-                } else {
-                    if ($res[$i]['p_stock'] != null && $res[$i]['p_stock'] > 0) {
-                        $stock = ($res[$i]['p_stock']) - ($qtns);
-                        $db->table('products')->where('id', $res[$i]['p_id'])->update(['stock' => $stock]);
-                        if ($stock == 0) {
-                            return false;
-                        }
-                    }
-                }
+        // Skip if stock management is not set
+        if ($stockManagementType === null || $stockManagementType === '') {
+            continue;
+        }
+
+        $isAddingStock = $type === 'plus';
+
+        // Case 1 & 2: Simple or Product-level Stock Management
+        if ($stockManagementType == 0 || $stockManagementType == 1) {
+            $currentStock = $item['product_stock'];
+            $newStock = $isAddingStock
+                ? $currentStock + $qtns
+                : max(0, $currentStock - $qtns);  // prevent negative
+
+            if ($currentStock !== null) {
+                $db->table('products')->where('id', $item['product_id'])->update(['stock' => $newStock]);
+
+                if ($isAddingStock && $newStock > 0) return true;
+                if (!$isAddingStock && $newStock == 0) return false;
             }
+        }
 
-            /* Case 2 : Product level(variable product) */
-            if ($res[$i]['stock_management'] == 1) {
-                if ($type == 'plus') {
+        // Case 3: Variant-level Stock Management
+        elseif ($stockManagementType == 2) {
+            $currentStock = $item['variant_stock'];
+            $newStock = $isAddingStock
+                ? $currentStock + $qtns
+                : max(0, $currentStock - $qtns);  // prevent negative
 
-                    if ($res[$i]['p_stock'] != null) {
-                        $stock = ($res[$i]['p_stock']) + ($qtns);
-                        $db->table('products')->where('id', $res[$i]['p_id'])->update(['stock' => $stock]);
-                        if ($stock > 0) {
-                            return true;
-                        }
-                    }
-                } else {
-                    if ($res[$i]['p_stock'] != null && $res[$i]['p_stock'] > 0) {
-                        $stock = ($res[$i]['p_stock']) - ($qtns);
-                        $db->table('products')->where('id', $res[$i]['p_id'])->update(['stock' => $stock]);
-                        if ($stock == 0) {
-                            return false;
-                        }
-                    }
-                }
-            }
+            if ($currentStock !== null) {
+                $db->table('products_variants')->where('id', $item['variant_id'])->update(['stock' => $newStock]);
 
-            /* Case 3 : Variant level(variable product) */
-            if ($res[$i]['stock_management'] == 2) {
-                if ($type == 'plus') {
-                    if ($res[$i]['pv_stock'] != null) {
-
-                        $stock = ($res[$i]['pv_stock']) + ($qtns);
-                        $db->table('products_variants')->where('id', $res[$i]['pv_id'])->update(['stock' => $stock]);
-                        if ($stock > 0) {
-                            return true;
-                        }
-                    }
-                } else {
-                    if ($res[$i]['pv_stock'] != null && $res[$i]['pv_stock'] > 0) {
-
-                        $stock = ($res[$i]['pv_stock']) - ($qtns);
-                        $db->table('products_variants')->where('id', $res[$i]['pv_id'])->update(['stock' => $stock]);
-                        if ($stock == 0) {
-                            return false;
-                        }
-                    }
-                }
+                if ($isAddingStock && $newStock > 0) return true;
+                if (!$isAddingStock && $newStock == 0) return false;
             }
         }
     }
@@ -1264,6 +1249,7 @@ function validate_stock($product_variant_ids, $qtns)
     }
     return $response;
 }
+
 function get_compnay_title()
 {
     $setting = get_settings('general', true);
