@@ -36,7 +36,7 @@ class Purchases extends BaseController
     {
         $this->ionAuth = new \App\Libraries\IonAuth();
         $this->validation = \Config\Services::validation();
-        helper(['form', 'url', 'filesystem', 'purchase']);
+        helper(['form', 'url', 'filesystem', 'purchase', 'common']);
         $this->configIonAuth = config('IonAuth');
         $this->session       = \Config\Services::session();
         $this->business_id = session('business_id') ?? "";
@@ -55,6 +55,24 @@ class Purchases extends BaseController
         return view("admin/template", $data);
     }
 
+    public function return_purchase_orders($purchase_id = '')
+    {
+        $data = getdata(
+            'status',
+            $this->status_model->get_status($this->business_id),
+            FORMS . 'Purchases/return',
+            'warehouses',
+            $this->warehouse_model->where('business_id', $this->business_id)->get()->getResultArray(),
+            'purchase',
+            $this->purchase_model->getPurchase($purchase_id)
+        );
+        $data['order_type'] = 'return';
+        $data['purchase_id'] = $purchase_id;
+        session('purchase_id')->set($purchase_id);
+        $batches = $this->warehouse_batches_model->getBatches($purchase_id);
+
+        return view("admin/template", $data);
+    }
     public function purchase_orders($type = '')
     {
         $data = getdata(
@@ -80,27 +98,27 @@ class Purchases extends BaseController
         $order_type = $this->request->getVar('order_type');
 
 
-        // // validation
-        // $rules =  getPurchaseValidationRules($this->request);
-        // $this->validation->setRules($rules);
-        // if (!$this->validation->withRequest($this->request)->run()) {
-        //     $errors = $this->validation->getErrors();
-        //     return $this->response->setJSON(csrfResponseData([
-        //         'success' => false,
-        //         'message' => $errors,
-        //         'data' => []
-        //     ]));
-        // }
-        // if ($this->ionAuth->isTeamMember()) {
-        //     if (! userHasPermission('purchases', 'can_update',  session('user_id'))) {
-        //         session()->setFlashdata("permission_error", "You do not have permission to access");
-        //         session()->setFlashdata("type", "error");
-        //         return json_encode([
-        //             'total' => 0,
-        //             'rows' => [],
-        //         ]);
-        //     }
-        // }
+        // validation
+        $rules =  getPurchaseValidationRules($this->request);
+        $this->validation->setRules($rules);
+        if (!$this->validation->withRequest($this->request)->run()) {
+            $errors = $this->validation->getErrors();
+            return $this->response->setJSON(csrfResponseData([
+                'success' => false,
+                'message' => $errors,
+                'data' => []
+            ]));
+        }
+        if ($this->ionAuth->isTeamMember()) {
+            if (! userHasPermission('purchases', 'can_update',  session('user_id'))) {
+                session()->setFlashdata("permission_error", "You do not have permission to access");
+                session()->setFlashdata("type", "error");
+                return json_encode([
+                    'total' => 0,
+                    'rows' => [],
+                ]);
+            }
+        }
 
         $warehouse_id = $this->request->getVar('warehouse_id');
         $payment_status = $this->request->getVar('payment_status');
@@ -139,9 +157,6 @@ class Purchases extends BaseController
 
             $this->Purchases_items_model->savePurchaseItem($purchase_id, $this->request->getVar('status'), $item);
             $purchase_items_id = $this->Purchases_items_model->getInsertID();
-
-            // insert warehouse batches
-            $this->products_variants_model->calculate_stock($item->id, $item->qty);
 
             if ($order_type == "order") {
                 $this->warehouse_batches_model->saveBatch($purchase_items_id, $warehouse_id, $item, 'order');
@@ -222,6 +237,7 @@ class Purchases extends BaseController
             $purchase_id = $purchase['id'];
             $edit = "<a href=" . base_url('admin/purchases/view_purchase') . "/" . $purchase_id . " class='btn btn-primary btn-sm' data-toggle='tooltip' data-placement='bottom' title='View'><i class='bi bi-eye'></i></a>";
             $edit .= " <a href='" . base_url("admin/purchases/invoice") . "/" . $purchase_id . "' class='btn btn-warning btn-sm' data-toggle='tooltip' data-placement='bottom' title='Invoice'><i class='bi bi-receipt-cutoff'></i></a>";
+            $edit .= " <a href='" . base_url("admin/batches/return") . "/" . $purchase_id . "' class='btn btn-info btn-sm' data-toggle='tooltip' data-placement='bottom' title='Return'><i class='bi bi-box-arrow-down'></i></a>";
 
             // Populate rows for Bootstrap Table
             $rows[$i] = [
@@ -334,7 +350,6 @@ class Purchases extends BaseController
 
     public function update_order_status()
     {
-
         $status = $this->request->getGet('status');
         $order_id = $this->request->getGet('order_id');
         if ($this->request->getGet('status')) {
@@ -476,10 +491,8 @@ class Purchases extends BaseController
         }
     }
 
-    public function purchase_return($purchase_id = '')
+    public function purchase_return()
     {
-
-        dd("welcome to purchase return");
         $version = fetch_details('updates', [], ['version'], '1', '0', 'id', 'DESC')[0]['version'];
         $data['version'] = $version;
         $session = session();
@@ -534,10 +547,9 @@ class Purchases extends BaseController
 
     public function purchase_return_table()
     {
-        $purchase_model = new Purchases_model();
         $vendor_id = $_SESSION['user_id'];
         $business_id = $_SESSION['business_id'];
-        $purchases =  $purchase_model->get_purchases($vendor_id,  $business_id, 'return');
+        $purchases =  $this->purchase_model->get_purchases($vendor_id,  $business_id, 'return');
         $i = 0;
         $currency = (isset($settings['currency_symbol'])) ? $this->settings['currency_symbol'] : '₹';
         foreach ($purchases['rows'] as $purchase) {

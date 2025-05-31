@@ -20,14 +20,6 @@ class Products_variants_model extends Model
         return $variants;
     }
 
-    public function calculate_stock($variant_id, $quantity)
-    {
-        $builder = $this->db->table("products_variants");
-        $builder->set('stock', "stock + $quantity", false);
-        $builder->where('id', $variant_id);
-        return $builder->update();
-    }
-
     // public function decrease_stock($variant_id, $quantity)
     // {
     //     $builder = $this->db->table("products_variants");
@@ -36,7 +28,33 @@ class Products_variants_model extends Model
     //     return $builder->update();
     // }
 
+    public function getProductVariants($search = '')
+    {
+        $builder = $this->db->table("products_variants pv");
+        $builder->select('p.id, pv.id as variant_id, pv.variant_name, pv.stock, pv.qty_alert, p.name, p.image, c.name as category');
 
+        $builder->join('products p', 'p.id = pv.product_id');
+        $builder->join('categories c', 'c.id = p.category_id');
+        $builder->where('p.business_id', session('business_id'));
+        $builder->where('p.status', 1); // Only active products
+        $builder->where('pv.status', 1); // Only active variants
+
+        
+        if (!empty($search)) {
+            $builder->groupStart();
+            $builder->orLike('pv.variant_name', $search);
+            $builder->orLike('p.name', $search);
+            $builder->orLike('c.name', $search);
+            $builder->orLike('pv.id', $search);
+            $builder->orLike('p.id', $search);
+            $builder->groupEnd();
+        }
+
+        $builder->orderBy('p.name', 'ASC');
+        $builder->orderBy('pv.variant_name', 'ASC');
+
+        return $builder->get()->getResultArray();
+    }
     public function get_product_variants($product_id = "")
     {
         $builder = $this->db->table("products_variants");
@@ -89,11 +107,6 @@ class Products_variants_model extends Model
         }
         if (isset($_GET['id']) && $_GET['id'] != '') {
             $builder->where($condition);
-        }
-        if (isset($multipleWhere) && !empty($multipleWhere)) {
-            $builder->groupStart();
-            $builder->orLike($multipleWhere);
-            $builder->groupEnd();
         }
         if (isset($where) && !empty($where)) {
             $builder->where($where);

@@ -2768,11 +2768,15 @@ function SuppliersSelection(p) {
 $(document).ready(function () {
   $(".search_products").select2({
     ajax: {
-      url: site_url + "admin/products/json",
+      url: site_url + "variants/products_variants_list",
       dataType: "json",
+      delay: 350, // milliseconds before sending request
+
+     
       data: function (params) {
         var query = {
           search: params.term,
+          csrf_test_name: $('meta[name="csrf-token"]').attr("content"),
         };
         return query;
       },
@@ -2817,6 +2821,9 @@ function formatPostProducts(p) {
   return $products;
 }
 
+function ProductsSelection(p) {
+  return p.variant_name;
+}
 function formatState(p) {
   if (!p.id) {
     return p.text;
@@ -2832,12 +2839,6 @@ function formatState(p) {
     return $opt;
   }
 }
-
-function ProductsSelection(p) {
-  return p.variant_name;
-}
-
-// form-submit-event
 
 $(document).on("click", ".edit_btn", function (e) {
   e.preventDefault();
@@ -2892,154 +2893,165 @@ var qty;
 var discount;
 var price;
 var count = 1;
+
 if ($("#purchase_form").length > 0) {
   $(document).ready(function () {
-    $('.dropdown-menu .dropdown-item-marker input[data-field="id"]')
+    // Hide hidden fields
+    $('.dropdown-menu .dropdown-item-marker input[data-field="variant_id"]')
       .closest("label")
       .hide();
+
+    // Initialize flatpickr once for all future expire inputs
+    $(document).on('focus', '.expire', function () {
+      $(this).flatpickr({
+        dateFormat: "Y-m-d",
+        allowInput: true,
+        minDate: "today"
+      });
+    });
+
+    // Set up event handlers once
+    setupPurchaseOrderEventHandlers();
   });
 
   $(document).on("change", ".search_products", function (e) {
     e.preventDefault();
-    data = $(".search_products").select2("data")[0];
-    console.log(data);
-    var table_data = new Object();
-    price = 0;
-    table_data.name = data.name + "-" + data.variant_name;
-    table_data.image =
-      '<img src="' +
-      site_url +
-      data.image +
-      '" width="60px"  class="img-fluid"/>';
-    table_data.sr = count;
-    table_data.id = data.id;
+  const select2Data = $(".search_products").select2("data");
+  
+  if (!select2Data || select2Data.length === 0) {
+    showToastMessage("Please select a valid product", "error");
+    return;
+  }
+  
+  const data = select2Data[0];
+  console.log('variant data: ', variant_data);
+  console.log('data: ', data);
+  // Check for duplicates - now only checks exact variant_id matches
+  if (variant_data.some(v => v.id == data.variant_id)) {
+    const productName = [data.name, data.variant_name].filter(Boolean).join(" - ");
+    showToastMessage(`The exact variant ${productName} is already in the list`, "error");
+    return;
+  }
 
-   table_data.variant_id = '<input type="hidden" name="variant_ids[]" value="' + data.id + '">' + data.id;
+  // Rest of your code remains the same...
+  variant_data.push({
+    id: data.variant_id,
+    name: data.name,
+    variant: data.variant_name,
+    price: data.purchase_price || 0,
+      
+  });
+  $('input[name="products"]').val(JSON.stringify(variant_data));
 
-    table_data.quantity =
-      '<input type="number" class="form-control qty" value="1" min="0" step="1" data-price ="' +
-      price +
-      '" name="qty[' + data.id + ']" placeholder="Ex.1">';
-    table_data.price =
-      '<input type="number" class="form-control price"  value="' +
-      data.purchase_price +
-      '" min="0" name="price[' + data.id + ']" step="0.1" placeholder="Ex.1">';
-    table_data.sell_price =
-      '<input type="number" class="form-control sell_price" step="0.1" value="' +
-      data.sell_price + // or 0 if undefined
-      '" min="0" name="sell_price[' + data.id + ']" placeholder="Ex.1">';
-    table_data.discount =
-      '<input type="text" class="form-control discount" min="0" step="0.1" data-price ="' +
-      price +
-      '" name="discount[' + data.id + ']" placeholder="Ex.1" step = "0.1" value="0"> ';
-    table_data.total = '<strong class="table_price">' + price + "</strong>";
-    table_data.expire =
-      '<input type="text" class="form-control expire" name="expire[' + data.id + ']" placeholder="YYYY-MM-DD" data-date-format="Y-m-d">';
-    var is_exist = false;
+    const price = parseFloat(data.purchase_price) || 0;
+    const sellPrice = parseFloat(data.sell_price) || 0;
 
-    $.each(variant_data, function (i, e) {
-      if (e.name === data.variant_name) {
-        let show = "<b>" + data.variant_name +"</b>"; ;
-          showToastMessage(show + " is Already in the list", "error");
-        is_exist = true;
-        return false;
-      }
+    const tableRow = {
+      name: [data.name, data.variant_name].filter(Boolean).join(" - "),
+      image: data.image ? 
+        `<img src="${site_url}${data.image}" width="60" height="60" class="img-thumbnail" alt="Product Image">` : 
+        '<div class="no-image">No Image</div>',
+      sr: count++,
+      id: `<input type="hidden" name="variant_ids[]" value="${data.variant_id}">${data.variant_id}`,
+      quantity: createInputField('number', 'qty', data.variant_id, 1, { min: 1, step: 1, 'data-price': price }),
+      price: createInputField('number', 'price', data.variant_id, price, { min: 0.01, step: 0.01 }),
+      sell_price: createInputField('number', 'sell_price', data.variant_id, sellPrice, { min: 0, step: 0.01 }),
+      discount: createInputField('number', 'discount', data.variant_id, 0, { min: 0, step: 0.01, max: price }),
+      total: `<span class="table_price">${price.toFixed(2)}</span>`,
+      expire: `<input type="text" class="form-control expire" name="expire[${data.variant_id}]" 
+                     placeholder="YYYY-MM-DD" autocomplete="off">`,
+      actions: '<button class="btn btn-sm btn-danger remove-row"><i class="fa fa-trash"></i></button>'
+    };
+
+    $("#purchase_order").bootstrapTable("insertRow", {
+      index: 0,
+      row: tableRow
     });
 
-    if (is_exist === false) {
-      product_details(this);
-
-      $("#purchase_order").bootstrapTable("insertRow", {
-        index: 0,
-        row: table_data,
-      });
-
-      // Use only the latest added expire input
-      flatpickr(".expire", {
-        dateFormat: "Y-m-d", // Ensures yyyy-mm-dd format
-        allowInput: true, // Allows manual typing
-        minDate: "today",
-      });
-      count++;
-    }
-    // validate sell price
-    $("#purchase_order").on("input", ".sell_price", function () {
-      var val = parseFloat($(this).val()) || 0;
-      if (val < 0) {
-        showToastMessage("Sell price cannot be negative.", "error");
-        $(this).val("");
-      }
-      purchase_total();
-    });
-
-    $("#purchase_order").on("input", ".price, .discount, .qty", function () {
-      var row = $(this).closest("tr");
-      var qty = parseFloat(row.find(".qty").val()) || 0;
-      var price = parseFloat(row.find(".price").val()) || 0;
-      var discount = parseFloat(row.find(".discount").val()) || 0;
-
-      // Calculate subtotal
-      var subtotal = qty * price;
-
-      // Validate price and qty
-      if (price < 0) {
-        showToastMessage("Price must be greater than 0.", "error");
-        row.find(".price").val("");
-        return;
-      }
-      if (qty <= 0) {
-        showToastMessage("Quantity must be greater than 0.", "error");
-        row.find(".qty").val("");
-        return;
-      }
-
-      // Validate discount
-      if (discount < 0 || discount > subtotal) {
-        showToastMessage(
-          "Discount must be between 0 and the subtotal (" +
-            subtotal.toFixed(2) +
-            ").",
-          "error"
-        );
-        row.find(".discount").val("");
-        discount = 0;
-      }
-
-      // Calculate total after discount
-      var total = subtotal - discount;
-      row.find(".table_price").text(total.toFixed(2));
-    });
-
-   
-    $("#purchase_order").on("change", ".expire", function () {
-      var val = $(this).val();
-      var today = new Date().toISOString().split("T")[0]; // yyyy-mm-dd
-
-      if (val < today) {
-        showToastMessage("Expiration date cannot be in the past.", "error");
-        $(this).val("");
-      }
-    });
-
+    $('[data-toggle="tooltip"]').tooltip();
     purchase_total();
   });
 }
 
-function newFunction() {
-  $.fn.editable.defaults.mode = "inline";
-  $(document).ready(function () {
-    $("#username").editable();
+
+function createInputField(type, name, variantId, value, attributes = {}) {
+  const attrs = Object.entries(attributes)
+    .map(([key, val]) => `${key}="${val}"`)
+    .join(" ");
+  return `<input type="${type}" class="form-control ${name}" 
+          name="${name}[${variantId}]" value="${value}"
+          ${attrs}>`;
+}
+
+function setupPurchaseOrderEventHandlers() {
+  // Validate sell price
+  $("#purchase_order").on("input", ".sell_price", function () {
+    var val = parseFloat($(this).val()) || 0;
+    if (val < 0) {
+      showToastMessage("Sell price cannot be negative.", "error");
+      $(this).val("");
+    }
+    purchase_total();
+  });
+
+  // Handle price calculations
+  $("#purchase_order").on("input", ".price, .discount, .qty", function () {
+    var row = $(this).closest("tr");
+    var qty = parseFloat(row.find(".qty").val()) || 0;
+    var price = parseFloat(row.find(".price").val()) || 0;
+    var discount = parseFloat(row.find(".discount").val()) || 0;
+
+    // Validate inputs
+    if (price < 0) {
+      showToastMessage("Price must be greater than 0.", "error");
+      row.find(".price").val("");
+      return;
+    }
+    
+    if (qty <= 0) {
+      showToastMessage("Quantity must be greater than 0.", "error");
+      row.find(".qty").val("");
+      return;
+    }
+
+    var subtotal = qty * price;
+    
+    if (discount < 0 || discount > subtotal) {
+      showToastMessage(
+        `Discount must be between 0 and ${subtotal.toFixed(2)}.`,
+        "error"
+      );
+      row.find(".discount").val("0");
+      discount = 0;
+    }
+
+    row.find(".table_price").text((subtotal - discount).toFixed(2));
+    purchase_total();
+  });
+
+  // Validate expiration date
+  $("#purchase_order").on("change", ".expire", function () {
+    var val = $(this).val();
+    if (val && val < new Date().toISOString().split("T")[0]) {
+      showToastMessage("Expiration date cannot be in the past.", "error");
+      $(this).val("");
+    }
   });
 }
 
 function product_details(e) {
   variant_data.push({
-    id: data.id,
+    id: data.variant_id,
     name: data.variant_name,
-    stock: data.stock,
   });
 
   $('input[name="products"]').val(JSON.stringify(variant_data));
+}
+function newFunction() {
+  $.fn.editable.defaults.mode = "inline";
+  $(document).ready(function () {
+    $("#username").editable();
+  });
 }
 
 $(document).on("keyup", ".qty", function (e) {
@@ -3179,10 +3191,11 @@ $(function (e) {
       // Update the #products input with the updated product details (serialized as JSON)
       $("input#products").val(JSON.stringify(updatedProducts));
 
-        // ✅ Remove matching items from variant_data[]
+      // ✅ Remove matching items from variant_data[]
       variant_data = variant_data.filter(function (variant) {
         return ids.indexOf(variant.id) === -1;
       });
+      console.log('after delete: ',variant_data);
       // Call function to update any purchase totals or other details
       purchase_total();
 
@@ -3396,8 +3409,6 @@ $(".purchase_update_status_bulk ").on("click", function (e) {
   }
 });
 
-// purchase order status update individual
-
 function update_order_status(e) {
   var status = $(e).find("option:selected").val();
   var order_id = $(e).find(":selected").attr("data-order_id");
@@ -3435,7 +3446,6 @@ $(".purchase_status_update").on("change", function () {
   update_order_status(this);
 });
 
-// bulk uplaod submit button
 $(document).on("submit", "#bulk_uploads_form", function (e) {
   e.preventDefault();
   console.log(this);
@@ -3555,7 +3565,6 @@ if ($("#charttest").length > 0) {
 }
 
 // fetch stock on select 2
-
 $(document).ready(function () {
   $(".fetch_stock").select2({
     ajax: {
@@ -3667,8 +3676,6 @@ $(document).on("show.bs.modal", "#transfer_stock", function (event) {
 
   $('input[name="ts_name"]').val(name);
 });
-
-// expenses & expenses_type form
 
 $("#expenses_form").on("submit", function (e) {
   e.preventDefault();
@@ -3785,7 +3792,6 @@ $(document).on("show.bs.modal", "#expenses_modal", function (event) {
 });
 
 // report date filter
-
 var start_date = "";
 var end_date = "";
 var payment_type_filter = "";
@@ -6096,9 +6102,7 @@ function updateDraftCount() {
     const drafts =
       JSON.parse(localStorage.getItem(`drafts${business_id}`)) || [];
     const count = drafts.length;
-    $("#load_drafts_btn").html(
-      `Load Drafts (${count})`
-    );
+    $("#load_drafts_btn").html(`Load Drafts (${count})`);
   } catch (error) {
     console.error("Draft count error:", error);
   }

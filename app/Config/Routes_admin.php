@@ -14,16 +14,16 @@ $routes->group('admin/languages', ['filter' => 'checkRoles'], function ($routes)
     $routes->post('set_labels', 'admin\Languages::set_labels');
 });
 
-$routes->group('admin/batches',['filter' =>'permissioncheck'], function($routes) {
-    $routes->get('/', 'WarehouseBatchController::index');
-    $routes->get('(:num)', 'WarehouseBatchController::show/$1');
-    $routes->post('/', 'WarehouseBatchController::create');
-    $routes->put('(:num)', 'WarehouseBatchController::update/$1');
-    $routes->delete('(:num)', 'WarehouseBatchController::delete/$1');
+$routes->group('admin/batches', ['filter' => 'permissioncheck'], function ($routes) {
+    $routes->get('return/(:any)', 'admin\WarehouseBatchController::index/$1', ['as' => 'return_purchase']);
+    $routes->get('batches_table', 'admin\WarehouseBatchController::batches_table');
+    $routes->get('Returned_batches_table', 'admin\WarehouseBatchController::Returned_batches_table');
+    $routes->post('update_purchase_item_status', 'admin\WarehouseBatchController::update_purchase_item_status');
+    $routes->post('save_batch', 'admin\WarehouseBatchController::save_batch');
+    $routes->post('delete_batch', 'admin\WarehouseBatchController::delete_batch');
+    $routes->post('delete_returned_batch/(:any)', 'admin\WarehouseBatchController::delete_returned_batch/$1');
+    $routes->post('return_batch', 'admin\WarehouseBatchController::return_batch');
 });
-
-// in case hold and draft buttons didnt work 
-//$routes->get('admin/orders', 'Admin\Orders::index');
 
 $routes->group('admin/home', function ($routes) {
     $routes->get('fetch_sales', 'admin\Home::fetch_sales');
@@ -32,12 +32,16 @@ $routes->group('admin/home', function ($routes) {
     $routes->get('fetch_purchases', 'admin\Home::fetch_purchases');
     $routes->get('switch_businesses/(:any)', 'admin\Home::switch_businesses/$1');
 });
+
+$routes->get('variants/products_variants_list', 'admin\Products::products_variants_list');
+
 $routes->group('admin/purchases', ['filter' => 'checkpermissions:module=purchases'], function ($routes) {
     $routes->get('', 'admin\Purchases::index', ['filter' => 'checkpermissions:action=can_read']);
     $routes->get('get_suppliers', 'admin\Purchases::get_suppliers', ['filter' => 'checkpermissions:action=can_read']);
     $routes->get('purchase_table', 'admin\Purchases::purchase_table', ['filter' => 'checkpermissions:action=can_read']);
     $routes->get('view_purchase/(:any)', 'admin\Purchases::view_purchase/$1', ['filter' => 'checkpermissions:action=can_read']);
     $routes->get('purchase_orders/(:any)', 'admin\Purchases::purchase_orders/$1', ['filter' => 'checkpermissions:action=can_create']);
+    $routes->get('return_purchase_orders/(:any)', 'admin\Purchases::return_purchase_orders/$1');
     $routes->post('save', 'admin\Purchases::save', ['filter' => 'checkpermissions:action=can_create']);
     $routes->post('update_status_bulk', 'admin\Purchases::update_status_bulk', ['filter' => 'checkpermissions:action=can_update']);
     $routes->get('invoice/(:any)', 'admin\Purchases::invoice/$1', ['filter' => 'checkpermissions:action=can_read']);
@@ -47,7 +51,7 @@ $routes->group('admin/purchases', ['filter' => 'checkpermissions:module=purchase
     $routes->get('purchase_return_table', 'admin\Purchases::purchase_return_table', ['filter' => 'checkpermissions:action=can_read']);
 });
 //,checkpermissions:module=customers
-$routes->group('admin/customers', ['filter' =>'checkpermissions:module=customers|permissioncheck'], function ($routes) {
+$routes->group('admin/customers', ['filter' => 'checkpermissions:module=customers|permissioncheck'], function ($routes) {
     $routes->get('/', 'admin\Customers::index', ['action' => 'can_read']);
     $routes->post('save_status', 'admin\Customers::save_status', ['action' => 'can_update']);
     $routes->get('customers_table', 'admin\Customers::customers_table', ['action' => 'can_read']);
@@ -67,7 +71,7 @@ $routes->group('admin/delivery_boys', ['filter' => 'checkpermissions:module=deli
 });
 
 
-$routes->group('admin/orders', ['filter' =>'checkpermissions:module=orders','permissioncheck'], function ($routes) {
+$routes->group('admin/orders', ['filter' => 'checkpermissions:module=orders', 'permissioncheck'], function ($routes) {
     $routes->get('/', 'admin\Orders::index', ['filter' => 'checkpermissions:module=pos,action=can_create']);
     $routes->get('orders', 'admin\Orders::orders', ['filter' => 'checkpermissions:action=can_read']);
 
@@ -123,7 +127,7 @@ $routes->group('admin/transactions', ['filter' => 'checkpermissions:module=trans
 });
 $routes->post('admin/transactions/save_payment', 'admin\Transactions::save_payment');
 
-$routes->group('admin/products', ['filter' => 'permissioncheck','checkpermissions:module=products' ], function ($routes) {
+$routes->group('admin/products', ['filter' => 'permissioncheck', 'checkpermissions:module=products'], function ($routes) {
     // GET Routes
     $routes->get('/', 'admin\Products::index', ['filter' => 'checkpermissions:action=can_read']);
     $routes->get('add_products', 'admin\Products::Add_products', ['filter' => 'checkpermissions:action=can_create']);
@@ -347,9 +351,9 @@ $routes->group('admin/team_members', ['filter' => 'checkRoles'], function ($rout
     $routes->post('update_user', 'admin\Team_members::update_user');
 });
 $routes->group('admin/employees', ['filter' => 'checkRoles'], function ($routes) {
-    $routes->get('', 'admin\Employees::index',['filter' => 'checkRoles']);
+    $routes->get('', 'admin\Employees::index', ['filter' => 'checkRoles']);
     $routes->get('employees_table', 'admin\employees::employees_table');
-    $routes->get('new', 'admin\Employees::new',['filter' => 'checkRoles']);
+    $routes->get('new', 'admin\Employees::new', ['filter' => 'checkRoles']);
     $routes->post('create', 'admin\Employees::create');
     $routes->get('show/(:any)', 'admin\Employees::edit/$1');
     $routes->post('update/(:any)', 'admin\Employees::update/$1');

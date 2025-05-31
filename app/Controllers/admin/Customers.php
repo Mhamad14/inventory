@@ -187,7 +187,7 @@ class Customers extends BaseController
         $customer = $this->customerModel->getCustomerFullDetail($id);
 
         $data = $this->getData('customer', $customer,  FORMS . 'Customers/' . 'show');
-
+        
         session()->set('current_customer_id', $customer['id']);
         $data['overallPayments'] = $this->customerModel->getOverallPayments($customer['id'], $this->business_id);
         return view('admin/template', $data);

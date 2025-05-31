@@ -40,7 +40,7 @@ class Orders extends BaseController
     {
         $this->ionAuth = new \App\Libraries\IonAuth();
         $this->validation = \Config\Services::validation();
-        helper(['form', 'url', 'filesystem', 'order']);
+        helper(['form', 'url', 'filesystem', 'order','common']);
         $this->configIonAuth = config('IonAuth');
         $this->session = \Config\Services::session();
         $this->business_id = session('business_id') ?? "";

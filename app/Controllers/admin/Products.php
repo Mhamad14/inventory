@@ -374,9 +374,25 @@ class Products extends BaseController
         return $this->response->setJSON($response);
     }
 
-    public function json()
+    public function products_variants_list()
     {
 
+        $data = $this->request->getGet();
+        $search = $data['search'] ?? '';
+
+        $variants = $this->products_variants_model->getProductVariants($search);
+        log_message('debug', print_r($variants, true));
+        return $this->response->setJSON([
+            'variants' => $variants,
+        ]);
+    }
+
+    public function json()
+    {
+        // 1. Ensure this is an AJAX request
+        if (!$this->request->isAJAX()) {
+            return redirect()->to('/');
+        }
         // session('user_id')->set();
         // Use helper to safely fetch GET parameters
         $data = $this->request->getGet();
@@ -447,10 +463,6 @@ class Products extends BaseController
             'currency' => $currency,
         ]);
     }
-
-
-
-
 
     public function stock_table($flag = "")
     {

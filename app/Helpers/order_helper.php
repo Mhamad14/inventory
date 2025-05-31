@@ -2,13 +2,6 @@
 
 use App\Models\Categories_model;
 
-function getUserId()
-{
-    $ionAuth = \Config\Services::ionAuth();
-    $user_id = $_SESSION['user_id'];
-    return $ionAuth->isTeamMember() ? get_vendor_for_teamMember($user_id) : $user_id;
-}
-
 function getActiveCategories($user_id, $business_id)
 {
     $category_model = new Categories_model();
@@ -34,8 +27,6 @@ function getActiveCategories($user_id, $business_id)
 
 function prepareOrdersItemsRow(array $ordersItems): array
 {
-
-
     $img = '<div class="image-box-100 "><a href="' . base_url($ordersItems['image'])  . '" data-lightbox="image-1">
              <img src="' . base_url($ordersItems['image']) . '" class="image-100 image-box-100 img-fluid" />
             </a></div>';
@@ -66,27 +57,4 @@ function prepareOrdersItemsRow(array $ordersItems): array
     ];
 
     return $result;
-}
-
-
-if (!function_exists('getAppVersion')) {
-    function getAppVersion()
-    {
-        $version = fetch_details('updates', [], ['version'], '1', '0', 'id', 'DESC');
-        return $version[0]['version'] ?? '1.0';
-    }
-}
-
-if (!function_exists('getLanguages')) {
-    function getLanguages()
-    {
-        return fetch_details('languages', [], [], null, '0', 'id', 'ASC') ?? [];
-    }
-}
-
-if (!function_exists('getCustomers')) {
-    function getCustomers($business_id)
-    {
-        return fetch_details("customers", ['business_id' => $business_id]) ?? [];
-    }
 }

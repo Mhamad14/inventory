@@ -83,8 +83,6 @@
                                         <tr>
                                             <th data-field="state" data-checkbox="true" data-width="20"></th>
                                             <th data-field="id" data-sortable="true" data-visible="false" data-card-visible="false"><?= labels('id', 'id') ?></th>
-                                            <!-- <th data-field="sr" data-sortable="true" data-width="20" data-visible="true"><?= "" //labels('sr', 'Sr') 
-                                                                                                                                ?></th> -->
                                             <th data-field="image" data-sortable="true" data-visible="true"><?= labels('image', 'Image') ?></th>
                                             <th data-field="name" data-sortable="true" data-visible="true"><?= labels('name', 'Name') ?></th>
                                             <th data-field="quantity" data-sortable="true" data-visible="true"><?= labels('qty', 'Qty') ?></th>

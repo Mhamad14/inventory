@@ -48,7 +48,16 @@ class WarehouseProductStockModel extends Model
 
     public function increaseWarehouseStock($warehouse_id, $product_variant_id, $quantity)
     {
-        $this->db->query("select ");
+        $this->db->query("select * from warehouse_product_stock where warehouse_id = {$warehouse_id} and product_variant_id = {$product_variant_id}");
+        if ($this->db->affectedRows() == 0) {
+            $data = [
+                'warehouse_id' => $warehouse_id,
+                'product_variant_id' => $product_variant_id,
+                'stock' => $quantity,
+                'business_id' => session('business_id'),
+            ];
+            return $this->insert($data);
+        }
 
         $db = \Config\Database::connect();
         $builder = $db->table("warehouse_product_stock");
