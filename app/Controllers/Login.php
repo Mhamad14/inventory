@@ -26,6 +26,7 @@ class Login extends Frontend
         $data['meta_description'] = "$this->appName an digital solution for your subscription based daily problems";
         if ($this->ionAuth->loggedIn()) {
             $data['logged'] = true;
+            return null;
         }
         $setting = get_settings('about_us', true);
         $data['text'] = isset($setting['about_us']) ? $setting['about_us'] : '';
