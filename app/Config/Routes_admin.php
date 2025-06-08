@@ -358,11 +358,19 @@ $routes->group('admin/employees', ['filter' => 'checkRoles'], function ($routes)
     $routes->get('employees_table', 'admin\employees::employees_table');
     $routes->get('new', 'admin\Employees::new', ['filter' => 'checkRoles']);
     $routes->post('create', 'admin\Employees::create');
-    $routes->get('show/(:any)', 'admin\Employees::edit/$1');
+    $routes->get('edit/(:any)', 'admin\Employees::edit/$1');
     $routes->post('update/(:any)', 'admin\Employees::update/$1');
     $routes->post('delete/(:any)', 'admin\Employees::delete/$1');
 });
-
+$routes->group('admin/positions', ['filter' => 'checkRoles'], function ($routes) {
+    $routes->get('', 'admin\positions::index');
+    $routes->get('positions_table', 'admin\positions::positions_table');
+    $routes->get('new', 'admin\positions::new');
+    $routes->post('create', 'admin\positions::create');
+    $routes->get('edit/(:any)', 'admin\positions::edit/$1');
+    $routes->post('update/(:any)', 'admin\positions::update/$1');
+    $routes->post('delete/(:any)', 'admin\positions::delete/$1');
+});
 
 $routes->group('admin/warehouse', function ($routes) {
     $routes->get('', 'admin\Warehouse::index', ['filter' => 'checkRoles']);

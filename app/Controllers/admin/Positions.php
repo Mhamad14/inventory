@@ -4,10 +4,9 @@ namespace App\Controllers\Admin;
 
 use App\Controllers\BaseController;
 use App\Models\Businesses_model;
-use App\Models\EmployeeModel;
 use App\Models\PositionsModel;
 
-class Employees extends BaseController
+class positions extends BaseController
 {
     protected $ionAuth;
     protected $validation;
@@ -17,7 +16,7 @@ class Employees extends BaseController
     {
         $this->ionAuth = new \App\Libraries\IonAuth();
         $this->validation = \Config\Services::validation();
-        helper(['form', 'url', 'filesystem', 'employee']);
+        helper(['form', 'url', 'filesystem', 'position']);
         $this->session = \Config\Services::session();
     }
 
@@ -46,8 +45,8 @@ class Employees extends BaseController
             'current_lang' => session('lang') ?? 'en',
             'business_id' => $_SESSION['business_id'],
             'languages_locale' => fetch_details('languages', [], [], null, '0', 'id', 'ASC'),
-            'page' => VIEWS . 'employees_table',
-            'title' => "Employees - " . ($settings['title'] ?? ""),
+            'page' => VIEWS . 'positions_table',
+            'title' => "positions - " . ($settings['title'] ?? ""),
             'meta_keywords' => "subscriptions app, digital subscription, daily subscription, software, app, module",
             'meta_description' => "Home - Welcome to Subscribers, an digital solution for your subscription based daily problems",
             'currency' => $settings['currency_symbol'] ?? '₹',
@@ -57,22 +56,18 @@ class Employees extends BaseController
         return view("admin/template", $data);
     }
 
-    public function employees_table()
+    public function positions_table()
     {
-        $employees_model = new EmployeeModel();
+        $positions_model = new positionsModel();
         $business_id = $this->session->get('business_id');
-        $result = $employees_model->get_employees($business_id);
+        $result = $positions_model->get_positions($business_id);
         $rows = [];
-        foreach ($result['data'] as $employee) {
-            $edit = "<a href=" . site_url('admin/employees/edit') . "/" . $employee['id'] . " class='btn btn-primary btn-sm' data-toggle='tooltip' data-placement='bottom' title='Edit'><i class='bi bi-pencil'></i></a> ";
+        foreach ($result['data'] as $position) {
+            $edit = "<a href=" . site_url('admin/positions/edit') . "/" . $position['id'] . " class='btn btn-primary btn-sm' data-toggle='tooltip' data-placement='bottom' title='Edit'><i class='bi bi-pencil'></i></a> ";
             $rows[] = [
-                'id' => $employee['id'],
-                'name' => ucwords($employee['name']),
-                'address' => $employee['address'],
-                'position' => $employee['pname'],
-                'position_id' => $employee['position_id'],
-                'mobile' => $employee['contact_number'],
-                'salary' => currency_location(decimal_points($employee['salary'])),
+                'id' => $position['id'],
+                'description' => ucwords($position['description']),
+                'name' => $position['name'],
                 'action' => $edit
             ];
         }
@@ -98,11 +93,9 @@ class Employees extends BaseController
             'code' => session('lang') ?? 'en',
             'current_lang' => session('lang') ?? 'en',
             'languages_locale' => fetch_details('languages', [], [], null, '0', 'id', 'ASC'),
-            'page' => FORMS . 'employees',
-            'title' => "employees - " . ($settings['title'] ?? ""),
-            'from_title' => "create_employees",
-            'positions' => (new PositionsModel())->findAll(),
-            'employee' => [],
+            'page' => FORMS . 'positions',
+            'title' => "positions - " . ($settings['title'] ?? ""),
+            'from_title' => "create_positions",
             'meta_keywords' => "subscriptions app, digital subscription, daily subscription, software, app, module",
             'meta_description' => "Home - Welcome to Subscribers, an digital solution for your subscription based daily problems",
             'currency' => $settings['currency_symbol'] ?? '₹',
@@ -130,22 +123,17 @@ class Employees extends BaseController
         }
 
         $post = $this->request->getPost([
+            'description',
             'name',
-            'position_id',
-            'address',
-            'contact_number',
-            'salary',
-            'busniess_id'
+            'business_id'
         ]);
         $post = array_map('strip_tags', $post);
 
         $rules = [
+            'description' => 'required|min_length[3]|max_length[255]',
             'name' => 'required|min_length[3]|max_length[100]',
-            'position_id' => 'required|integer',
-            'address' => 'required',
-            'contact_number' => 'required|numeric',
-            'salary' => 'required|decimal',
-            'busniess_id' => 'required|integer',
+            'business_id' => 'required|integer',
+
         ];
 
         if (!$this->validate($rules)) {
@@ -155,34 +143,34 @@ class Employees extends BaseController
         }
 
         $sessionBusinessId = $this->session->get('business_id');
-        if ((int)$post['busniess_id'] !== (int)$sessionBusinessId) {
+        if ((int)$post['business_id'] !== (int)$sessionBusinessId) {
             echo "<script>alert('Unauthorized business ID.');window.history.back();</script>";
             exit;
         }
 
-        $employeeModel = new EmployeeModel();
+        $positionModel = new positionsModel();
 
         if (isset($_POST['insert'])) {
-            $existing = $employeeModel->where([
-                'contact_number' => $post['contact_number']
+            $existing = $positionModel->where([
+                'name' => $post['name']
             ])->first();
             if ($existing) {
-                echo "<script>alert('duplicate phone number.');window.history.back();</script>";
+                echo "<script>alert('duplicate name.');window.history.back();</script>";
                 exit;
             }
-            $employeeModel->insert($post);
-            echo "<script>alert('Employee created successfully');window.location='" . site_url('/admin/employees') . "';</script>";
+            $positionModel->insert($post);
+            echo "<script>alert('position created successfully');window.location='" . site_url('/admin/positions') . "';</script>";
             exit;
         } elseif (isset($_POST['update'])) {
-            $employeeID = $this->request->getPost('edit_attribute_set');
-            return $this->update($employeeID);
+            $positionID = $this->request->getPost('edit_attribute_set');
+            return $this->update($positionID);
         } elseif (isset($_POST['delete'])) {
-            $employeeID = $this->request->getPost('edit_attribute_set');
-            return $this->delete($employeeID);
+            $positionID = $this->request->getPost('edit_attribute_set');
+            return $this->delete($positionID);
         }
     }
 
-    public function edit($employee_id)
+    public function edit($position_id)
     {
         if (!$this->ionAuth->loggedIn() || (!$this->ionAuth->isAdmin() && !$this->ionAuth->isTeamMember())) {
             return redirect()->to('login');
@@ -192,24 +180,24 @@ class Employees extends BaseController
         $user_id = $_SESSION['user_id'];
         $id = $this->ionAuth->isTeamMember() ? get_vendor_for_teamMember($user_id) : $user_id;
 
-        $employee_model = new EmployeeModel();
-        $employee = $employee_model->edit_employee($employee_id)[0];
+        $position_model = new positionsModel();
+        $position = $position_model->edit_position($position_id)[0];
 
         $data = [
             'version' => fetch_details('updates', [], ['version'], '1', '0', 'id', 'DESC')[0]['version'],
             'code' => session('lang') ?? 'en',
             'current_lang' => session('lang') ?? 'en',
             'languages_locale' => fetch_details('languages', [], [], null, '0', 'id', 'ASC'),
-            'page' => FORMS . 'employees',
-            'title' => "Edit employees - " . ($settings['title'] ?? ""),
-            'from_title' => "edit_employees",
+            'page' => FORMS . 'positions',
+            'title' => "Edit positions - " . ($settings['title'] ?? ""),
+            'from_title' => "edit_positions",
             'meta_keywords' => "subscriptions app, digital subscription, daily subscription, software, app, module",
             'meta_description' => "Home - Welcome to Subscribers, an digital solution for your subscription based daily problems",
             'currency' => $settings['currency_symbol'] ?? '₹',
             'user' => $this->ionAuth->user($id)->row(),
             'positions' => (new PositionsModel())->findAll(),
-            'employee' => $employee,
-            'user_id' => $employee_id,
+            'position' => $position,
+            'user_id' => $position_id,
         ];
 
         return view("admin/template", $data);
@@ -234,22 +222,17 @@ class Employees extends BaseController
 
         $post = $this->request->getPost([
             'name',
-            'position_id',
-            'address',
-            'contact_number',
-            'salary',
-            'busniess_id',
-            'updated_at'
+            'description',
+            'name',
+            'business_id'
         ]);
         $post = array_map('strip_tags', $post);
 
         $rules = [
+            'description' => 'required|min_length[3]|max_length[255]',
             'name' => 'required|min_length[3]|max_length[100]',
-            'position_id' => 'required|integer',
-            'address' => 'required',
-            'contact_number' => 'required|numeric',
-            'salary' => 'required|decimal',
-            'busniess_id' => 'required|integer',
+            'business_id' => 'required|integer',
+
         ];
 
         if (!$this->validate($rules)) {
@@ -259,23 +242,23 @@ class Employees extends BaseController
         }
 
         $sessionBusinessId = $this->session->get('business_id');
-        if ((int)$post['busniess_id'] !== (int)$sessionBusinessId) {
+        if ((int)$post['business_id'] !== (int)$sessionBusinessId) {
             echo "<script>alert('Unauthorized business ID.');window.history.back();</script>";
             exit;
         }
 
-        $employeeModel = new EmployeeModel();
+        $positionModel = new positionsModel();
 
-        $existing = $employeeModel->where([
-            'contact_number' => $post['contact_number']
+        $existing = $positionModel->where([
+            'name' => $post['name']
         ])->where('id !=', $id)->first();
         if ($existing) {
-            echo "<script>alert('Duplicate phone number.');window.history.back();</script>";
+            echo "<script>alert('Duplicate name.');window.history.back();</script>";
             exit;
         }
 
-        $employeeModel->update($id, $post);
-        echo "<script>alert('Employee updated successfully');window.location='" . site_url('/admin/employees') . "';</script>";
+        $positionModel->update($id, $post);
+        echo "<script>alert('position updated successfully');window.location='" . site_url('/admin/positions') . "';</script>";
         exit;
     }
 
@@ -291,19 +274,19 @@ class Employees extends BaseController
             exit;
         }
 
-        $employeeModel = new EmployeeModel();
-        $employee = $employeeModel->find($id);
+        $positionModel = new positionsModel();
+        $position = $positionModel->find($id);
         $sessionBusinessId = $this->session->get('business_id');
-        if (!$employee || (int)$employee['busniess_id'] !== (int)$sessionBusinessId) {
-            echo "<script>alert('Unauthorized or invalid employee.');window.history.back();</script>";
+        if (!$position || (int)$position['business_id'] !== (int)$sessionBusinessId) {
+            echo "<script>alert('Unauthorized or invalid position.');window.history.back();</script>";
             exit;
         }
 
-        $deleted = $employeeModel->delete($id);
+        $deleted = $positionModel->delete($id);
         if ($deleted) {
-            echo "<script>alert('Employee deleted successfully');window.location='" . site_url('/admin/employees') . "';</script>";
+            echo "<script>alert('position deleted successfully');window.location='" . site_url('/admin/positions') . "';</script>";
         } else {
-            echo "<script>alert('Failed to delete employee.');window.history.back();</script>";
+            echo "<script>alert('Failed to delete position.');window.history.back();</script>";
         }
         exit;
     }
