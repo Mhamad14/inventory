@@ -461,9 +461,6 @@ function fetch_stock($business_id = '', $where_in_key = '', $where_in_value = []
     return $res;
 }
 
-function getProducts() {}
-
-
 // not in use yet 
 function fetch_products($business_id = "", $category_id = "", $brand_id = "", $search = "", $limit = "10", $offset = "0", $sort = "id", $order = "DESC", $where_in_key = '', $where_in_value = [], $extra_data = [])
 {

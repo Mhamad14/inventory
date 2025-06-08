@@ -111,6 +111,9 @@ class Products extends BaseController
 
     public function save_products()
     {
+        $variantName = $this->request->getVar('variant_name');
+        $variant_ids = $this->request->getVar('variant_id');
+
         if (defined('ALLOW_MODIFICATION') && ALLOW_MODIFICATION == 0) {
             return $this->response->setJSON(csrfResponseData([
                 'error' => true,
@@ -127,13 +130,13 @@ class Products extends BaseController
         $this->validation->setRules([
             'name' => 'required',
             'description' => 'required',
-            'variant_name' => 'required',
+            'variant_name.*' => 'required',
             'unit_id.*' => 'required|numeric'
         ]);
 
         if (!$this->validation->withRequest($this->request)->run()) {
             return $this->response->setJSON(csrfResponseData([
-                'error' => true,
+                'success' => false,
                 'message' => $this->validation->getErrors(),
                 'data' => []
             ]));
@@ -168,7 +171,7 @@ class Products extends BaseController
             }
         }
 
-        $status = isset($_POST['status']) ? "1" : "0";
+        $status = $this->request->getPost('status') !== null ? "1" : "0";
         $brand_id = $this->request->getVar('brand_id') ?? null;
 
         $product_data = [
@@ -192,9 +195,10 @@ class Products extends BaseController
         if ($variantName) {
             $variant_count = count($variantName);
             $variant_ids = $this->request->getVar('variant_id');
-            $variants = [];
 
             for ($i = 0; $i < $variant_count; $i++) {
+
+                $variants = [];
                 if (isset($variant_ids[$i])) {
                     $variants['id'] = $variant_ids[$i];
                 }
@@ -209,6 +213,7 @@ class Products extends BaseController
                 $variants['variant_name'] = $this->request->getVar('variant_name')[$i];
                 $variants['barcode'] = isset($barcodes[$i])  && !empty($barcodes[$i]) ? $barcodes[$i] : null;
                 $variants['status'] = $status;
+                
                 $this->products_variants_model->save($variants);
 
                 if (isset($variants['id'])) {
@@ -354,19 +359,19 @@ class Products extends BaseController
         }
         echo json_encode($array);
     }
-    public function remove_variant($variant_id)
+    public function remove_variant($variant_id = '')
     {
-        $variant_model = new products_variants_model();
-        $status = $variant_model->where("id", $variant_id)->delete();
-        if ($status) {
+
+        $isVariantDeleted = $this->products_variants_model->where("id", $variant_id)->delete();
+        if ($isVariantDeleted) {
             $response = [
-                'error' => false,
+                'success' => true,
                 'message' => 'Product variant removed succesfully',
                 'data' => []
             ];
         } else {
             $response = [
-                'error' => true,
+                'success' => false,
                 'message' => 'variant does not exist...',
                 'data' => []
             ];
@@ -376,12 +381,12 @@ class Products extends BaseController
 
     public function products_variants_list()
     {
-
         $data = $this->request->getGet();
+
         $search = $data['search'] ?? '';
 
         $variants = $this->products_variants_model->getProductVariants($search);
-        log_message('debug', print_r($variants, true));
+
         return $this->response->setJSON([
             'variants' => $variants,
         ]);
@@ -389,12 +394,6 @@ class Products extends BaseController
 
     public function json()
     {
-        // 1. Ensure this is an AJAX request
-        if (!$this->request->isAJAX()) {
-            return redirect()->to('/');
-        }
-        // session('user_id')->set();
-        // Use helper to safely fetch GET parameters
         $data = $this->request->getGet();
 
         $product_id = $data['id'] ?? '';
@@ -430,7 +429,7 @@ class Products extends BaseController
         $business_id = $data['business_id'];
         $category_id = $data['category_id'] ?? '';
         $brand_id    = $data['brand_id'] ?? '';
-        $limit       = $data['limit'] ?? 10;
+        $limit       = $data['limit'] ?? 20;
         $offset      = $data['offset'] ?? 0;
         $sort        = $data['sort'] ?? 'id';
         $order       = $data['order'] ?? 'DESC';
@@ -453,6 +452,7 @@ class Products extends BaseController
             }
             $final_product_list[] = $product;
         }
+        // log_message('debug', 'Final product list: ' . print_r($final_variants, true));
         // Build and return JSON response
         return $this->response->setJSON([
             'error'    => empty($products['products']),

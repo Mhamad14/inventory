@@ -17,9 +17,12 @@ $routes->group('admin/languages', ['filter' => 'checkRoles'], function ($routes)
 $routes->group('admin/batches', ['filter' => 'permissioncheck'], function ($routes) {
     $routes->get('return/(:any)', 'admin\WarehouseBatchController::index/$1', ['as' => 'return_purchase']);
     $routes->get('batches_table', 'admin\WarehouseBatchController::batches_table');
+    $routes->get('get_suppliers', 'admin\WarehouseBatchController::get_suppliers');
     $routes->get('Returned_batches_table', 'admin\WarehouseBatchController::Returned_batches_table');
     $routes->post('update_purchase_item_status', 'admin\WarehouseBatchController::update_purchase_item_status');
     $routes->post('save_batch', 'admin\WarehouseBatchController::save_batch');
+    $routes->post('add_to_existing_purchase', 'admin\WarehouseBatchController::add_to_existing_purchase');
+    $routes->post('update_purchase', 'admin\WarehouseBatchController::update_purchase');
     $routes->post('delete_batch', 'admin\WarehouseBatchController::delete_batch');
     $routes->post('delete_returned_batch/(:any)', 'admin\WarehouseBatchController::delete_returned_batch/$1');
     $routes->post('return_batch', 'admin\WarehouseBatchController::return_batch');

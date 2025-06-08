@@ -1,3 +1,6 @@
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/choices.js/public/assets/styles/choices.min.css" />
+
+
 <!--  bootstrap Files -->
 <link rel="stylesheet" href="<?= base_url("public/backend/assets/css/bootstrap/stackpath.bootstrap.min.css") ?>">
 <link rel="stylesheet" href="<?= base_url("public/backend/assets/css/bootstrap/jsdelivr.bootstrap.min.css") ?>">

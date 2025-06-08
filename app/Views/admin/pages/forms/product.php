@@ -31,7 +31,7 @@
 
                             <!-- Save products form -->
                             <form action="<?= base_url('admin/products/save_products') ?>" id="product_form" enctype="multipart/form-data" accept-charset="utf-8" method="POST">
-                                <?= csrf_field("csrf_form_save_products") ?> <!-- CSRF Token -->
+                                <?= csrf_field("csrf_test_name") ?> <!-- CSRF Token -->
 
                                 <div class="card-footer">
                                     <div class="row">
@@ -78,41 +78,6 @@
                                             </div>
                                         </div>
 
-
-                                        <!-- is tax included? -->
-                                        <!-- <div class="col-md">
-                                            <div class="form-group">
-                                                <label for="is_tax_inlcuded" class="custom-switch  p-35">
-                                                    <?php //if (!empty($products['is_tax_included']) && $products['is_tax_included'] == "1") { 
-                                                    ?>
-                                                        <input type="checkbox" name="is_tax_inlcuded" id="is_tax_inlcuded" class="custom-switch-input" checked>
-                                                    <?php //} elseif (isset($products['is_tax_included']) && $products['is_tax_included'] == "0") { 
-                                                    ?>
-                                                        <input type="checkbox" name="is_tax_inlcuded" id="is_tax_inlcuded" class="custom-switch-input">
-                                                    <?php //} else { 
-                                                    ?>
-                                                        <input type="checkbox" name="is_tax_inlcuded" id="is_tax_inlcuded" class="custom-switch-input" checked>
-                                                    <?php //} 
-                                                    ?>
-                                                    <span class="custom-switch-indicator"></span>
-                                                    <span class="custom-switch-description"><?php //labels('is_tax_included', 'Is tax included?') 
-                                                                                            ?></span>
-                                                </label>
-                                            </div>
-                                        </div>
-                                    </div> -->
-
-                                        <!-- tax tags -->
-                                        <!-- <div class="row" id="tax_rows">
-                                        <div class="form-group">
-                                            <label for="">Select tax </label>
-                                            <div>
-                                                <input name='tax_ids' id="tax_ids"
-                                                    class='some_class_name mb-3 p-1'
-                                                    placeholder='write some tags'>
-                                            </div>
-                                        </div>
-                                    </div> -->
 
                                         <!-- Description -->
                                         <div class="row">
@@ -302,7 +267,232 @@
 </div>
 
 <script>
+    // Product form
+    var product_type;
     $(document).ready(function() {
+
+        $("#team_members_formss").on("submit", function(e) {
+            e.preventDefault();
+            let isValid = 1;
+            if ($("#password_confirm").val() != $("#password").val()) {
+                isValid = 0;
+            }
+
+            if (!isValid) {
+                iziToast.error({
+                    title: "Error!",
+                    message: "Confirm password is not same as password",
+                    position: "topRight",
+                });
+                return;
+            }
+
+            var formData = new FormData(this);
+            formData.append(csrf_token, csrf_hash);
+
+            $.ajax({
+                type: "post",
+                url: this.action,
+                data: formData,
+                cache: false,
+                processData: false,
+                contentType: false,
+                // dataType: "json",
+                success: function(result) {
+                    csrf_token = result["csrf_token"];
+                    csrf_hash = result["csrf_hash"];
+                    var message = result.message;
+
+                    if (result.error == true) {
+                        Object.keys(result.message).map((key) => {
+                            showToastMessage(result["message"][key], "error");
+                        });
+                    } else {
+                        showToastMessage(message, "success");
+                        setTimeout(function() {
+                            window.location = base_url + "/admin/team_members";
+                        }, 2000);
+                    }
+                },
+            });
+        });
+        $("#team_members_form").on("submit", function(e) {
+            e.preventDefault();
+            let isValid = 1;
+            if ($("#password_confirm").val() != $("#password").val()) {
+                isValid = 0;
+            }
+
+            if (!isValid) {
+                iziToast.error({
+                    title: "Error!",
+                    message: "Confirm password is not same as password",
+                    position: "topRight",
+                });
+                return;
+            }
+
+            var formData = new FormData(this);
+            formData.append(csrf_token, csrf_hash);
+            $.ajax({
+                type: "post",
+                url: this.action,
+                data: formData,
+                cache: false,
+                processData: false,
+                contentType: false,
+                dataType: "json",
+                success: function(result) {
+                    csrf_token = result["csrf_token"];
+                    csrf_hash = result["csrf_hash"];
+                    if (result.error == true) {
+                        var message = "";
+                        Object.keys(result.message).map((key) => {
+                            showToastMessage(result["message"][key], "error");
+                        });
+                    } else {
+                        showToastMessage(result["message"], "success");
+                        setTimeout(function() {
+                            window.location = base_url + "/admin/team_members";
+                        }, 2000);
+                    }
+                },
+            });
+        });
+
+
+
+        // remove-variant
+        $(document).on("click", ".remove_variant", function(e) {
+
+            e.preventDefault();
+            e.stopPropagation();
+            e.stopImmediatePropagation();
+            var variant_id = $(this).attr("data-variant_id");
+            console.log('varuant_id: ', variant_id);
+            if (variant_id == null || variant_id === "") {
+                $(this).parent().parent().parent().parent().remove();
+                return 0;
+            }
+
+            Swal.fire({
+                title: 'Are you sure?',
+                text: "You are about to delete a returned item!",
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#5cb85c',
+                cancelButtonColor: '#d33',
+                confirmButtonText: 'Yes, Delete!',
+                cancelButtonText: 'No, cancel!'
+            }).then((result) => {
+                if (result.value == true) {
+                    $.ajax({
+                        type: "get",
+                        url: site_url + "/admin/products/remove_variant/" + variant_id,
+                        cache: false,
+                        processData: false,
+                        contentType: false,
+                        dataType: "json",
+                        success: function(response) {
+                            if (response.success) {
+                                showToastMessage(response.message, 'success');
+                                csrf_token = response["csrf_token"];
+                                csrf_hash = response["csrf_hash"];
+                            } else {
+                                if (typeof response.message === 'object') {
+                                    let errorMessages = Object.values(response.message).join('<br>');
+                                    showToastMessage(errorMessages, 'error'); // Display all errors
+                                } else {
+                                    showToastMessage(response.message, 'error'); // Generic error
+                                }
+                            }
+                        },
+                    });
+                    $(this).parent().parent().parent().parent().remove();
+
+                } else {
+                    showToastMessage('Action cancelled.', 'error');
+                }
+
+            });
+        });
+
+
+
+        $("#reset").on("click", function(e) {
+            e.preventDefault();
+        });
+    });
+
+    // add variant click
+    $("#add_variant").on("click", function(e) {
+        e.preventDefault();
+        var units = $("#units").val();
+        if (units) {
+            units = JSON.parse(units);
+            var options = "<option value=''>Select Unit</option>";
+            $.each(units, function(i, units) {
+                options +=
+                    '<option value = "' +
+                    units["id"] +
+                    '" > ' +
+                    units["name"] +
+                    "</option>";
+            });
+        }
+
+        var html = `
+            <div class="variant-item py-1 mb-3 border-top border-2">
+                <div class="d-flex justify-content-between my-1">
+                    <div>
+                        <p class="text-black font-weight-bolder">Variant ${
+                          $(".variant-item").length + 1
+                        }</p>
+                    </div>
+                    <div class="d-flex gap-3">
+                        <div>
+                            <button class="btn btn-icon btn-danger  remove_variant" 
+                                    data-variant_id=""
+                                    name="remove_variant"
+                                    data-toggle="tooltip"
+                                    data-placement="top"
+                                    title="Remove variant">
+                                <i class="fas fa-trash"></i>
+                                <span class="d-none d-md-inline">Remove variant</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row mb-3">
+                    <div class="col">
+                        <label>Variant Name<span class="asterisk text-danger"> *</span></label>
+                        <input type="text" class="form-control" name="variant_name[]" placeholder="Ex. 1 kg..">
+                    </div>
+                    <div class="col">
+                        <label id=""> Variant Barcode </label>
+                        <input type="text" class="form-control" id="variant_barcodee" name="variant_barcode[]"  placeholder="Enter Barcode , Ex : 9875855">
+                    </div>
+                    <div class="col">
+                        <label>Unit<span class="asterisk text-danger"> *</span></label>
+                        <select class="form-control" id="unit_id" name="unit_id[]">
+                            ${options}
+                        </select>
+                    </div>
+                    <div class="col">
+                        <label>Minimum Stock<span class="asterisk text-danger"> *</span></label>
+                        <input type="number" class="form-control" id="qty_alert" step="0.1" min="0.1" name="qty_alert[]" min="0.00" placeholder="0.00">
+                    </div>
+                </div>
+                
+            </div>`;
+
+        $("#variant").append(html);
+    });
+
+
+    $(document).ready(function() {
+
         $("#product_form").validate({
             rules: {
                 name: {
@@ -380,8 +570,13 @@
                 }
             },
             submitHandler: function(form) {
+                console.log("SubmitHandler triggered");
+
+                const $submitBtn = $(form).find('[type="submit"]');
+                $submitBtn.prop('disabled', true); // Disable to prevent double click
+
                 let formData = new FormData(form);
-                formData.append('csrf_form_save_products', $('input[name="csrf_form_save_products"]').val());
+                formData.append(csrf_token, csrf_hash);
 
                 $.ajax({
                     url: $(form).attr('action'),
@@ -391,17 +586,29 @@
                     contentType: false,
                     dataType: 'json',
                     success: function(response) {
+                        $submitBtn.prop('disabled', false); // Re-enable
+
                         if (response.success) {
                             showToastMessage(response.message, 'success');
-                            $('input[name="csrf_form_save_products"]').val(response.csrf_token);
+                            csrf_token = response["csrf_token"];
+                            csrf_hash = response["csrf_hash"];
                             resetFormValidation("#product_form");
-
+                            setTimeout(function() {
+                                window.location.href =  "<?= site_url('admin/products') ?>"; 
+                            }, 1500);
 
                         } else {
-                            showToastMessage(response.message, 'error');
+                            // If `message` is an object (e.g. validation errors)
+                            if (typeof response.message === 'object') {
+                                let errorMessages = Object.values(response.message).join('<br>');
+                                showToastMessage(errorMessages, 'error'); // Display all errors
+                            } else {
+                                showToastMessage(response.message, 'error'); // Generic error
+                            }
                         }
                     },
                     error: function() {
+                        $submitBtn.prop('disabled', false);
                         showToastMessage('An error occurred during the request.', 'error');
                     }
                 });
@@ -423,72 +630,6 @@
         }
     });
 
-    // add variant click
-    $("#add_variant").on("click", function(e) {
-        e.preventDefault();
-        var units = $("#units").val();
-        if (units) {
-            units = JSON.parse(units);
-            var options = "<option value=''>Select Unit</option>";
-            $.each(units, function(i, units) {
-                options +=
-                    '<option value = "' +
-                    units["id"] +
-                    '" > ' +
-                    units["name"] +
-                    "</option>";
-            });
-        }
-
-        var html = `
-            <div class="variant-item py-1 mb-3 border-top border-2">
-                <div class="d-flex justify-content-between my-1">
-                    <div>
-                        <p class="text-black font-weight-bolder">Variant ${
-                          $(".variant-item").length + 1
-                        }</p>
-                    </div>
-                    <div class="d-flex gap-3">
-                        <div>
-                            <button class="btn btn-icon btn-danger  remove_variant" 
-                                    data-variant_id=""
-                                    name="remove_variant"
-                                    data-toggle="tooltip"
-                                    data-placement="top"
-                                    title="Remove variant">
-                                <i class="fas fa-trash"></i>
-                                <span class="d-none d-md-inline">Remove variant</span>
-                            </button>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="row mb-3">
-                    <div class="col">
-                        <label>Variant Name<span class="asterisk text-danger"> *</span></label>
-                        <input type="text" class="form-control" id="variant_name" name="variant_name[]" placeholder="Ex. 1 kg..">
-                    </div>
-                    <div class="col">
-                        <label id=""> Variant Barcode </label>
-                        <input type="text" class="form-control" id="variant_barcodee" name="variant_barcode[]"  placeholder="Enter Barcode , Ex : 9875855">
-                    </div>
-                    <div class="col">
-                        <label>Unit<span class="asterisk text-danger"> *</span></label>
-                        <select class="form-control" id="unit_id" name="unit_id[]">
-                            ${options}
-                        </select>
-                    </div>
-                    <div class="col">
-                        <label>Minimum Stock<span class="asterisk text-danger"> *</span></label>
-                        <input type="number" class="form-control" id="qty_alert" step="0.1" min="0.1" name="qty_alert[]" min="0.00" placeholder="0.00">
-                    </div>
-                </div>
-                
-            </div>`;
-
-        $("#variant").append(html);
-    });
-
     function resetFormValidation(formSelector) {
         const $form = $(formSelector);
 
@@ -506,14 +647,4 @@
     $('button[type="reset"]').click(function() {
         resetFormValidation("#product_form");
     });
-
-
-
-    // Handle dynamically added variant fields
-    // $(document).on('click', '#add_variant', function() {
-    //     // Your code to add a new variant
-
-    //     // After adding new variant fields, re-validate the form
-    //     $("#product_form").validate().form();
-    // });
 </script>

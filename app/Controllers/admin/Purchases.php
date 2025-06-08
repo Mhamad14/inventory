@@ -154,14 +154,15 @@ class Purchases extends BaseController
             $product->expire = $expiry_dates[$id];
         }
         foreach ($products as $item) {
-
+            // save purchase
             $this->Purchases_items_model->savePurchaseItem($purchase_id, $this->request->getVar('status'), $item);
             $purchase_items_id = $this->Purchases_items_model->getInsertID();
 
             if ($order_type == "order") {
+                // save a batch
                 $this->warehouse_batches_model->saveBatch($purchase_items_id, $warehouse_id, $item, 'order');
-
-                //  update_stock(product_variant_ids: $item->id, qtns: $item->qty, type: 'plus');
+                $this->products_variants_model->upsert_warehouse_stock($warehouse_id, $item->id, $item->qty);
+                // update_stock(product_variant_ids: $item->id, qtns: $item->qty, type: 'plus');
                 // updateWarehouseStocks(warehouse_id: $warehouse_id,  product_variant_id: $item->id,  warehouse_stock: $item->qty, type: 1);
             } elseif ($order_type == "return") {
                 $this->warehouse_batches_model->saveBatch($purchase_items_id, $warehouse_id, $item, 'return');
@@ -182,25 +183,36 @@ class Purchases extends BaseController
         $suppliers_model = new Suppliers_model();
         $search = $this->request->getGet('search');
 
-        $results = [];
-
-        if (!empty($search)) {
-            $response = $suppliers_model->search_suppliers($search);
-            $response = json_decode($response);
-
-            foreach ($response->data as $supplier) {
-                if ($supplier->status) {
-                    $results[] = [
-                        "id"      => $supplier->id,
-                        "text"    => $supplier->text, // must match what Select2 expects
-                        "balance" => $supplier->balance,
-                        "status"  => $supplier->status,
-                    ];
-                }
-            }
+        // Validate input
+        if (empty($search) || strlen($search) < 2) {
+            return $this->response->setJSON(['data' => []]);
         }
 
-        echo json_encode(['data' => $results]);
+        try {
+            // Get and decode the response
+            $response = $suppliers_model->search_suppliers($search);
+            $suppliers = json_decode($response);
+
+            // Process results
+            $results = [];
+            if (!empty($suppliers->data)) {
+                foreach ($suppliers->data as $supplier) {
+                    if ($supplier->status) { // Only active suppliers
+                        $results[] = [
+                            "id"      => $supplier->id,
+                            "text"    => $supplier->name ?? $supplier->text, // Fallback to 'name' if 'text' doesn't exist
+                            "balance" => $supplier->balance,
+                            "status"  => $supplier->status,
+                        ];
+                    }
+                }
+            }
+
+            return $this->response->setJSON(['data' => $results]);
+        } catch (\Exception $e) {
+            log_message('error', 'Supplier search failed: ' . $e->getMessage());
+            return $this->response->setStatusCode(500)->setJSON(['error' => 'Search failed']);
+        }
     }
     public function purchase_table()
     {

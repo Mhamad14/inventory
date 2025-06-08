@@ -1,3 +1,5 @@
+<?= view('admin/pages/forms/Batches/js/update_purchase_order') ?>
+
 <div class="main-content">
 
 
@@ -20,6 +22,7 @@
             <?= view('admin/pages/forms/Batches/partials/card_header', ['show_label' => labels('purchase_order_details', 'Purchase Order Details'), 'aria_control' => 'orderDetailsBody']) ?>
 
             <div class="card-body collapse hide" id="orderDetailsBody">
+
                 <?= view('admin/pages/forms/Batches/partials/purchase_order_creator') ?>
                 <?= view('admin/pages/forms/Batches/partials/purchase_details') ?>
                 <?= view('admin/pages/forms/Batches/partials/purchase_details_message') ?>
@@ -29,6 +32,7 @@
 
     <section class="section">
         <div class="section-body">
+
             <form action="<?= base_url('admin/purchases/save') ?>" id="purchase_form" accept-charset="utf-8" method="POST">
                 <?= csrf_field("csrf_test_name") ?> <!-- CSRF Token -->
 
@@ -37,7 +41,11 @@
 
                 <div class="card">
                     <?= view('admin/pages/forms/Batches/partials/card_header', ['show_label' => labels('purchase_items', 'Purchase Items'), 'aria_control' => 'batchesListBody']) ?>
-                    <div class="card-body collapse hide" id="batchesListBody">
+                    <div class="card-body collapse show" id="batchesListBody">
+                        <div class="row">
+                            <!-- search area -->
+                            <?= view('admin/pages/forms/Batches/partials/update_purchase_order/product_search_view') ?>
+                        </div>
                         <div class="row">
                             <?= view('admin/pages/forms/Batches/partials/batches_table') ?>
                         </div>
@@ -45,7 +53,7 @@
                 </div>
                 <div class="card">
                     <?= view('admin/pages/forms/Batches/partials/card_header', ['show_label' => labels('returned_items', 'Returned Items'), 'aria_control' => 'ReturnedBatchesListBody']) ?>
-                    <div class="card-body collapse show" id="ReturnedBatchesListBody">
+                    <div class="card-body collapse hide" id="ReturnedBatchesListBody">
                         <div class="row">
                             <?= view('admin/pages/forms/Batches/partials/returned_batches_table') ?>
                         </div>
@@ -55,7 +63,33 @@
         </div>
 
     </section>
+
+    <!-- Purchase Order Details ...START-->
+    <section class="section">
+        <div class="card">
+            <?= view('admin/pages/forms/Batches/partials/card_header', ['show_label' => labels('update_purchase_details', 'Update Purchase Order Details'), 'aria_control' => 'updateOrderDetailsBody']) ?>
+            <div class="card-body collapse show" id="updateOrderDetailsBody">
+
+
+
+                <form action="<?= base_url('admin/batches/update_purchase') ?>" method="post" id="purchase_form_update">
+                    <input type="hidden" name="purchase_id" value="<?= $purchase['id'] ?>">
+                    <?= view('admin/pages/forms/Batches/partials/update_purchase_order/warehouse_supplier_date') ?>
+                    <?= view('admin/pages/forms/Batches/partials/update_purchase_order/discount_shipping_total') ?>
+                    <?= view('admin/pages/forms/Batches/partials/update_purchase_order/payment_status') ?>
+                    <div class="form-group">
+                        <label for="message"><?= labels('message', 'Message') ?></label>
+                        <textarea class="form-control" name="message" id="message"><?= $purchase['message'] ?></textarea>
+                    </div>
+                    <button type="submit" class="btn btn-primary purchase-submit"><?= labels('save', 'Save') ?></button>&nbsp;
+                </form>
+            </div>
+        </div>
+    </section>
 </div>
+
+
+
 <?= view('admin/pages/forms/Batches/partials/batch_edit_modal') ?>
 
 <div class="modal" id="status_modal">
@@ -106,13 +140,17 @@
     </div>
 </div>
 
+<!-- get warehouse id -->
+<script>
+    const $purchase_id = <?= $purchase['id'] ?>;
+    const $warehouse_id = <?= $purchase['warehouse_id'] ?>;
+</script>
+
+<?= view('admin/pages/forms/Batches/js/product_search') ?>
 <script>
     $(document).ready(function() {
 
-
-
-        // Other form handlers, for example for the customer form
-        $("#purchase_form").validate({
+        $("#purchase_form_update").validate({
             rules: {
                 supplier_id: {
                     required: true,
@@ -159,90 +197,30 @@
             },
             errorPlacement: function(error, element) {
                 error.addClass("invalid-feedback");
-
-                // Special handling for select2
+                // Special handling for Select2
                 if (element.hasClass("select2-hidden-accessible")) {
                     error.insertAfter(element.next(".select2-container"));
                 } else {
                     error.insertAfter(element);
                 }
             },
-
-
-
             submitHandler: function(form) {
-                if (variant_data.length === 0) {
-                    showToastMessage("You must add at least one product.", "error");
+                const paymentStatus = $('#payment_status_item').val();
+                const amountPaid = parseFloat($('#amount_paid_item').val()) || 0;
+                const final_total = parseFloat($("input[name='final_total']").val()) || 0;
+
+                // Check if status is partially_paid and amount_paid is <= 0
+                if (paymentStatus === 'partially_paid' && amountPaid <= 0) {
+                    showToastMessage('Amount Paid must be greater than 0 for Partially Paid status.', 'error')
+                    $('#amount_paid_item').addClass('is-invalid');
                     return false;
+                } else if (amountPaid > final_total) {
+                    showToastMessage('Amount Paid cannot be greater than the Final total amount.', 'error')
+                    $('#amount_paid_item').addClass('is-invalid');
+                    return false;
+                } else {
+                    $('#amount_paid_item').removeClass('is-invalid');
                 }
-
-                let isValid = true;
-
-                $("#purchase_order tbody tr").each(function() {
-                    let row = $(this);
-                    let qty = parseFloat(row.find(".qty").val()) || 0;
-                    let price = parseFloat(row.find(".price").val());
-                    let sellPrice = parseFloat(row.find(".sell_price").val());
-                    let discount = parseFloat(row.find(".discount").val());
-                    let expire = row.find(".expire").val();
-                    let today = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
-                    // Check if expire is empty
-                    if (!expire) {
-                        isValid = false;
-                        showToastMessage("Expiration date is required.", "error");
-                        row.find(".expire").addClass("is-invalid");
-                        return false; // Exit the .each() loop
-                    }
-                    if (!sellPrice) {
-                        isValid = false;
-                        showToastMessage("Sell Price is required.", "error");
-                        row.find(".sell_price").addClass("is-invalid");
-                        return false; // Exit the .each() loop
-                    }
-                    if (!price) {
-                        isValid = false;
-                        showToastMessage("Cost Price is required.", "error");
-                        row.find(".price").addClass("is-invalid");
-                        return false; // Exit the .each() loop
-                    }
-                    // Quantity validation
-                    if (qty <= 0) {
-                        isValid = false;
-                        showToastMessage("Quantity must be greater than 0.", "error");
-                        return false;
-                    }
-
-                    // Price validation
-                    if (price < 0) {
-                        isValid = false;
-                        showToastMessage("Price must not be negative.", "error");
-                        return false;
-                    }
-
-                    // Sell price validation
-                    if (sellPrice < 0) {
-                        isValid = false;
-                        showToastMessage("Sell price must not be negative.", "error");
-                        return false;
-                    }
-
-                    // Expiration date validation
-                    if (expire && expire < today) {
-                        isValid = false;
-                        showToastMessage("Expiration date cannot be in the past.", "error");
-                        return false;
-                    }
-
-                    // Discount validation
-                    let subtotal = qty * price;
-                    if (discount < 0 || discount > subtotal) {
-                        isValid = false;
-                        showToastMessage("Discount must be between 0 and subtotal.", "error");
-                        return false;
-                    }
-                });
-
-                if (!isValid) return false;
 
                 let formData = new FormData(form);
                 formData.append(csrf_token, csrf_hash);
@@ -326,4 +304,7 @@
 
         });
     });
+</script>
+
+<script>
 </script>

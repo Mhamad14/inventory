@@ -334,429 +334,7 @@ $(document).on("show.bs.modal", "#variants_Modal", function (event) {
     url: new_url,
   });
 });
-// Product form
-var product_type;
 
-function toggle_stock_management() {
-  var stock_management = $("#stock_management").is(":checked");
-  if (stock_management) {
-    $("#stock_management_type_div").show();
-
-    /* 1 - product_level | 2 - varaint_level  */
-    var stock_management_type = $("#stock_management_type").val();
-    if (stock_management_type == 1) {
-      $(".stock_product_level").show();
-      $(".stock_variant_level").hide();
-    } else if (stock_management_type == 2) {
-      $(".stock_product_level").hide();
-      $(".stock_variant_level").show();
-    } else {
-      $(".stock_product_level").hide();
-      $(".stock_variant_level").hide();
-    }
-  } else {
-    $("#stock_management_type_div").hide();
-    $(".stock_variant_level").hide();
-    $(".stock_product_level").hide();
-  }
-}
-
-function toggle_product_type() {
-  var product_type = $("#product_type").val();
-  if (product_type == "simple") {
-    $(".add_btn_action").hide();
-    $("#variant").empty();
-  } else {
-    $(".add_btn_action").show();
-  }
-}
-
-$(document).ready(function () {
-  toggle_stock_management();
-  $(".add_btn_action").hide();
-
-  $("#product_type").on("change", function () {
-    toggle_product_type();
-  });
-
-  $("#stock_management_type").on("change", function () {
-    toggle_stock_management();
-  });
-
-  $("#stock_management").on("change", function () {
-    toggle_stock_management();
-  });
-  toggle_product_type();
-
-  var i = 0;
-  var j = 0;
-  var k = 0;
-  $("#add_variant").on("click", function (e) {
-    e.preventDefault();
-    var units = $("#units").val();
-    if (units) {
-      units = JSON.parse(units);
-      var options = "<option value=''>Select Unit</option>";
-      $.each(units, function (i, units) {
-        options +=
-          '<option value = "' +
-          units["id"] +
-          '" > ' +
-          units["name"] +
-          "</option>";
-      });
-
-      var all_warehouses = $("#all_warehouses").val();
-      if (all_warehouses) {
-        all_warehouses = JSON.parse(all_warehouses);
-        var warehouse_options = "<option value=''>Select Warehouse</option>";
-        $.each(all_warehouses, function (i, warehouse) {
-          warehouse_options +=
-            '<option value = "' +
-            warehouse["id"] +
-            '" > ' +
-            warehouse["name"] +
-            "</option>";
-        });
-
-        var html = `
-            <div class="variant-item py-1 mb-3 border-top border-2">
-                <div class="d-flex justify-content-between my-1">
-                    <div>
-                        <p class="text-black font-weight-bolder">Variant ${
-                          $(".variant-item").length + 1
-                        }</p>
-                    </div>
-                    <div class="d-flex gap-3">
-                        <div>
-                            <button class="btn btn-icon btn-danger  remove_variant" 
-                                    data-variant_id=""
-                                    name="remove_variant"
-                                    data-toggle="tooltip"
-                                    data-placement="top"
-                                    title="Remove variant">
-                                <i class="fas fa-trash"></i>
-                                <span class="d-none d-md-inline">Remove variant</span>
-                            </button>
-                        </div>
-                        <div>
-                            <button class="btn btn-primary addWarehouseBtn" 
-                                    data-toggle="tooltip"
-                                    data-placement="top"
-                                    title="Add warehouse"
-                                    data-variant_index="${
-                                      $(".variant-item").length
-                                    }"
-                                    type="button">
-                                <i class="fas fa-plus"></i>
-                                <span class="d-none d-md-inline">Add warehouse</span>
-                            </button>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="row mb-3">
-                    <div class="col-md-2 custom-col">
-                        <label>Variant Name<span class="asterisk text-danger"> *</span></label>
-                        <input type="text" class="form-control" id="variant_name" name="variant_name[]" placeholder="Ex. 1 kg..">
-                    </div>
-                    <div class="col-md-2 custom-col">
-                        <label id=""> Variant Barcode </label>
-                        <input type="text" class="form-control" id="variant_barcodee" name="variant_barcode[]"  placeholder="Enter Barcode , Ex : 9875855">
-                    </div>
-                    <div class="col-md-2 custom-col">
-                        <label>Sale Price (₹)<span class="asterisk text-danger"> *</span></label>
-                        <input type="number" class="form-control" id="sale_price" name="sale_price[]" min="0.00" placeholder="0.00">
-                    </div>
-                    <div class="col-md-2 custom-col">
-                        <label>Purchase Price (₹)<span class="asterisk text-danger"> *</span></label>
-                        <input type="number" class="form-control" id="purchase_price" name="purchase_price[]" min="0.00" placeholder="0.00">
-                    </div>
-                    <div class="col-md-2 custom-col stock_variant_level">
-                        <label>Unit<span class="asterisk text-danger"> *</span></label>
-                        <select class="form-control" id="unit_id" name="unit_id[]">
-                            ${options}
-                        </select>
-                    </div>
-                    <div class="col-md-2 custom-col stock_variant_level">
-                        <label>Stock<span class="asterisk text-danger"> *</span></label>
-                        <input type="number" class="form-control" id="stock" step="0.1" min="0.1" name="stock[]" min="0.00" placeholder="0.00">
-                    </div>
-                    <div class="col-md-2 custom-col stock_variant_level">
-                        <label>Minimum Stock<span class="asterisk text-danger"> *</span></label>
-                        <input type="number" class="form-control" id="qty_alert" step="0.1" min="0.1" name="qty_alert[]" min="0.00" placeholder="0.00">
-                    </div>
-                </div>
-                
-                <div class="warehouses">
-                    <div class="row">
-                        <div class="col-md-3">
-                            <label for="warehouse_id">Warehouse</label><span class="asterisk text-danger">*</span>
-                            <select class="form-control" id="warehouse_id" name="warehouses[${
-                              $(".variant-item").length
-                            }][warehouse_ids][]">
-                                ${warehouse_options}
-                            </select>
-                        </div>
-                        <div class="col-md-3">
-                            <label for="warehouse_stock">Warehouse Stock</label><span class="asterisk text-danger">*</span>
-                            <input type="number" class="form-control No-negative" id="warehouse_stock" step="0.1" min="0.1" name="warehouses[${
-                              $(".variant-item").length
-                            }][warehouse_stock][]">
-                        </div>
-                        <div class="col-md-3">
-                            <label for="warehouse_qty_alert">Warehouse Minimum Stock Level</label><span class="asterisk text-danger">*</span>
-                            <input type="number" class="form-control No-negative" id="warehouse_qty_alert" step="0.1"  min="0.1" name="warehouses[${
-                              $(".variant-item").length
-                            }][warehouse_qty_alert][]">
-                        </div>
-                    </div>
-                </div>
-            </div>`;
-
-        $("#variant").append(html);
-        toggle_stock_management();
-      }
-    }
-  });
-  $(document).on("click", ".remove_variant", function (e) {
-    e.preventDefault();
-    $(this).parent().parent().parent().parent().remove();
-  });
-  $("#team_members_formss").on("submit", function (e) {
-    e.preventDefault();
-    let isValid = 1;
-    if ($("#password_confirm").val() != $("#password").val()) {
-      isValid = 0;
-    }
-
-    if (!isValid) {
-      iziToast.error({
-        title: "Error!",
-        message: "Confirm password is not same as password",
-        position: "topRight",
-      });
-      return;
-    }
-
-    var formData = new FormData(this);
-    formData.append(csrf_token, csrf_hash);
-
-    $.ajax({
-      type: "post",
-      url: this.action,
-      data: formData,
-      cache: false,
-      processData: false,
-      contentType: false,
-      // dataType: "json",
-      success: function (result) {
-        csrf_token = result["csrf_token"];
-        csrf_hash = result["csrf_hash"];
-        var message = result.message;
-
-        if (result.error == true) {
-          Object.keys(result.message).map((key) => {
-            showToastMessage(result["message"][key], "error");
-          });
-        } else {
-          showToastMessage(message, "success");
-          setTimeout(function () {
-            window.location = base_url + "/admin/team_members";
-          }, 2000);
-        }
-      },
-    });
-  });
-  $("#team_members_form").on("submit", function (e) {
-    e.preventDefault();
-    let isValid = 1;
-    if ($("#password_confirm").val() != $("#password").val()) {
-      isValid = 0;
-    }
-
-    if (!isValid) {
-      iziToast.error({
-        title: "Error!",
-        message: "Confirm password is not same as password",
-        position: "topRight",
-      });
-      return;
-    }
-
-    var formData = new FormData(this);
-    formData.append(csrf_token, csrf_hash);
-    $.ajax({
-      type: "post",
-      url: this.action,
-      data: formData,
-      cache: false,
-      processData: false,
-      contentType: false,
-      dataType: "json",
-      success: function (result) {
-        csrf_token = result["csrf_token"];
-        csrf_hash = result["csrf_hash"];
-        if (result.error == true) {
-          var message = "";
-          Object.keys(result.message).map((key) => {
-            showToastMessage(result["message"][key], "error");
-          });
-        } else {
-          showToastMessage(result["message"], "success");
-          setTimeout(function () {
-            window.location = base_url + "/admin/team_members";
-          }, 2000);
-        }
-      },
-    });
-  });
-  // remove-variant
-  $(document).on("click", ".remove_variant", function (e) {
-    e.preventDefault();
-    if (!confirm("Are you sure want to delete?")) {
-      return false;
-    }
-    e.stopPropagation();
-    e.stopImmediatePropagation();
-    var variant_id = $(this).attr("data-variant_id");
-    $.ajax({
-      type: "get",
-      url: site_url + "/admin/products/remove_variant/" + variant_id,
-      cache: false,
-      processData: false,
-      contentType: false,
-      dataType: "json",
-      success: function (result) {
-        if (result.error == false) {
-          iziToast.success({
-            title: "Success!",
-            message: result.message,
-            position: "topRight",
-          });
-        } else {
-          iziToast.error({
-            title: "Error!",
-            message: result.message,
-            position: "topRight",
-          });
-        }
-      },
-    });
-    $(this).parent().parent().parent().remove();
-  });
-
-  $("#reset").on("click", function (e) {
-    e.preventDefault();
-  });
-  $("#product_form").on("submit", function (e) {
-    e.preventDefault();
-    let isValid = true;
-
-    var stock_management_type = $("#stock_management_type").val();
-
-    if (stock_management_type == 1) {
-      // Get all the stock input elements
-      const stockInput = document.querySelector(
-        'input[name="simple_product_stock"]'
-      );
-      let index = 0;
-
-      const stockValue = parseFloat(stockInput.value) || 0;
-
-      // Get corresponding warehouse stock elements for this stock
-      const warehouseStocks = document.querySelectorAll(
-        `input[name="warehouses[${index}][warehouse_stock][]"]`
-      );
-
-      let totalWarehouseStock = 0;
-
-      // Sum all warehouse stock values
-      warehouseStocks.forEach(function (warehouseStockInput) {
-        totalWarehouseStock += parseFloat(warehouseStockInput.value) || 0;
-      });
-
-      // Compare the total warehouse stock to the stock value
-      if (totalWarehouseStock !== stockValue) {
-        isValid = false;
-
-        iziToast.error({
-          title: "Error! Mismatch Stock",
-          message: `Total of all warehouse stocks must be equal to variant stock (for variant ${
-            index + 1
-          })`,
-          position: "topRight",
-        });
-      }
-      index++;
-    } else if (stock_management_type == 2) {
-      // Get all the stock input elements
-      const stockInputs = document.querySelectorAll('input[name="stock[]"]');
-      let index = 0;
-      // Loop through each stock input
-      stockInputs.forEach(function (stockInput) {
-        const stockValue = parseFloat(stockInput.value) || 0;
-
-        // Get corresponding warehouse stock elements for this stock
-        const warehouseStocks = document.querySelectorAll(
-          `input[name="warehouses[${index}][warehouse_stock][]"]`
-        );
-        let totalWarehouseStock = 0;
-
-        // Sum all warehouse stock values
-        warehouseStocks.forEach(function (warehouseStockInput) {
-          totalWarehouseStock += parseFloat(warehouseStockInput.value) || 0;
-        });
-
-        // Compare the total warehouse stock to the stock value
-        if (totalWarehouseStock !== stockValue) {
-          isValid = false;
-          // alert(`Total of all warehouse stocks must be equal to variant stock (for variant ${index + 1})`);
-          iziToast.error({
-            title: "Error! Mismatch Stock",
-            message: `Total of all warehouse stocks must be equal to variant stock (for variant ${
-              index + 1
-            })`,
-            position: "topRight",
-          });
-        }
-        index++;
-      });
-    }
-
-    if (isValid) {
-      var formData = new FormData(this);
-      formData.append(csrf_token, csrf_hash);
-      $.ajax({
-        type: "post",
-        url: this.action,
-        data: formData,
-        cache: false,
-        processData: false,
-        contentType: false,
-        dataType: "json",
-        success: function (result) {
-          csrf_token = result["csrf_token"];
-          csrf_hash = result["csrf_hash"];
-          console.log(result);
-          if (result.error == true) {
-            var message = "";
-            Object.keys(result.message).map((key) => {
-              iziToast.error({
-                title: "Error!",
-                message: result.message[key],
-                position: "topRight",
-              });
-            });
-          } else {
-            window.location = base_url + "/admin/products";
-            showToastMessage(result.message, "success");
-          }
-        },
-      });
-    }
-  });
-});
 //  variant table update status
 function update_status(element) {
   if (!confirm("Are you sure want to update status?")) {
@@ -2717,6 +2295,40 @@ function stock_params(params) {
 }
 
 // search suppliers using ajax
+// return purchase search
+$(document).ready(function () {
+  $(".batch_supplier").select2({
+    ajax: {
+      url: site_url + "admin/purchases/get_suppliers",
+      dataType: "json",
+      data: function (params) {
+        var query = {
+          search: params.term,
+        };
+        return query;
+      },
+      processResults: function (response) {
+        return {
+          results: response.data,
+        };
+      },
+      cache: true,
+    },
+    placeholder: "Search for a Supplier",
+    templateResult: formatPostSuppliers,
+    templateSelection: SuppliersSelection,
+  });
+  if ( typeof selectedBatchSupplier !== "undefined" && selectedBatchSupplier !== null ) {
+    let option = new Option(
+      selectedBatchSupplier.text,
+      selectedBatchSupplier.id,
+      true,
+      true
+    );
+    $(".batch_supplier").append(option).trigger("change");
+  }
+});
+// purchase search
 $(document).ready(function () {
   $(".select_supplier").select2({
     ajax: {
@@ -2770,9 +2382,8 @@ $(document).ready(function () {
     ajax: {
       url: site_url + "variants/products_variants_list",
       dataType: "json",
-      delay: 350, // milliseconds before sending request
+      delay: 1050, // milliseconds before sending request
 
-     
       data: function (params) {
         var query = {
           search: params.term,
@@ -2782,7 +2393,19 @@ $(document).ready(function () {
       },
       processResults: function (response) {
         return {
-          results: response.variants,
+          results: response.variants.map(function (variant) {
+            return {
+              id: variant.id,
+              variant_id: variant.variant_id, // ✅ unique ID
+              text: variant.name + " - " + variant.variant_name, // ✅ fallback text
+              name: variant.name,
+              variant_name: variant.variant_name,
+              stock: variant.stock,
+              qty_alert: variant.qty_alert,
+              image: variant.image,
+              category: variant.category,
+            };
+          }),
         };
       },
       cache: true,
@@ -2822,7 +2445,7 @@ function formatPostProducts(p) {
 }
 
 function ProductsSelection(p) {
-  return p.variant_name;
+  return p.name ? `${p.name} - ${p.variant_name}` : p.text;
 }
 function formatState(p) {
   if (!p.id) {
@@ -2891,88 +2514,120 @@ $(document).on("click", ".edit_btn", function (e) {
 var variant_data = [];
 var qty;
 var discount;
-var price;
+var price = 0;
 var count = 1;
 
 if ($("#purchase_form").length > 0) {
   $(document).ready(function () {
     // Hide hidden fields
-    $('.dropdown-menu .dropdown-item-marker input[data-field="variant_id"]')
+    $('.dropdown-menu .dropdown-item-marker input[data-field="id"]')
       .closest("label")
       .hide();
 
     // Initialize flatpickr once for all future expire inputs
-    $(document).on('focus', '.expire', function () {
+
+    // Initialize flatpickr once for all future expire inputs
+    $(document).on("focus", ".expire", function () {
       $(this).flatpickr({
         dateFormat: "Y-m-d",
         allowInput: true,
-        minDate: "today"
+        minDate: "today",
       });
     });
-
     // Set up event handlers once
     setupPurchaseOrderEventHandlers();
   });
 
-  $(document).on("change", ".search_products", function (e) {
+  $(document).on("select2:select", ".search_products", function (e) {
+    const selected = e.params.data;
+
     e.preventDefault();
-  const select2Data = $(".search_products").select2("data");
-  
-  if (!select2Data || select2Data.length === 0) {
-    showToastMessage("Please select a valid product", "error");
-    return;
-  }
-  
-  const data = select2Data[0];
-  console.log('variant data: ', variant_data);
-  console.log('data: ', data);
-  // Check for duplicates - now only checks exact variant_id matches
-  if (variant_data.some(v => v.id == data.variant_id)) {
-    const productName = [data.name, data.variant_name].filter(Boolean).join(" - ");
-    showToastMessage(`The exact variant ${productName} is already in the list`, "error");
-    return;
-  }
+    // const [selected] = $(".search_products").select2("data"); // Destructures the first item
+    if (!selected) return;
 
-  // Rest of your code remains the same...
-  variant_data.push({
-    id: data.variant_id,
-    name: data.name,
-    variant: data.variant_name,
-    price: data.purchase_price || 0,
-      
-  });
-  $('input[name="products"]').val(JSON.stringify(variant_data));
+    console.log("variant data: ", variant_data);
+    console.log("selected: ", selected);
+    // Check for duplicates - now only checks exact variant_id matches
+    if (variant_data.some((v) => v.id == selected.variant_id)) {
+      const productName = [selected.name, selected.variant_name]
+        .filter(Boolean)
+        .join(" - ");
+      showToastMessage(
+        `The exact variant ${productName} is already in the list`,
+        "error"
+      );
+      return;
+    }
 
-    const price = parseFloat(data.purchase_price) || 0;
-    const sellPrice = parseFloat(data.sell_price) || 0;
+    // Rest of your code remains the same...
+    variant_data.push({
+      id: selected.variant_id,
+      name: selected.name,
+      variant: selected.variant_name,
+      price: parseFloat(selected.purchase_price) || 0,
+    });
+    $('input[name="products"]').val(JSON.stringify(variant_data));
+
+    price = parseFloat(selected.purchase_price) || 0;
+    const sellPrice = parseFloat(selected.sell_price) || 0;
 
     const tableRow = {
-      name: [data.name, data.variant_name].filter(Boolean).join(" - "),
-      image: data.image ? 
-        `<img src="${site_url}${data.image}" width="60" height="60" class="img-thumbnail" alt="Product Image">` : 
-        '<div class="no-image">No Image</div>',
+      name: [selected.name, selected.variant_name].filter(Boolean).join(" - "),
+      image: selected.image
+        ? `<img src="${site_url}${selected.image}" width="60" height="60" class="img-thumbnail" alt="Product Image">`
+        : '<div class="no-image">No Image</div>',
       sr: count++,
-      id: `<input type="hidden" name="variant_ids[]" value="${data.variant_id}">${data.variant_id}`,
-      quantity: createInputField('number', 'qty', data.variant_id, 1, { min: 1, step: 1, 'data-price': price }),
-      price: createInputField('number', 'price', data.variant_id, price, { min: 0.01, step: 0.01 }),
-      sell_price: createInputField('number', 'sell_price', data.variant_id, sellPrice, { min: 0, step: 0.01 }),
-      discount: createInputField('number', 'discount', data.variant_id, 0, { min: 0, step: 0.01, max: price }),
+      id: selected.variant_id, // 👈 Plain number or string
+      variant_ids: `<input type="hidden" name="variant_ids[]" value="${selected.variant_id}">`,
+      quantity: createInputField("number", "qty", selected.variant_id, 1, {
+        min: 1,
+        step: 1,
+        "data-price": price,
+      }),
+      price: createInputField("number", "price", selected.variant_id, price, {
+        min: 0.01,
+        step: 0.01,
+      }),
+      table_price: createInputField(
+        "number",
+        "price",
+        selected.variant_id,
+        price,
+        {
+          min: 0.01,
+          step: 0.01,
+        }
+      ),
+      sell_price: createInputField(
+        "number",
+        "sell_price",
+        selected.variant_id,
+        sellPrice,
+        { min: 0, step: 0.01 }
+      ),
+      discount: createInputField("number", "discount", selected.variant_id, 0, {
+        min: 0,
+        step: 0.01,
+      }),
       total: `<span class="table_price">${price.toFixed(2)}</span>`,
-      expire: `<input type="text" class="form-control expire" name="expire[${data.variant_id}]" 
+      expire: `<input type="text" class="form-control expire" name="expire[${selected.variant_id}]" 
                      placeholder="YYYY-MM-DD" autocomplete="off">`,
-      actions: '<button class="btn btn-sm btn-danger remove-row"><i class="fa fa-trash"></i></button>'
+      actions:
+        '<button class="btn btn-sm btn-danger remove-row"><i class="fa fa-trash"></i></button>',
     };
 
     $("#purchase_order").bootstrapTable("insertRow", {
-      index: 0,
-      row: tableRow
+      index: $("#purchase_order").bootstrapTable("getData").length,
+      row: tableRow,
     });
 
+    // Clear the Select2 dropdown after successful selection
+    $(this).val(null).trigger("change");
+    $(".search_products").val(null).trigger("change.select2");
     $('[data-toggle="tooltip"]').tooltip();
     purchase_total();
   });
 }
-
 
 function createInputField(type, name, variantId, value, attributes = {}) {
   const attrs = Object.entries(attributes)
@@ -3007,7 +2662,7 @@ function setupPurchaseOrderEventHandlers() {
       row.find(".price").val("");
       return;
     }
-    
+
     if (qty <= 0) {
       showToastMessage("Quantity must be greater than 0.", "error");
       row.find(".qty").val("");
@@ -3015,7 +2670,7 @@ function setupPurchaseOrderEventHandlers() {
     }
 
     var subtotal = qty * price;
-    
+
     if (discount < 0 || discount > subtotal) {
       showToastMessage(
         `Discount must be between 0 and ${subtotal.toFixed(2)}.`,
@@ -3130,124 +2785,76 @@ function settlePrice(e) {
     }
   }
 }
+let $sales_order_table = $("#sales_order");
+
 var $table = $("#purchase_order");
 var $remove = $("#remove");
-let $sales_order_table = $("#sales_order");
-$(function (e) {
+$(function () {
   if ($("#purchase_form").length > 0) {
-    // $table.on(
-    //     "check.bs.table uncheck.bs.table check-all.bs.table uncheck-all.bs.table",
-    //     function () {
-    //         $remove.prop("disabled", !$table.bootstrapTable("getSelections").length);
-    //     }
-    // );
-    // $remove.click(function (e) {
-    //     e.preventDefault();
-    //     var ids = $.map($table.bootstrapTable("getSelections"), function (row) {
-    //         return row.id;
-    //     });
+    setupRemoveButton($table, $remove, $("#products_input"), "id");
 
-    //     $table.bootstrapTable("remove", {
-    //         field: "id",
-    //         values: ids,
-    //     });
-    //     purchase_total();
-    //     $remove.prop("disabled", true);
-    // });
-
-    $table.on(
-      "check.bs.table uncheck.bs.table check-all.bs.table uncheck-all.bs.table",
-      function () {
-        // Enable/Disable the remove button based on selection
-        $remove.prop(
-          "disabled",
-          !$table.bootstrapTable("getSelections").length
-        );
-      }
-    );
-
-    // Handle remove button click
     $remove.click(function (e) {
       e.preventDefault();
-
-      // Get the IDs of selected rows
-      var ids = $.map($table.bootstrapTable("getSelections"), function (row) {
-        return row.id;
-      });
-
-      // Remove the selected rows from the table
-      $table.bootstrapTable("remove", {
-        field: "id",
-        values: ids,
-      });
-
-      // Remove corresponding product details from the #products input field
-      var products = JSON.parse($("input#products").val() || "[]"); // Get current product details (if any)
-      // Filter out products that have an ID matching the removed rows
-      var updatedProducts = products.filter(function (product) {
-        return ids.indexOf(product.id) === -1; // Exclude products whose ID is in the `ids` array
-      });
-
-      // Update the #products input with the updated product details (serialized as JSON)
-      $("input#products").val(JSON.stringify(updatedProducts));
-
-      // ✅ Remove matching items from variant_data[]
-      variant_data = variant_data.filter(function (variant) {
-        return ids.indexOf(variant.id) === -1;
-      });
-      console.log('after delete: ',variant_data);
-      // Call function to update any purchase totals or other details
-      purchase_total();
-
-      // Disable the remove button after the operation
-      $remove.prop("disabled", true);
+      handleRemove($table, $remove, $("#products_input"), "id");
     });
   }
 
   if ($("#sales_order_form").length > 0) {
-    $sales_order_table.on(
-      "check.bs.table uncheck.bs.table check-all.bs.table uncheck-all.bs.table",
-      function () {
-        $remove.prop(
-          "disabled",
-          !$sales_order_table.bootstrapTable("getSelections").length
-        );
-      }
+    setupRemoveButton(
+      $sales_order_table,
+      $remove,
+      $("#products"),
+      "variant_id"
     );
+
     $remove.click(function (e) {
       e.preventDefault();
-      var ids = $.map(
-        $sales_order_table.bootstrapTable("getSelections"),
-        function (row) {
-          return row.id;
-        }
-      );
-
-      $sales_order_table.bootstrapTable("remove", {
-        field: "id",
-        values: ids,
-      });
-
-      // Remove corresponding product details from the #sale_product_id input field
-      var sale_product_id = JSON.parse(
-        $("input#sale_product_id").val() || "[]"
-      ); // Get current product details (if any)
-
-      // Filter out products that have an ID matching the removed rows
-      var updatedSale_product_id = sale_product_id.filter(function (
-        sale_product_id
-      ) {
-        return ids.indexOf(sale_product_id.variant_id) === -1; // Exclude products whose ID is in the `ids` array
-      });
-
-      // Update the #products input with the updated product details (serialized as JSON)
-      $("input#sale_product_id").val(JSON.stringify(updatedSale_product_id));
-
-      purchase_total();
-      $remove.prop("disabled", true);
+      handleRemove($sales_order_table, $remove, $("#products"), "variant_id");
     });
   }
 });
+
+function setupRemoveButton($table, $removeBtn, $inputField, dataKey) {
+  $table.on(
+    "check.bs.table uncheck.bs.table check-all.bs.table uncheck-all.bs.table",
+    function () {
+      $removeBtn.prop(
+        "disabled",
+        !$table.bootstrapTable("getSelections").length
+      );
+    }
+  );
+}
+
+function handleRemove($table, $removeBtn, $inputField, dataKey) {
+  var selectedRows = $table.bootstrapTable("getSelections");
+  var selectedIds = selectedRows.map((row) => row.id);
+
+  $table.bootstrapTable("remove", {
+    field: "id",
+    values: selectedIds,
+  });
+
+  variant_data = variant_data.filter(
+    (variant) => !selectedIds.includes(variant.id.toString())
+  );
+
+  var data = safeJSONParse($inputField.val());
+  var updated = data.filter((item) => !selectedIds.includes(item[dataKey]));
+  $inputField.val(JSON.stringify(updated));
+
+  purchase_total();
+  $removeBtn.prop("disabled", true);
+}
+
+function safeJSONParse(str, fallback = []) {
+  try {
+    return JSON.parse(str || "[]");
+  } catch (e) {
+    console.warn("Invalid JSON:", str);
+    return fallback;
+  }
+}
 
 $(function (e) {
   $sales_order_table.on(
