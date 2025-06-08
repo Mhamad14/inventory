@@ -3,7 +3,7 @@
         <div class="section-header">
             <h1><?= labels('positions', 'positions') ?></h1>
             <div class="section-header-breadcrumb">
-                <a class="btn btn-primary text-white" href="<?= base_url('admin/positions'); ?>" data-toggle="tooltip" title="<?= labels('positions_list', 'Positions') ?>">
+                <a class="btn btn-primary text-white" href="<?= base_url('admin/positions'); ?>" data-toggle="tooltip" title="<?= labels('positions', 'Positions') ?>">
                     <i class="fas fa-list"></i>
                 </a>
             </div>
@@ -36,11 +36,11 @@
                         </div>
                         <div class="form-group mt-3">
                             <?php if (!empty($position['id'])) { ?>
-                                <button type="submit" name="update" class="btn btn-success" onclick="return confirm('Are you sure you want to update this position?');"><?= labels('update', 'Update') ?></button>
-                                <button type="submit" name="delete" class="btn btn-danger" onclick="return confirm('Are you sure you want to delete this position?');"><?= labels('delete', 'Delete') ?></button>
+                                <button type="submit" name="update" class="btn btn-success" onclick="return confirm('<?= labels('confirm_update_position', 'Are you sure you want to update this position?') ?>');"><?= labels('update', 'Update') ?></button>
+                                <button type="submit" name="delete" class="btn btn-danger" onclick="return confirm('<?= labels('confirm_delete_position', 'Are you sure you want to delete this employee?') ?>');"><?= labels('delete', 'Delete') ?></button>
                             <?php } else { ?>
                                 <button type="reset" class="reset btn btn-primary"><?= labels('reset', 'Reset') ?></button>
-                                <button type="submit" name="insert" class="btn btn-success" onclick="return confirm('Are you sure you want to save this position?');"><?= labels('save', 'Save') ?></button>
+                                <button type="submit" name="insert" class="btn btn-success" onclick="return confirm('<?= labels('confirm_save_position', 'Are you sure you want to save this employee?') ?>');"><?= labels('save', 'Save') ?></button>
                             <?php } ?>
                         </div>
                     </form>
