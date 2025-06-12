@@ -16,7 +16,7 @@ class Customers extends BaseController
     protected $configIonAuth;
 
     protected Customers_model $customerModel;
-
+    protected $business_id;
     public function __construct()
     {
         $this->ionAuth = new \App\Libraries\IonAuth();
@@ -24,6 +24,7 @@ class Customers extends BaseController
         helper(['form', 'url', 'filesystem', 'customer']);
         $this->configIonAuth = config('IonAuth');
         $this->session       = \Config\Services::session();
+        $this->business_id = session('business_id') ?? "";
 
         $this->customerModel = new Customers_model();
     }
@@ -31,23 +32,73 @@ class Customers extends BaseController
     public function index()
     {
 
-        $business_id = session('business_id');
-        $this->validateUserPermission();
-
         // Fetch customers and other data
-        $customers = getCustomers($business_id);
-
+        $customers = getCustomers($this->business_id);
         // Prepare data for the view
         $data = $this->getData('customers', $customers, FORMS . 'customers');
+        
 
         return view("admin/template", $data);
     }
 
+    public function payBackPartialDebt()
+    {
+        $payment_amount = $this->request->getPost('partial_amount');
+        if (!is_numeric($payment_amount) || $payment_amount <= 0) {
+            return $this->response->setJSON([
+                'success' => false,
+                'message' => 'Invalid payment amount.',
+                'csrf_token' => csrf_token(),
+                'csrf_hash'  => csrf_hash(),
+            ]);
+        }
+        if ($this->customerModel->payBackPartialDebt($payment_amount)) {
+            return $this->response->setJSON([
+                'success'    => true,
+                'message' => 'Partial payment applied successfully.',
+                'csrf_token' => csrf_token(),
+                'csrf_hash'  => csrf_hash(),
+                'user_id'    => session('current_customer_id'),
+                // 'overallPayments' => $this->customerModel->getOverallPayments(session('current_customer_id'), $this->business_id),
+            ]);
+        } else {
+            return $this->response->setJSON([
+                'success'    => false,
+                'message' => 'No eligible orders found or error occurred.',
+                'csrf_token' => csrf_token(),
+                'csrf_hash'  => csrf_hash(),
+                'user_id'    => session('current_customer_id'),
+            ]);
+        }
+    }
+    public function payBackAllDebt($id)
+    {
+        if ($this->customerModel->payBackAllDebt($this->business_id)) {
+            return $this->response->setJSON([
+                'success'    => true,
+                'message'    => 'Paid all debt back!',
+                'data'       => [],
+                'csrf_token' => csrf_token(),
+                'csrf_hash'  => csrf_hash(),
+                'user_id'    => $id,
+                // 'overallPayments' => $this->customerModel->getOverallPayments(session('current_customer_id'), $this->business_id),
+            ]);
+        } else {
+            return $this->response->setJSON([
+                'success'    => false,
+                'message'    => 'No unpaid or partially paid orders found, or something went wrong.',
+                'data'       => [],
+                'csrf_token' => csrf_token(),
+                'csrf_hash'  => csrf_hash(),
+                'user_id'    => $id,
+            ]);
+        }
+    }
 
-    // to update customer
     public function update($user_id)
     {
 
+        // Define common validation rules
         $rules = [
             'name' => [
                 'label' => 'Name',
@@ -76,16 +127,8 @@ class Customers extends BaseController
                 ]
             ],
         ];
-        $isValid = $this->validate($rules);
-        if (!$isValid) {
-            return $this->response->setJSON([
-                'success' => false,
-                'message' => implode('<br>', $this->validator->getErrors())
-            ]);
-            // return redirect()->back()->withInput()->with('shahram_errors', $this->validator->getErrors());
-        }
 
-        // Check if password is entered
+        // Dynamically add password rule if submitted
         $password = $this->request->getPost('password');
         if (!empty($password)) {
             $rules['password'] = [
@@ -95,148 +138,107 @@ class Customers extends BaseController
                     'min_length' => 'The {field} must be at least {param} characters long.'
                 ]
             ];
-            $this->ionAuth->update($user_id, ['password' => $password]);
+        }
+
+        // Validate input
+        if (!$this->validate($rules)) {
+            return $this->response->setJSON([
+                'success' => false,
+                'message' => implode('<br>', $this->validator->getErrors())
+            ]);
         }
 
         $db = db_connect();
+        $data = [
+            'first_name' => $this->request->getPost('name'),
+            'mobile'     => $this->request->getPost('mobile'),
+            'email'      => $this->request->getPost('email'),
+        ];
 
-        $this->validateUserPermission();
+        // Update password only if provided
+        if (!empty($password)) {
+            $this->ionAuth->update($user_id, ['password' => $password]);
+        }
 
-        // update users table
+        // Update users table
         $db->table('users')
             ->where('id', $user_id)
-            ->update([
-                'first_name' => $this->request->getPost('name'),
-                'mobile' => $this->request->getPost('mobile'),
-                'email' => $this->request->getPost('email'),
-            ]);
+            ->update($data);
 
-        // update Customers table
-        $db->table('customers')
-            ->where('user_id', $user_id)
-            ->update([
-                'status' => $this->request->getPost('status'),
-            ]);
+        // Update customers table
+        $db->table('customers')->where('user_id', $user_id)->update([
+            'status' => $this->request->getPost('status'),
+        ]);
 
+        // Return success JSON
         return $this->response->setJSON([
-            'success' => true,
-            'message' => 'Customer Updated successfully!',
-            'data' => [],
+            'success'    => true,
+            'message'    => 'Customer updated successfully!',
+            'data'       => [],
             'csrf_token' => csrf_token(),
-            'csrf_hash' => csrf_hash(),
-            'user_id' => $user_id,
+            'csrf_hash'  => csrf_hash(),
+            'user_id'    => $user_id,
         ]);
     }
     // to get Customers/show.php
     public function edit($id)
     {
-        $this->validateUserPermission();
 
         $customer = $this->customerModel->getCustomerFullDetail($id);
 
         $data = $this->getData('customer', $customer,  FORMS . 'Customers/' . 'show');
-
-
+        
+        session()->set('current_customer_id', $customer['id']);
+        $data['overallPayments'] = $this->customerModel->getOverallPayments($customer['id'], $this->business_id);
         return view('admin/template', $data);
     }
-
-
-    public function save_status()
-    {
-        // Check if modifications are allowed
-        if (defined('ALLOW_MODIFICATION') && ALLOW_MODIFICATION == 0) {
-            return setJSON($this->response, true, [DEMO_MODE_ERROR]);
-        }
-
-        // Check if the user is logged in and is an admin
-        if (!$this->ionAuth->loggedIn() || !$this->ionAuth->isAdmin()) {
-            return redirect()->to('login');
-        }
-
-        if (subscription() !== 'active') {
-            return setJSON($this->response, true, ['Subscription is not active.']);
-        }
-        // Validate the input
-        $this->validation->setRules([
-            'customer_id' => 'required|trim',
-            'status' => 'required|trim'
-        ]);
-
-        if (!$this->validation->withRequest($this->request)->run()) {
-            return setJSON($this->response, true, $this->validation->getErrors());
-        }
-
-        // Get the input data
-        $customer_id = $this->request->getPost('customer_id');
-        $status = $this->request->getPost('status');
-
-        // Update the customer's status
-        $update = update_details(['status' => $status], ['user_id' => $customer_id], 'customers');
-
-        if (!$update) {
-            return setJSON($this->response, true, ['Failed to update customer status. Please try again.']);
-        }
-
-        // Set success response
-        session()->setFlashdata('toastMessage', 'Customer status updated successfully.');
-        session()->setFlashdata('toastMessageType', 'success');
-        return setJSON($this->response, false, 'Customer status updated successfully');
-    }
-
-
 
     // edit it a little
     public function customers_table()
     {
-        // Get the business ID from the session
-        $business_id = session('business_id') ?? "";
 
-        // Initialize the Customers model
-        $customers_model = new Customers_model();
+        $customers = $this->customerModel->get_customers_details($this->business_id);
+        $total = $this->customerModel->count_of_customers($this->business_id);
 
-        // Fetch customer details and total count
-        $customers = $customers_model->get_customers_details($business_id);
-        $total = $customers_model->count_of_customers($business_id);
-
-        // Prepare rows for the response
         $rows = [];
         foreach ($customers as $customer) {
             $rows[] = prepareCustomerRow($customer);
         }
-        // Prepare the response array
+
         $response = [
             'total' => $total[0]['total'] ?? 0,
             'rows' => $rows
         ];
 
-        // Return the response as JSON
         return $this->response->setJSON($response);
     }
 
-
-    private function validateUserPermission()
+    public function customer_orders_table()
     {
-        if (!$this->ionAuth->loggedIn() || (!$this->ionAuth->isAdmin() && !$this->ionAuth->isTeamMember())) {
-            return redirect()->to('login');
-        }
-        if (isset($session['business_id'])) {
-            return handleMissingBusiness();
-        }
+        $current_customer_id = session("current_customer_id");
+
+        // Fetch customer details and total count
+        $rows = $this->customerModel->getCustomersOrderDetails($this->request, $this->business_id, $current_customer_id,);
+        $total = $this->customerModel->getTotalCustomerOrders($this->request, $this->business_id, $current_customer_id,);
+
+        return $this->response->setJSON([
+            'total' => $total,
+            'rows' => array_map('prepareCustomerOrdersRow', $rows)
+        ]);
     }
 
     private function getData($tableName, $tableData, $page)
     {
-        $company_title = (isset($settings['title'])) ? $settings['title'] : "";
-        $business_id = session('business_id');
+        $settings = get_settings('general', true);
         $languages = getLanguages();
-        return $data = [
+        return [
             'version' => getAppVersion(),
             'code' => session('lang') ?? 'en',
             'current_lang' => session('lang') ?? 'en',
             'languages_locale' => $languages,
-            'business_id' => $business_id,
+            'business_id' => $this->business_id,
             'page' => $page,
-            'title' => "Customers - " . $company_title,
+            'title' => "Customers - " . $settings['title'] ?? "",
             'from_title' => 'Customer Details',
             'meta_keywords' => "subscriptions app, digital subscription, daily subscription, software, app, module",
             'meta_description' => "Home - Welcome to Subscribers, a digital solution for your subscription-based daily problems",

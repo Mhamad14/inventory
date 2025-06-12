@@ -21,7 +21,7 @@ class WarehouseProductStockModel extends Model
     protected array $castHandlers = [];
 
     // Dates
-    protected $useTimestamps = false;
+    protected $useTimestamps = true;
     protected $dateFormat    = 'datetime';
     protected $createdField  = 'created_at';
     protected $updatedField  = 'updated_at';
@@ -43,6 +43,29 @@ class WarehouseProductStockModel extends Model
     protected $afterFind      = [];
     protected $beforeDelete   = [];
     protected $afterDelete    = [];
+
+
+
+    public function increaseWarehouseStock($warehouse_id, $product_variant_id, $quantity)
+    {
+        $this->db->query("select * from warehouse_product_stock where warehouse_id = {$warehouse_id} and product_variant_id = {$product_variant_id}");
+        if ($this->db->affectedRows() == 0) {
+            $data = [
+                'warehouse_id' => $warehouse_id,
+                'product_variant_id' => $product_variant_id,
+                'stock' => $quantity,
+                'business_id' => session('business_id'),
+            ];
+            return $this->insert($data);
+        }
+
+        $db = \Config\Database::connect();
+        $builder = $db->table("warehouse_product_stock");
+
+        $builder->set('stock', "stock + {$quantity}", false);
+        $builder->where(['warehouse_id' => $warehouse_id, 'product_variant_id' => $product_variant_id]);
+        return $builder->update();
+    }
 
     public function get_warehouses_data_for_variants($variant_ids)
     {
@@ -67,6 +90,7 @@ class WarehouseProductStockModel extends Model
         $builder->where(['warehouse_product_stock.business_id' => $business_id,]);
 
         $builder->where('warehouse_product_stock.stock <= warehouse_product_stock.qty_alert');
+        $builder->where('warehouse_product_stock.qty_alert IS NOT NULL');
 
         $builder->join('warehouses', 'warehouses.id = warehouse_product_stock.warehouse_id', 'left');
         $builder->join('products_variants', 'products_variants.id = warehouse_product_stock.product_variant_id', 'left');

@@ -1,3 +1,6 @@
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/choices.js/public/assets/styles/choices.min.css" />
+
+
 <!--  bootstrap Files -->
 <link rel="stylesheet" href="<?= base_url("public/backend/assets/css/bootstrap/stackpath.bootstrap.min.css") ?>">
 <link rel="stylesheet" href="<?= base_url("public/backend/assets/css/bootstrap/jsdelivr.bootstrap.min.css") ?>">
@@ -6,7 +9,7 @@
 <link rel="stylesheet" href="<?= base_url("public/backend/assets/css/bootstrap/bi/bootstrap-icons.css") ?>">
 <link href="//cdnjs.cloudflare.com/ajax/libs/x-editable/1.5.0/bootstrap3-editable/css/bootstrap-editable.css" rel="stylesheet" />
 <!-- Template CSS -->
-
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
 <link rel="stylesheet" href="<?= base_url("public/backend/assets/css/daterangepicker.css") ?>">
 <link rel="stylesheet" href="<?= base_url("public/backend/assets/css/style.css") ?>">
 <link rel="stylesheet" href="<?= base_url("public/backend/assets/css/components.css") ?>">

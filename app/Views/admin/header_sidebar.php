@@ -119,6 +119,7 @@
 
             <li class="menu-header"><?= labels('business', 'Business') ?></li>
             <li><a href="<?= base_url('admin/suppliers');  ?>" class="nav-link"><i class="bi bi-truck text-warning"></i><span><?= labels('suppliers', 'Suppliers') ?></span></a></li>
+            <li><a href="<?= base_url('admin/currency');  ?>" class="nav-link"><i class="bi bi-currency-dollar text-success"></i><span><?= labels('currencies', 'Currencies') ?></span></a></li>
             <li class="dropdown">
                 <a href="#" class="nav-link has-dropdown"><i class="bi bi-bag text-success"></i></i><span><?= labels('purchases', 'Purchases') ?></span></a>
                 <ul class="dropdown-menu">
@@ -132,6 +133,13 @@
                     <li><a class="nav-link" href="<?= base_url('admin/orders/orders'); ?>"><?= labels('orders', 'Orders') ?></a></li>
 
                     <li><a class="nav-link" href="<?= base_url('admin/customers_subscription'); ?>"><?= labels('subscriptions', 'Subscriptions') ?></a></li>
+                </ul>
+            </li>
+            <li class="dropdown">
+                <a href="#" class="nav-link has-dropdown"><i class="bi bi-file-ear text-light"></i><span><?= labels('employees', 'employees') ?></span></a>
+                <ul class="dropdown-menu">
+                    <li><a class="nav-link" href="<?= base_url('admin/employees/'); ?>"><?= labels('employees', 'Employees') ?></a></li>
+                    <li><a class="nav-link" href="<?= base_url('admin/positions/'); ?>"><?= labels('positions', 'Positions') ?></a></li>
                 </ul>
             </li>
             <li class="dropdown">

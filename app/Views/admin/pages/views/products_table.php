@@ -41,18 +41,12 @@
                             <tr>
                                 <th data-field="id" data-sortable="true" data-visible="false"><?= labels('id', 'ID') ?></th>
                                 <th data-field="name" data-sortable="true" data-visible="true"><?= labels('name', 'Name') ?></th>
-                                <th data-field="description" data-sortable="true" data-visible="false"><?= labels('description', 'Description') ?></th>
+                                <th data-field="description" data-sortable="true" data-visible="true"><?= labels('description', 'Description') ?></th>
                                 <th data-field="image" data-sortable="true" data-visible="true"><?= labels('image', 'Image') ?></th>
-                                <th data-field="type" data-sortable="true" data-visible="false"><?= labels('product_type', 'Product Type') ?></th>
-                                <th data-field="stock_management" data-sortable="true" data-visible="true"><?= labels('stock_management', 'Stock Management') ?>?</th>
                                 <th data-field="stock" data-sortable="true" data-visible="true"><?= labels('stock', 'Stock(qty)') ?></th>
-                                <th data-field="qty_alert" data-sortable="true" data-visible="false"><?= labels('qty_alert', 'Quantity Alert') ?></th>
-                                <th data-field="unit_id" data-sortable="true" data-visible="false"><?= labels('unit_name', 'Unit Name') ?></th>
-                                <th data-field="is_tax_included" data-sortable="true" data-visible="false"><?= labels('is_tax_included', 'Is tax included?') ?></th>
-                                <th data-field="category_id" data-sortable="true" data-visible="false"><?= labels('category_name', 'Category name') ?></th>
+                                <th data-field="caregory_name" data-sortable="true" data-visible="false"><?= labels('category_name', 'Category name') ?></th>
                                 <th data-field="business_name" data-sortable="true" data-visible="false"><?= labels('business_name', 'Business Name') ?></th>
-                                <th data-field="vendor_id" data-sortable="true" data-visible="false"><?= labels('vendor_name', 'Vendor Name') ?></th>
-                                <th data-field="tax_id" data-sortable="true" data-visible="false"><?= labels('tax_name', 'tax name') ?></th>
+                                <th data-field="creator" data-sortable="true" data-visible="true"><?= labels('creator', 'Creator') ?></th>
                                 <th data-field="status" data-visible="true"><?= labels('status', 'Status') ?></th>
                                 <th data-field="action" data-visible="true"><?= labels('action', 'Action') ?></th>
                             </tr>
@@ -87,11 +81,9 @@
                                                     <th data-field="id" data-sortable="true" data-visible="true">ID</th>
                                                     <th data-field="product_id" data-sortable="true" data-visible="false">Product ID</th>
                                                     <th data-field="variant_name" data-sortable="true" data-visible="true">Name</th>
-                                                    <th data-field="sale_price" data-sortable="true" data-visible="true">Sale Price</th>
-                                                    <th data-field="purchase_price" data-sortable="true" data-visible="true">Purchase Price</th>
                                                     <th data-field="stock" data-sortable="true" data-visible="true">Stock</th>
                                                     <th data-field="qty_alert" data-sortable="false" data-visible="true"><?= labels('qty_alert', 'Quantity Alert') ?></th>
-                                                    <th data-field="unit_id" data-sortable="true" data-visible="false">Unit Name</th>
+                                                    <th data-field="unit_id" data-sortable="true" data-visible="true">Unit Name</th>
                                                     <th data-field="status" data-visible="false">Status</th>
                                                     <th data-field="action" data-visible="true">Action</th>
                                                 </tr>
