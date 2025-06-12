@@ -26,6 +26,15 @@ class Purchases_model extends Model
         $result = $builder->get()->getRowArray();
         return $result;
     }
+    public function get_purchase_total($purchase_id)
+    {
+        return $this->db->table('purchases')
+            ->select('total')
+            ->where('id', $purchase_id)
+            ->get()
+            ->getRow()
+            ->total ?? 0;
+    }
 
     public function get_purchases($vendor_id, $business_id, $order_type)
     {

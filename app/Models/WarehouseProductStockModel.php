@@ -48,24 +48,35 @@ class WarehouseProductStockModel extends Model
 
     public function increaseWarehouseStock($warehouse_id, $product_variant_id, $quantity)
     {
-        $this->db->query("select * from warehouse_product_stock where warehouse_id = {$warehouse_id} and product_variant_id = {$product_variant_id}");
-        if ($this->db->affectedRows() == 0) {
+        $db = \Config\Database::connect();
+        $builder = $db->table('warehouse_product_stock');
+
+        // #1 Check if stock entry exists
+        $builder->select('*')
+            ->where('warehouse_id', $warehouse_id)
+            ->where('product_variant_id', $product_variant_id);
+        $query = $builder->get();
+
+        if ($query->getNumRows() === 0) {
+            // #2 Insert new stock entry
             $data = [
-                'warehouse_id' => $warehouse_id,
-                'product_variant_id' => $product_variant_id,
-                'stock' => $quantity,
-                'business_id' => session('business_id'),
+                'warehouse_id'        => $warehouse_id,
+                'product_variant_id'  => $product_variant_id,
+                'stock'               => $quantity,
+                'qty_alert'           => -1, // Default value
+                'vendor_id'           => session('user_id'),
+                'business_id'         => session('business_id'),
             ];
-            return $this->insert($data);
+            return $builder->insert($data);
         }
 
-        $db = \Config\Database::connect();
-        $builder = $db->table("warehouse_product_stock");
-
-        $builder->set('stock', "stock + {$quantity}", false);
-        $builder->where(['warehouse_id' => $warehouse_id, 'product_variant_id' => $product_variant_id]);
+        // Update existing stock
+        $builder->set('stock', "stock + {$quantity}", false) // false = do not escape
+            ->where('warehouse_id', $warehouse_id)
+            ->where('product_variant_id', $product_variant_id);
         return $builder->update();
     }
+
 
     public function get_warehouses_data_for_variants($variant_ids)
     {

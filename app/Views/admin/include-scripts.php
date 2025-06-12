@@ -1,5 +1,6 @@
 <!-- Alpine.js -->
 <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.8/dist/cdn.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/just-validate@4.3.0/dist/just-validate.production.min.js"></script>
 
 <!-- Axios -->
 <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
@@ -27,7 +28,10 @@
 <script src="<?= base_url("public/backend/assets/summernote-dist/summernote-bs4.js") ?>"></script>
 <script src="<?= base_url("public/backend/assets/js/coloris.js") ?>"></script>
 <script src="<?= base_url("public/backend/assets/tinymce/tinymce.min.js") ?>"></script>
-<script src="<?= base_url("public/backend/assets/js/sweetalert2.min.js") ?>"></script>
+<!-- <script src="<?= "" //base_url("public/backend/assets/js/sweetalert2.min.js") ?>"></script> -->
+ <!-- shahram: updated sweet alert to last version -->
+ <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
 <script src=" <?= base_url("public/backend/assets/js/scripts.js") ?>"></script>
 <script src="<?= base_url("public/backend/assets/js/pos.js") ?>"></script>
 <script src="<?= base_url("public/backend/assets/js/checkout.js") ?>"></script>

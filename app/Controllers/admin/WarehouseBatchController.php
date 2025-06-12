@@ -9,6 +9,7 @@ use App\Models\Status_model;
 use App\Models\Suppliers_model;
 use App\Models\warehouse_batches_model;
 use App\Models\WarehouseModel;
+use CodeIgniter\CLI\Console;
 
 class WarehouseBatchController extends BaseController
 {
@@ -21,6 +22,7 @@ class WarehouseBatchController extends BaseController
     protected $purchases_items_model;
     protected $status_model;
     protected $warehouses_model;
+    protected $warehouse_product_stock_model;
 
     public function __construct()
     {
@@ -34,6 +36,7 @@ class WarehouseBatchController extends BaseController
         $this->status_model = new Status_model();
         $this->warehouses_model = new WarehouseModel();
         $this->purchases_items_model = new Purchases_items_model();
+        $this->warehouse_product_stock_model = new \App\Models\WarehouseProductStockModel();
     }
 
     // 🧾 List all batches
@@ -59,14 +62,16 @@ class WarehouseBatchController extends BaseController
     public function batches_table()
     {
         $batches = $this->batch_model->getBatches(session('purchase_id'));
-        $total =
-            $rows = [];
-        foreach ($batches as $batch) {
+        // get batches total count
+
+
+        $rows = [];
+        foreach ($batches['result'] as $batch) {
             $rows[] = $this->prepareBatchesRow($batch);
         }
 
         return $this->response->setJSON([
-            'total' => $total[0]['total'] ?? 0,
+            'total' => $batches['total'] ?? 0,
             'rows' => $rows
         ]);
     }
@@ -75,7 +80,9 @@ class WarehouseBatchController extends BaseController
     {
         $item['image_url'] = base_url($item['image']);
         $rowData = htmlspecialchars(json_encode($item), ENT_QUOTES, 'UTF-8'); // Convert the entire row to JSON and escape it for HTML
-        $actions = "<a href='javascript:void(0)' data-row='{$rowData}'  class='btn btn-primary btn-sm' data-toggle='tooltip' data-placement='bottom' title='Batch Update' data-bs-toggle='modal' data-bs-target='#batch_edit_modal'><i class='bi bi-pen'></i></a>";
+        $actions = " <a href='javascript:void(0)' data-row='{$rowData}'  class='btn btn-primary btn-sm me-2' data-toggle='tooltip' data-placement='bottom' title='Batch Update' data-bs-toggle='modal' data-bs-target='#batch_edit_modal'><i class='bi bi-pen'></i></a>";
+        $actions .= '<a href="javascript:void(0)" x-data @click="confirmReturn(' . $rowData . ')" class="btn btn-info btn-sm" title="Return"><i class="bi bi-box-arrow-down"></i></a>';
+        
         $img = '<div class="image-box-100 "><a href="' . base_url($item['image'])  . '" data-lightbox="image-1">
              <img src="' . base_url($item['image']) . '" class="image-100 image-box-100 img-fluid" />
             </a></div>';
@@ -85,11 +92,11 @@ class WarehouseBatchController extends BaseController
             'image' => $img,
             'name' => $item['product_name'] . " - " . $item['variant_name'],
             'quantity' => $item['quantity'],
-            'cost_price' => currency_location(decimal_points($item['cost_price'])),
-            'sell_price' => currency_location(decimal_points($item['sell_price'])),
+            'cost_price' => currency_location($item['cost_price']),
+            'sell_price' => currency_location($item['sell_price']),
             'expire' => $item['expiration_date'],
             'discount' => $item['discount'],
-            'total' => currency_location(decimal_points(($item['quantity'] * $item['cost_price']) - $item['discount'])),
+            'total' => currency_location(($item['quantity'] * $item['cost_price']) - $item['discount']),
             'status' => $item['status'],
             'actions' => $actions
         ];
@@ -126,12 +133,12 @@ class WarehouseBatchController extends BaseController
         $returned_batches = $this->batch_model->getReturnedBatches(session('purchase_id'));
         $total =
             $rows = [];
-        foreach ($returned_batches as $batch) {
+        foreach ($returned_batches['result'] as $batch) {
             $rows[] = $this->prepareReturnedBatchRow($batch);
         }
 
         return $this->response->setJSON([
-            'total' => $total[0]['total'] ?? 0,
+            'total' => $returned_batches['total'] ?? 0,
             'rows' => $rows
         ]);
     }
@@ -152,11 +159,11 @@ class WarehouseBatchController extends BaseController
             'image' => $img,
             'name' => $item['product_name'] . " - " . $item['variant_name'],
             'quantity' => $item['quantity'],
-            'cost_price' => currency_location(decimal_points($item['cost_price'])),
-            'return_price' => currency_location(decimal_points($item['return_price'])),
+            'cost_price' => currency_location($item['cost_price']),
+            'return_price' => currency_location($item['return_price']),
             'return_date' => $item['return_date'],
             'return_reason' => $item['return_reason'],
-            'return_total' => currency_location(decimal_points(($item['quantity'] * $item['return_price']))),
+            'return_total' => currency_location(($item['quantity'] * $item['return_price'])),
             'actions' => $actions
         ];
 
@@ -226,12 +233,57 @@ class WarehouseBatchController extends BaseController
     public function add_to_existing_purchase()
     {
         $data = $this->request->getJson(true);
-        log_message('debug', 'Add to existing purchase data: ' . print_r($data, true));
-
         $db = \Config\Database::connect();
+
         $db->transStart();
 
         try {
+
+            // validate the input data
+            $rules = [
+                'variant_id'   => 'required',
+                'quantity'     => 'required|greater_than_equal_to[1]',
+                'cost_price'   => 'required|greater_than_equal_to[0]',
+                'discount'     => 'required|greater_than_equal_to[0]',
+                'sell_price'   => 'required|greater_than_equal_to[0]',
+                'expire_date'  => 'required|valid_date[Y-m-d]',
+                'status'       => 'required',
+            ];
+            $messages = [
+                'variant_id' => [
+                    'required' => 'Please select a product variant.'
+                ],
+                'quantity' => [
+                    'required' => 'Quantity is required.',
+                    'greater_than_equal_to' => 'Quantity must be at least 1.'
+                ],
+                'cost_price' => [
+                    'required' => 'Cost price is required.',
+                    'greater_than_equal_to' => 'Cost price must be 0 or higher.'
+                ],
+                'discount' => [
+                    'required' => 'Discount is required.',
+                    'greater_than_equal_to' => 'Discount must be 0 or higher.'
+                ],
+                'sell_price' => [
+                    'required' => 'Sell price is required.',
+                    'greater_than_equal_to' => 'Sell price must be 0 or higher.'
+                ],
+                'expire_date' => [
+                    'required' => 'Expire date is required.',
+                    'valid_date' => 'Date should be in yyyy-MM-dd format (e.g. 2026-12-21)'
+                ],
+                'status' => [
+                    'required' => 'Please select a status.'
+                ],
+            ];
+
+            if (!$this->validate($rules, $messages)) {
+                return $this->response->setJSON([
+                    'success' => false,
+                    'message' => $this->validation->getErrors()
+                ]);
+            }
 
             // #1 insert into purchases_items
             $isItemInserted = $this->purchases_items_model->insert([
@@ -246,13 +298,8 @@ class WarehouseBatchController extends BaseController
                 throw new \Exception('Failed to insert purchase item');
             }
 
-            // #2 update purchases
-            $amountToAdd = $data['quantity'] * $data['cost_price'];
-            $isPurchaseUpdated = $this->purchase_model
-                ->set('total', 'total + ' . $amountToAdd, false)
-                ->where('id', $data['purchase_id'])
-                ->update();
-            if (!$isPurchaseUpdated) {
+            // #2 update purchases total
+            if (!$this->batch_model->update_purchase_total($data['purchase_id'])) {
                 throw new \Exception('Failed to update purchase total');
             }
 
@@ -265,6 +312,7 @@ class WarehouseBatchController extends BaseController
                 'sell_price' => $data['sell_price'] ?? 0,
                 'expire' => $data['expire_date'] ?? null,
             ];
+
             // #3.2 get product variant details
             $purchase_item_id = $this->purchases_items_model->getInsertID();
             $isBatchInserted = $this->batch_model->saveBatch(
@@ -272,10 +320,21 @@ class WarehouseBatchController extends BaseController
                 $data['warehouse_id'],
                 $batch_data,
             );
-            // #3.3 update warehouse stock
             if (!$isBatchInserted) {
                 throw new \Exception('Failed to insert batch');
             }
+            // #3.3 increase warehouse stock
+            $isStockUpdated = $this->warehouse_product_stock_model->increaseWarehouseStock(
+                $data['warehouse_id'],
+                $data['variant_id'],
+                $data['quantity']
+            );
+            if (!$isStockUpdated) {
+                throw new \Exception('Failed to Add Item');
+            }
+
+            // #4 get new purchase total
+            $new_total = $this->purchase_model->get_purchase_total($data['purchase_id']);
 
             $db->transComplete();
 
@@ -286,6 +345,7 @@ class WarehouseBatchController extends BaseController
             return $this->response->setJSON(csrfResponseData([
                 'success' => true,
                 'message' => 'Item added successfully',
+                'new_total' => $new_total,
             ]));
         } catch (\Throwable $e) {
             $db->transRollback();
@@ -295,34 +355,8 @@ class WarehouseBatchController extends BaseController
                 'message' => 'An error occurred while adding to existing purchase: ' . $e->getMessage()
             ]));
         }
-
-
-
-
-
-        // if (!$this->validate([
-        //     'variant_id'   => 'required|is_natural_no_zero',
-        //     'quantity'     => 'required|numeric|greater_than[0]',
-        //     'cost_price'   => 'required|numeric|greater_than_equal_to[0]',
-        //     'sell_price'   => 'required|numeric|greater_than_equal_to[0]',
-        //     'expire_date'  => 'permit_empty|valid_date[Y-m-d]',
-        //     'discount'     => 'permit_empty|numeric|greater_than_equal_to[0]',
-        //     'status'       => 'permit_empty|string|max_length[20]'
-        // ])) {
-        //     return $this->response->setStatusCode(400)->setJSON([
-        //         'status' => 'error',
-        //         'errors' => $this->validator->getErrors()
-        //     ]);
-        // }
-
-        // $this->batch_model->addToExistingPurchase($data);
-
-        // return $this->response->setJSON([
-        //     'status' => 'success',
-        //     'message' => 'Batch added successfully'
-        // ]);
-
     }
+
     // to update batch
     public function save_batch()
     {
@@ -444,7 +478,7 @@ class WarehouseBatchController extends BaseController
         if ($batch_query) {
             return $this->response->setJSON([
                 'success' => true,
-                'message' => 'Batch saved successfully'
+                'message' => 'Batch Deleted successfully'
             ]);
         } else {
             return $this->response->setJSON([
@@ -472,9 +506,14 @@ class WarehouseBatchController extends BaseController
 
     public function return_batch()
     {
+        // Flow
+        // 1. Validate input data
+        // 2. Call model to return batch
+        // 3. Update purchase total if needed
+        // 4. Return success or error response
 
         $data = $this->request->getPost();
-
+        log_message('debug', 'Return Batch Data: ' . print_r($data, true));
         $rules = [
             'return_quantity'    => 'required|numeric|greater_than[0]',
             'return_price'  => 'required|numeric|greater_than_equal_to[0]',
@@ -487,7 +526,6 @@ class WarehouseBatchController extends BaseController
         }
 
         $batch_query = $this->batch_model->return_batch($data['return_data'], $data['return_price'], $data['return_reason'], $data['return_quantity'], $data['return_date']);
-
         if ($batch_query) {
             return $this->response->setJSON([
                 'success' => true,

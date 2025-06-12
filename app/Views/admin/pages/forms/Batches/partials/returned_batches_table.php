@@ -8,7 +8,7 @@
                  <th data-field="quantity" data-sortable="true" data-visible="true" data-width="20"><?= labels('returned_qty', 'Returned Qty') ?></th>
                  <th data-field="cost_price" data-editable="true" data-sortable="true" data-visible="true"><?= labels('cost_price', 'Cost Price') ?></th>
                  <th data-field="return_price" data-editable="true" data-sortable="true" data-visible="true"><?= labels('return_price', 'Return Price') ?></th>
-                 <th data-field="return_date" data-editable="true" data-sortable="true" data-visible="true"><?= labels('expiration_date', 'Expiration Date') ?></th>
+                 <th data-field="return_date" data-editable="true" data-sortable="true" data-visible="true"><?= labels('return_date', 'Return Date') ?></th>
                  <th data-field="return_total" data-width="40" data-sortable="true" data-visible="true"><?= labels('return_total', 'Return Total')?></th>
                  <th data-field="return_reason" data-sortable="true" data-visible="true"><?= labels('return_reason', 'Return Reason') ?></th>
                  <th data-field="actions" data-sortable="true" data-visible="true"><?= labels('actions', 'Actions') ?></th>
