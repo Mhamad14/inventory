@@ -120,6 +120,27 @@ $routes->group('admin/customers_subscription', ['filter' => 'checkpermissions:mo
     $routes->get('remove_subscription/(:any)', 'admin\Customers_Subscription::remove_subscription/$1', ['filter' => 'checkpermissions:action=can_read']);
 });
 
+// Currency Routes
+$routes->group('admin/currency', ['filter' => 'checkpermissions:module=currency'], function($routes) {
+    // Main routes with permissions
+    $routes->get('/', 'admin\Currency::index', ['filter' => 'checkpermissions:action=can_read']);
+    $routes->add('add', 'admin\Currency::add', ['filter' => 'checkpermissions:action=can_create']);
+    $routes->add('edit/(:any)', 'admin\Currency::edit/$1', ['filter' => 'checkpermissions:action=can_update']);
+    $routes->add('save', 'admin\Currency::save', ['filter' => 'checkpermissions:action=can_create']);
+    $routes->add('delete/(:any)', 'admin\Currency::delete/$1', ['filter' => 'checkpermissions:action=can_delete']);
+    
+    // Data table routes
+    $routes->add('currency_table', 'admin\Currency::currency_table', ['filter' => 'checkpermissions:action=can_read']);
+});
+
+// Exchange Rates Routes (if needed)
+$routes->group('admin/exchange_rates', ['filter' => 'checkpermissions:module=exchange_rates'], function($routes) {
+    $routes->get('/', 'admin\ExchangeRates::index', ['filter' => 'checkpermissions:action=can_read']);
+    $routes->add('save', 'admin\ExchangeRates::save', ['filter' => 'checkpermissions:action=can_create']);
+    $routes->add('edit/(:any)', 'admin\ExchangeRates::edit/$1', ['filter' => 'checkpermissions:action=can_update']);
+    $routes->add('rates_table', 'admin\ExchangeRates::rates_table', ['filter' => 'checkpermissions:action=can_read']);
+});
+
 $routes->group('admin/transactions', ['filter' => 'checkpermissions:module=transactions'], function ($routes) {
     $routes->get('/', 'admin\Transactions::index', ['filter' => 'checkpermissions:action=can_read']);
     $routes->get('transactions_table', 'admin\Transactions::transactions_table', ['filter' => 'checkpermissions:action=can_read']);
