@@ -30,9 +30,9 @@
      <div class="col-md-4 col-lg-4 col-sm-12 mt-3">
          <div class="form-group text-center">
              <label for="final_total"><strong><?= labels('total', 'Total') ?></strong></label>
-             <h4 class="text-info h6 m-1 px-2" id="final_total" data-currency="<?= $currency ?>">
-                 <?= currency_location(decimal_points($purchase['total'])) ?? 0 ?>
-             </h4>
+             <div x-data>
+                 <h4 class="text-info h6 m-1 px-2" x-text="$store.purchase.finalTotal" id="final_total" data-currency="<?= $currency ?>"></h4>
+             </div>
              <input type="hidden" name="final_total" id="final_total" value="<?= $purchase['total'] ?>">
          </div>
 

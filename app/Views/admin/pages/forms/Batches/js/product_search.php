@@ -1,7 +1,15 @@
 <script>
+    document.addEventListener('alpine:init', () => {
+        Alpine.store('purchase', {
+            finalTotal: <?= decimal_points($purchase['total']) ?? 0 ?>
+        });
+    });
+
+
     function variantForm() {
         return {
             selected: null,
+            errors: {},
             form: {
                 purchase_id: $purchase_id,
                 warehouse_id: $warehouse_id,
@@ -11,7 +19,10 @@
                 sell_price: '',
                 expire_date: '',
                 discount: '',
-                status: 'active'
+                status: 'active',
+                cost_total: 0,
+                sell_total: 0,
+                profit: 0,
             },
             choices: null,
 
@@ -78,6 +89,8 @@
                 await this.fetchVariants('');
 
                 Alpine.effect(() => {
+                    this.calculateTotals();
+
                     if (this.selected && this.$refs.expireDateInput) {
                         flatpickr(this.$refs.expireDateInput, {
                             dateFormat: 'Y-m-d',
@@ -87,6 +100,11 @@
                                 this.form.expire_date = dateStr;
                             }
                         });
+                        // run initValidation only once!
+                        if (!this.validationInitialized) {
+                            this.initValidation();
+                            this.validationInitialized = true;
+                        }
                     }
                 });
 
@@ -115,8 +133,92 @@
                         id: variant.id,
                         text: `${variant.name} - ${variant.variant_name}`
                     };
-                    this.form.variant_id = variant.id;
+                    this.form.variant_id = variant.variant_id;
                 });
+
+            },
+
+            calculateTotals() {
+                const qty = parseFloat(this.form.quantity) || 0;
+                const cost = parseFloat(this.form.cost_price) || 0;
+                const sell = parseFloat(this.form.sell_price) || 0;
+                const discount = parseFloat(this.form.discount) || 0;
+
+                this.form.cost_total = parseFloat((qty * cost) - discount);
+                this.form.sell_total = parseFloat((qty * sell));
+                this.form.profit = parseFloat((this.form.sell_total - this.form.cost_total));
+            },
+
+            // validation rules using justValidate framework
+            initValidation() {
+                this.validator = new JustValidate('#add_variant_form', {
+                    validateBeforeSubmitting: true,
+                    lockForm: true, // 👈 prevents form submission until validation is complete
+                    validateOnInput: true, // 👈 enables instant validation while typing
+                    focusInvalidField: true, // 👈 focuses on the first invalid field
+                    errorFieldCssClass: 'is-invalid', // 👈 adds this class to invalid fields
+                    successFieldCssClass: 'is-valid', // 👈 adds this class to valid fields
+                    errorLabelStyle: {
+                        color: '#dc3545', // Bootstrap danger color
+                        fontSize: '0.875rem', // Bootstrap small text size
+                    },
+                    errorLabelCssClass: 'invalid-feedback', // 👈 adds this class to error labels
+                });
+
+                this.validator
+                    .addField('#variant_id', [{
+                        rule: 'required',
+                        errorMessage: 'Please select a product variant.',
+                    }, ])
+                    .addField('#add_quantity', [{
+                            rule: 'required',
+                            errorMessage: 'Quantity is required.',
+                        },
+                        {
+                            rule: 'minNumber',
+                            value: 1,
+                            errorMessage: 'Quantity must be at least 1.',
+                        }
+                    ])
+                    .addField('#add_cost_price', [{
+                            rule: 'required',
+                            errorMessage: 'Cost price is required.',
+                        },
+                        {
+                            rule: 'minNumber',
+                            value: 0,
+                            errorMessage: 'Cost price must be 0 or higher.',
+                        }
+                    ])
+                    .addField('#add_discount', [{
+                            rule: 'required',
+                            errorMessage: 'Quantity is required.',
+                        },
+                        {
+                            rule: 'minNumber',
+                            value: 0,
+                            errorMessage: 'Cost price must be 0 or higher.',
+                        }
+                    ])
+                    .addField('#add_sell_price', [{
+                            rule: 'required',
+                            errorMessage: 'Sell price is required.',
+                        },
+                        {
+                            rule: 'minNumber',
+                            value: 0,
+                            errorMessage: 'Sell price must be 0 or higher.',
+                        }
+                    ])
+                    .addField('#add_expire_date', [{
+                            rule: 'required',
+                            errorMessage: 'Expire date is required.',
+                        },
+                    ])
+                    .addField('#add_status', [{
+                        rule: 'required',
+                        errorMessage: 'Please select a status.',
+                    }, ]);
             },
 
             async fetchVariants(search) {
@@ -162,16 +264,44 @@
                     console.error('Search error:', err);
                 }
             },
+            // validation
 
             async submitForm() {
                 try {
+
+                    const isValid = await this.validator.revalidate();
+                    document.querySelectorAll('.just-validate-error-label').forEach(e => e.remove());
+                    if (!isValid) {
+                        throw new Error('Please fix the errors in the form.');
+                    }
+                    console.log('Response:', this.form);
+                    return;
                     const base_url = '<?= site_url() ?>';
-                    await axios.post(base_url + 'admin/batches/add_to_existing_purchase', this.form);
+                    const response = await axios.post(base_url + 'admin/batches/add_to_existing_purchase', this.form);
                     
-                    this.resetForm();
+                    if (response.data.success) {
+                        showToastMessage(response.data.message, 'success');
+                        this.resetForm(); // ✅ Reset form only if success
+                        this.choices.clearChoices();
+                        const new_total = response.data.new_total || 0;
+                        Alpine.store('purchase').finalTotal = new_total;
+
+                        setTimeout(() => {
+                            // window.location.reload();
+                            $('#form_batches_items').bootstrapTable('refresh');
+                        }, 500);
+                    } else {
+                        if (typeof response.data.message === 'object') {
+                            for (const field in response.data.message) {
+                                showToastMessage(response.data.message[field], 'error');
+                            }
+                        } else {
+                            showToastMessage(response.data.message, 'error');
+                        }
+                    }
+
                 } catch (e) {
-                    alert('Error saving data');
-                    console.error(e);
+                    showToastMessage(e.message, 'error');
                 }
             },
 
@@ -181,7 +311,7 @@
                     purchase_id: $purchase_id,
                     warehouse_id: $warehouse_id,
                     variant_id: '',
-                    quantity: '',
+                    quantity: 1,
                     cost_price: '',
                     sell_price: '',
                     expire_date: '',

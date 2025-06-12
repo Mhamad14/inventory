@@ -16,19 +16,8 @@
     </section>
     <!-- Header  ...END-->
 
-    <!-- Purchase Order Details ...START-->
-    <section class="section">
-        <div class="card">
-            <?= view('admin/pages/forms/Batches/partials/card_header', ['show_label' => labels('purchase_order_details', 'Purchase Order Details'), 'aria_control' => 'orderDetailsBody']) ?>
-
-            <div class="card-body collapse hide" id="orderDetailsBody">
-
-                <?= view('admin/pages/forms/Batches/partials/purchase_order_creator') ?>
-                <?= view('admin/pages/forms/Batches/partials/purchase_details') ?>
-                <?= view('admin/pages/forms/Batches/partials/purchase_details_message') ?>
-            </div>
-        </div>
-    </section>
+    <!-- Creator details-->
+    <?= view('admin/pages/forms/Batches/partials/purchase_order_creator') ?>
 
     <section class="section">
         <div class="section-body">
@@ -39,7 +28,7 @@
                 <input type="text" hidden name="order_type" value="<?= !empty($order_type) ? $order_type : 'order' ?>">
                 <input type="hidden" name="products" id="products_input" />
 
-                <div class="card">
+                <div class="card" x-data="confirmComponent">
                     <?= view('admin/pages/forms/Batches/partials/card_header', ['show_label' => labels('purchase_items', 'Purchase Items'), 'aria_control' => 'batchesListBody']) ?>
                     <div class="card-body collapse show" id="batchesListBody">
                         <div class="row">
@@ -147,6 +136,7 @@
 </script>
 
 <?= view('admin/pages/forms/Batches/js/product_search') ?>
+<?= view('admin/pages/forms/Batches/js/return_single_item') ?>
 <script>
     $(document).ready(function() {
 

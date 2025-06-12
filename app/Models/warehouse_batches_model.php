@@ -30,19 +30,25 @@ class warehouse_batches_model extends Model
         $builder = $db->table("warehouse_batches as wb");
         $builder->select(
             'wb.id,wb.product_variant_id, wb.purchase_item_id, p.image, pv.variant_name , p.name as product_name, wb.batch_number, 
-            wb.quantity, wb.cost_price, wb.sell_price,pi.discount, wb.expiration_date, pi.discount, s.status, pi.status as status_id, wb.warehouse_id'
+            wb.quantity, wb.cost_price, wb.sell_price,pi.discount, wb.expiration_date, s.status, pi.status as status_id, wb.warehouse_id'
         );
         $builder->join('purchases_items as pi', 'pi.id = wb.purchase_item_id');
         $builder->join('products_variants as pv', 'pv.id = wb.product_variant_id');
         $builder->join('products as p', 'p.id = pv.product_id');
         $builder->join('status as s', 's.id = pi.status');
-
+        $builder->where('pi.quantity >', 0);
         if (!empty($purchase_id)) {
             $builder->where(['pi.purchase_id' => $purchase_id]);
         }
 
+
         $result = $builder->get()->getResultArray();
-        return $result;
+        $count = count($result);
+
+        return [
+            'result' => $result,
+            'total' => $count,
+        ];
     }
 
     public function getReturnedBatches($purchase_id = '')
@@ -62,7 +68,11 @@ class warehouse_batches_model extends Model
         }
 
         $result = $builder->get()->getResultArray();
-        return $result;
+        $count = count($result);
+        return [
+            'result' => $result,
+            'total' => $count,
+        ];
     }
     public function saveBatch($purchase_items_id, $warehouse_id, $item, $orderType = 'order'): bool
     {
@@ -122,15 +132,30 @@ class warehouse_batches_model extends Model
         $db->transStart();
 
         $purchase_id = $db->table('purchases_items')->where('id', $purchase_item_id)->get()->getRow()->purchase_id;
+        // 1 update warehouse product stock
+        // 1.1 get batch data
+        $batch = $db->table('warehouse_batches')->where('id', $batch_id)->get()->getRow();
 
+        // 1.2 update warehouse_product_stock
+        $db->table('warehouse_product_stock')
+            ->set('stock', "stock - {$batch->quantity}", false) // false = do not escape
+            ->where('warehouse_id', $batch->warehouse_id)
+            ->where('product_variant_id', $batch->product_variant_id)
+            ->update();
 
-        // 1- delete batch
+        // 2- delete batch
         $db->table('warehouse_batches')->where('id', $batch_id)->delete();
 
-        // 2- delete purchase item
+        // 3- delete purchase item
         $db->table('purchases_items')->where('id', $purchase_item_id)->delete();
 
-        // update purchase total
+        // 4 delete warehouse_batches_returns
+        $db->table('warehouse_batches_returns')->where('purchase_item_id', $purchase_item_id)->delete();
+
+
+
+
+        // 4 update purchase total
         $this->update_purchase_total($purchase_id);
 
         $db->transComplete();
@@ -168,8 +193,25 @@ class warehouse_batches_model extends Model
             'return_reason' => $return_reason,
             'return_date' => $return_date,
         ];
-
         $db->table('warehouse_batches_returns')->insert($insertData);
+
+        // 3 update purchases_items
+        $db->table('purchases_items')->where('id', $return_data['purchase_item_id'])->update([
+            'quantity' => ((int) $return_data['quantity'] - (int) $return_quantity),
+        ]);
+
+        // 4 decrease quantity in warehouse_product_stock
+        $db->table('warehouse_product_stock')
+            ->set('stock', "stock - {$return_quantity}", false) // false = do not escape
+            ->where('warehouse_id', $return_data['warehouse_id'])
+            ->where('product_variant_id', $return_data['product_variant_id'])
+            ->update();
+
+        // 5 update total in purchases
+        // 5.1 get purchase id
+        $purchase_id = $db->table('purchases_items')->where('id', $return_data['purchase_item_id'])->get()->getRow()->purchase_id;
+        // 5.2 update purchase total
+        $this->update_purchase_total($purchase_id);
 
         $db->transComplete();
         return $db->transStatus(); // returns true on success, false on failure
@@ -191,17 +233,22 @@ class warehouse_batches_model extends Model
     {
         $db = \Config\Database::connect();
 
-        // 2. find total
-        $total = $db->table('purchases_items')
+        // 1. Calculate total
+        $totalRow = $db->table('purchases_items')
             ->select('SUM((price * quantity) - discount) as total')
             ->where('purchase_id', $purchase_id)
             ->get()
-            ->getRow()
-            ->total;
+            ->getRow();
 
-        // 3. update total
-        $db->table('purchases')->where('id', $purchase_id)->update([
-            'total' => $total ?? 0, // if no value then total = 0
+        $total = $totalRow && isset($totalRow->total) ? $totalRow->total : 0;
+
+        // 2. Update total
+        $builder = $db->table('purchases')->where('id', $purchase_id);
+        $updateResult = $builder->update([
+            'total' => $total,
         ]);
+
+        // 3. Return true/false
+        return $updateResult;
     }
 }
