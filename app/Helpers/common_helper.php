@@ -42,7 +42,7 @@ function getData($tableName, $tableData, $page, $optionalData1 = '', $optionalDa
     $ionAuth = \Config\Services::ionAuth();
     $settings = get_settings('general', true);
     $languages = getLanguages();
-    return [
+    $result =  [
         'version' => getAppVersion(),
         'code' => session('lang') ?? 'en',
         'current_lang' => session('lang') ?? 'en',
@@ -57,8 +57,13 @@ function getData($tableName, $tableData, $page, $optionalData1 = '', $optionalDa
         'user' => $ionAuth->user(session('user_id'))->row(),
         'user_id' => getUserId(),
         'vendor_id' => getUserId(),
-        'currency' => $settings['currency_symbol'] ?? '₹',
-        $optionalData1 => $optionalData1Value,
-        $optionalData2 => $optionalData2Value,
     ];
+    if (!empty($optionalData1)) {
+        $data[$optionalData1] = $optionalData1Value;
+    }
+    if (!empty($optionalData2)) {
+        $data[$optionalData2] = $optionalData2Value;
+    }
+        return $result;
+
 }
