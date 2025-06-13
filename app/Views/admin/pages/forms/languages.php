@@ -54,6 +54,12 @@ helper('form')
 
                                         <!-- labels -->
                                         <?= create_label('order_details', "Order Details") ?>
+                                        <?= create_label('employees', "Employees") ?>
+                                        <?= create_label('positions', "Positions") ?>
+                                        <?= create_label('brands', "Brands") ?>
+                                        <?= create_label('admin', "Admin") ?>
+                                        <?= create_label('Team_members', 'Team members') ?>
+                                        <?= create_label('warehouse', 'Warehouse') ?>
                                         <?= create_label('add_payment', "Add Payment") ?>
                                         <?= create_label('no_payments_found', "No payments found") ?>
                                         <?= create_label('payment_date', "Payment Date") ?>
@@ -155,7 +161,6 @@ helper('form')
                                         <?= create_label('wallet_balance', 'wallet balance') ?>
                                         <?= create_label('wallet', 'Wallet') ?>
                                         <?= create_label('cash', 'Cash') ?>
-                                        <?= create_label('payment_method', 'Payment Methods') ?>
                                         <?= create_label('cancelled', 'Cancelled') ?>
                                         <?= create_label('unpaid', 'Unpaid') ?>
                                         <?= create_label('partially_paid', 'Partially Paid') ?>
@@ -169,7 +174,6 @@ helper('form')
                                         <?= create_label('dont_have_account', 'Dont Have An Account? Register Here') ?>
                                         <?= create_label('already_registered', 'Already Registered') ?>
                                         <?= create_label('delivery_boy', 'Delivery Boy') ?>
-                                        <?= create_label('payment_status', 'Payment Status') ?>
                                         <?= create_label('total', 'Total') ?>
                                         <?= create_label('final_total', 'Final Total') ?>
                                         <?= create_label('discount', 'Discount') ?>
@@ -186,6 +190,7 @@ helper('form')
                                         <?= create_label('identity', 'Identity') ?>
                                         <?= create_label('register_delivery_boy_here', 'Register Delivery Boy Here!') ?>
                                         <?= create_label('balance', 'Balance') ?>
+                                        <?= create_label('balance-', 'Balance-') ?>
                                         <?= create_label('total_order_payment', 'Total Order Payment') ?>
                                         <?= create_label('total_orders', 'Total Orders') ?>
                                         <?= create_label('delivery_boys', 'Delivery Boys') ?>
@@ -288,7 +293,6 @@ helper('form')
 
                                         <?= create_label('filter_orders', 'Filter Orders') ?>
                                         <?= create_label('filter_by_payment_status', 'Filter by Payment Status') ?>
-                                        <?= create_label('create_order', 'Create Order') ?>
                                         <?= create_label('products', 'Products') ?>
                                         <?= create_label('services', 'Services') ?>
                                         <?= create_label('all_products', 'All Products') ?>
@@ -398,7 +402,6 @@ helper('form')
                                         <?= create_label('loss', 'Loss') ?>
                                         <?= create_label('payment', 'Payment') ?>
                                         <?= create_label('summary', 'Summary') ?>
-                                        <?= create_label('type', 'Type') ?>
                                         <?= create_label('payments_reports', 'Payments Reports') ?>
                                         <?= create_label('sales_summary', 'Sales Summary') ?>
                                         <?= create_label('profit_&_loss', 'Profit & Loss') ?>
@@ -422,10 +425,9 @@ helper('form')
                                         <?= create_label('filter_payments', 'Filter Payments') ?>
                                         <?= create_label('total_amount', 'Total Amount') ?>
                                         <?= create_label('supplier_name', 'Supplier Name') ?>
-                                        <?= create_label('product_id' , 'Product ID') ?>
+                                        <?= create_label('product_id', 'Product ID') ?>
                                         <?= create_label('purchase_id', 'Purchase ID') ?>
                                         <?= create_label('edit_product', 'Edit Product') ?>
-                                        <?= create_label('save', 'Save') ?>
                                         <?= create_label('create_suppliers', 'Create Suppliers') ?>
                                         <?= create_label('edit_suppliers', 'Edit Suppliers') ?>
                                         <?= create_label('edit_expenses', 'Edit Expenses') ?>

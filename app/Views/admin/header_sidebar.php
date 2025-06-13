@@ -136,7 +136,7 @@
                 </ul>
             </li>
             <li class="dropdown">
-                <a href="#" class="nav-link has-dropdown"><i class="bi bi-file-ear text-light"></i><span><?= labels('employees', 'employees') ?></span></a>
+                <a href="#" class="nav-link has-dropdown"><i class="bi bi-person-plus-fill text-primary"></i><span><?= labels('employees', 'Employees') ?></span></a>
                 <ul class="dropdown-menu">
                     <li><a class="nav-link" href="<?= base_url('admin/employees/'); ?>"><?= labels('employees', 'Employees') ?></a></li>
                     <li><a class="nav-link" href="<?= base_url('admin/positions/'); ?>"><?= labels('positions', 'Positions') ?></a></li>
