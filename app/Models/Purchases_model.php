@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use CodeIgniter\Model;
+use PhpParser\Builder\Function_;
 
 class Purchases_model extends Model
 {
@@ -10,6 +11,30 @@ class Purchases_model extends Model
     protected $table = 'purchases';
     protected $primaryKey = 'id';
     protected $allowedFields = ['vendor_id', 'business_id', 'supplier_id', 'warehouse_id', 'order_no', 'order_type', 'purchase_date', 'tax_ids',  'delivery_charges', 'total', 'message', 'discount', 'payment_method', 'payment_status', 'amount_paid', 'status'];
+
+
+    public function getPurchase($purchase_id)
+    {
+        $db = \Config\Database::connect();
+        $builder = $db->table("purchases as p");
+        $builder->select('p.id, p.supplier_id,p.warehouse_id, p.status, p.delivery_charges, p.total, p.payment_status, p.amount_paid, p.message,
+        p.discount,p.purchase_date, p.created_at, u.first_name as creator, 
+        (select first_name from users where users.id = p.supplier_id) as supplier_name,
+        (select name from warehouses where id = p.warehouse_id) as warehouse');
+        $builder->join('users as u', 'u.id = p.vendor_id');
+        $builder->where(['p.id' => $purchase_id]);
+        $result = $builder->get()->getRowArray();
+        return $result;
+    }
+    public function get_purchase_total($purchase_id)
+    {
+        return $this->db->table('purchases')
+            ->select('total')
+            ->where('id', $purchase_id)
+            ->get()
+            ->getRow()
+            ->total ?? 0;
+    }
 
     public function get_purchases($vendor_id, $business_id, $order_type)
     {

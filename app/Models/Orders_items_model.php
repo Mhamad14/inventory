@@ -10,7 +10,14 @@ class Orders_items_model extends Model
 
     protected $table = 'orders_items';
     protected $primaryKey = 'id';
-    protected $allowedFields = ['order_id', 'product_id', 'product_variant_id', 'product_name', 'quantity', 'price', 'tax_name', 'tax_percentage','tax_details' ,'is_tax_included', 'sub_total', 'status', 'delivery_boy','returned_quantity'];
+    protected $allowedFields = ['order_id', 'product_id', 'product_variant_id', 'product_name', 'quantity', 'price', 'tax_name', 'tax_percentage', 'tax_details', 'is_tax_included', 'sub_total', 'status', 'delivery_boy', 'returned_quantity'];
+
+
+
+    public function getOrderItemsWithDetails($order_id)
+    {
+        return $this->db->table('order_items_view')->where('order_id', $order_id)->get()->getResultArray();
+    }
 
     function get_items($order_id = "")
     {
@@ -35,7 +42,7 @@ class Orders_items_model extends Model
         $builder->where('p.business_id', $business_id);
         $builder->groupBy('product_name');
         $builder->select('COUNT(order_id) as total_sales, SUM(price) as total_amount , ot.product_id ,price , product_name , stock');
-        
+
 
         if (isset($_GET['offset']))
             $offset = $_GET['offset'];
@@ -57,7 +64,7 @@ class Orders_items_model extends Model
             ];
         }
 
-        
+
         if (isset($_GET['start_date']) and isset($_GET['start_date']) and ($_GET['end_date'] != '') and  ($_GET['end_date'] != '')) {
             $where = '((o.created_at >= "' . $_GET['start_date'] . ' 12:00:00") AND (o.created_at <= "' . $_GET['end_date'] . ' 12:00:00"))';
         }
@@ -109,14 +116,15 @@ class Orders_items_model extends Model
         $array['rows'] = $rows;
         return $array;
     }
+
     public function getReturnedQuantity($item_id)
-{
-    $builder = $this->db->table('order_returns');
-    $builder->selectSum('quantity');
-    $builder->where('item_id', $item_id);
-    $result = $builder->get()->getRowArray();
-    return ($result && isset($result['quantity'])) ? $result['quantity'] : 0;
-}
+    {
+        $builder = $this->db->table('order_returns');
+        $builder->selectSum('quantity');
+        $builder->where('item_id', $item_id);
+        $result = $builder->get()->getRowArray();
+        return ($result && isset($result['quantity'])) ? $result['quantity'] : 0;
+    }
 
     function total_selling()
     {
@@ -155,7 +163,7 @@ class Orders_items_model extends Model
         }
 
         $total = count($builder->get()->getResultArray());
-      
+
         return $total;
     }
 }
