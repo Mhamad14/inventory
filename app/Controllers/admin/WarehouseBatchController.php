@@ -51,7 +51,8 @@ class WarehouseBatchController extends BaseController
             'warehouses',
             $this->warehouses_model->where('business_id', session('business_id'))->findAll()
         );
-
+        
+        $data['currency'] = "$";
         $data['order_type'] = 'return';
         $data['purchase_id'] = $purchase_id;
         session()->set('purchase_id', $purchase_id);
