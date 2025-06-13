@@ -121,7 +121,7 @@ $routes->group('admin/customers_subscription', ['filter' => 'checkpermissions:mo
 });
 
 // Currency Routes
-$routes->group('admin/currency', ['filter' => 'checkpermissions:module=currency'], function($routes) {
+$routes->group('admin/currency', ['filter' => 'checkpermissions:module=currency', 'permissioncheck'], function($routes) {
     // Main routes with permissions
     $routes->get('/', 'admin\Currency::index', ['filter' => 'checkpermissions:action=can_read']);
     $routes->add('add', 'admin\Currency::add', ['filter' => 'checkpermissions:action=can_create']);

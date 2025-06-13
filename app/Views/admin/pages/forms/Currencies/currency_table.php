@@ -1,13 +1,7 @@
 <div class="main-content">
     <section class="section">
-        <div class="section-header">
-            <h1><?= labels('currencies', 'Currencies') ?></h1>
-            <div class="section-header-breadcrumb">
-                <div class="btn-group mr-2 no-shadow">
-                    <a class="btn btn-primary text-white" href="<?= base_url('admin/currency/add'); ?>" class="btn"><i class="fas fa-plus"></i> <?= labels('add_currency', 'Add Currency') ?></a>
-                </div>
-            </div>
-        </div>
+        
+        <?= view('common_partials/page_header', [ 'header_label' => labels('currencies', 'Currencies'),  'btn_url' => base_url('admin/currency/add'),'btn_label' => labels('add_currency', 'Add Currency'),'btn_icon' => 'fas fa-plus']) ?>
         <div class="section-body">
             <div class="row">
                 <div class="col-md">
@@ -60,3 +54,5 @@
         </div>
     </section>
 </div>
+
+<?= view('admin/pages/forms/Currencies/js/currency_table') ?>

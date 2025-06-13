@@ -1,13 +1,8 @@
 <div class="main-content">
     <section class="section">
-        <div class="section-header">
-            <h1><?= labels('currency', 'Currency') ?></h1>
-            <div class="section-header-breadcrumb">
-                <div class="btn-group mr-2 no-shadow">
-                    <a class="btn btn-primary text-white" href="<?= base_url('admin/currency'); ?>" class="btn"><i class="fas fa-list"></i> <?= labels('currencies', 'Currencies') ?></a>
-                </div>
-            </div>
-        </div>
+
+        <?= view('common_partials/page_header', ['header_label' => labels('currency', 'Currency'),  'btn_url' => base_url('admin/currency'), 'btn_label' => labels('currencies', 'Currencies'), 'btn_icon' => 'fas fa-list']) ?>
+
         <div class="section-body">
             <div class="row">
                 <div class="col-md">
@@ -31,7 +26,7 @@
                                 <div class="card-footer">
                                     <div class="row">
                                         <input type="hidden" name="id" id="id" value="<?= !empty($currency) ? $currency['id'] : "" ?>">
-                                        
+
                                         <div class="col-md-4">
                                             <div class="form-group">
                                                 <label for="code"><?= labels('code', 'Currency Code') ?></label><span class="asterisk text-danger"> *</span>
@@ -39,14 +34,14 @@
                                                 <small class="form-text text-muted">ISO 4217 code (e.g., USD, IQD, EUR)</small>
                                             </div>
                                         </div>
-                                        
+
                                         <div class="col-md-4">
                                             <div class="form-group">
                                                 <label for="name"><?= labels('name', 'Currency Name') ?></label><span class="asterisk text-danger"> *</span>
                                                 <input type="text" class="form-control" name="name" id="name" value="<?= !empty($currency) ? $currency['name'] : "" ?>">
                                             </div>
                                         </div>
-                                        
+
                                         <div class="col-md-4">
                                             <div class="form-group">
                                                 <label for="symbol"><?= labels('symbol', 'Symbol') ?></label><span class="asterisk text-danger"> *</span>
@@ -54,7 +49,7 @@
                                             </div>
                                         </div>
                                     </div>
-                                    
+
                                     <div class="row">
                                         <div class="col-md-3">
                                             <div class="form-group">
@@ -65,14 +60,14 @@
                                                 </select>
                                             </div>
                                         </div>
-                                        
+
                                         <div class="col-md-3">
                                             <div class="form-group">
                                                 <label for="decimal_places"><?= labels('decimal_places', 'Decimal Places') ?></label><span class="asterisk text-danger"> *</span>
                                                 <input type="number" class="form-control" name="decimal_places" id="decimal_places" value="<?= !empty($currency) ? $currency['decimal_places'] : "2" ?>" min="0" max="4">
                                             </div>
                                         </div>
-                                        
+
                                         <div class="col-md-3">
                                             <div class="form-group">
                                                 <label for="is_base"><?= labels('is_base', 'Base Currency') ?></label>
@@ -82,7 +77,7 @@
                                                 </div>
                                             </div>
                                         </div>
-                                        
+
                                         <div class="col-md-3">
                                             <div class="form-group">
                                                 <label for="status"><?= labels('status', 'Status') ?></label>
@@ -93,7 +88,7 @@
                                             </div>
                                         </div>
                                     </div>
-                                    
+
                                     <button type="button" id="save_currency" class="btn btn-primary"><?= labels('save', 'Save') ?></button>&nbsp;
                                     <button type="button" class="btn btn-info" onclick="this.form.reset();"><?= labels('reset', 'Reset') ?></button>
                                 </div>
@@ -106,4 +101,5 @@
     </section>
 </div>
 
-<script src="<?= base_url("public/backend/assets/js/currency.js") ?>"></script>
+
+<?= view('admin/pages/forms/Currencies/js/save_currency') ?>
