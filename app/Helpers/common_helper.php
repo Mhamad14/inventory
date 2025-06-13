@@ -41,6 +41,8 @@ function getData($tableName, $tableData, $page, $optionalData1 = '', $optionalDa
 {
     $ionAuth = \Config\Services::ionAuth();
     $settings = get_settings('general', true);
+
+
     $languages = getLanguages();
     $result =  [
         'version' => getAppVersion(),
@@ -57,12 +59,13 @@ function getData($tableName, $tableData, $page, $optionalData1 = '', $optionalDa
         'user' => $ionAuth->user(session('user_id'))->row(),
         'user_id' => getUserId(),
         'vendor_id' => getUserId(),
+        
     ];
     if (!empty($optionalData1)) {
-        $data[$optionalData1] = $optionalData1Value;
+        $result[$optionalData1] = $optionalData1Value;
     }
     if (!empty($optionalData2)) {
-        $data[$optionalData2] = $optionalData2Value;
+        $result[$optionalData2] = $optionalData2Value;
     }
         return $result;
 
