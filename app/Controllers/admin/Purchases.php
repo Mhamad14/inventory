@@ -52,6 +52,8 @@ class Purchases extends BaseController
     {
         $data = getData('purchases', fetch_details('purchases', ['business_id' => $this->business_id]), VIEWS . 'purchases_table');
         $data['order_type'] = 'order';
+        $data['currency'] = "$";
+
         return view("admin/template", $data);
     }
 
@@ -66,6 +68,8 @@ class Purchases extends BaseController
             'purchase',
             $this->purchase_model->getPurchase($purchase_id)
         );
+
+        $data['currency'] = "$";
         $data['order_type'] = 'return';
         $data['purchase_id'] = $purchase_id;
         session('purchase_id')->set($purchase_id);
@@ -82,6 +86,7 @@ class Purchases extends BaseController
             'warehouses',
             $this->warehouse_model->where('business_id', $this->business_id)->get()->getResultArray()
         );
+        $data['currency'] = "$";
         $data['order_type'] = $type;
 
         return view("admin/template", $data);
