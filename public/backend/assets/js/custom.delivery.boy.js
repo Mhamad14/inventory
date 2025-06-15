@@ -940,6 +940,7 @@ function orders_query(p) {
     };
 }
 
+
 $('#filter').on('click', function (e) {
 
     $('#orders_table').bootstrapTable('refresh');

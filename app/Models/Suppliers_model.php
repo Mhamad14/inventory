@@ -70,28 +70,34 @@ class Suppliers_model extends Model
 
     public function search_suppliers($search_term = "", $vendor_id = "")
     {
-        // connect to the database
+        // Connect to the database
         $db = \Config\Database::connect();
         $builder = $db->table("suppliers as s");
-        $builder->select('u.id,u.first_name,s.vendor_id,s.balance,s.status');
+        $builder->select('u.id, u.first_name, s.vendor_id, s.balance, s.status');
+        $builder->join('users as u', 'u.id = s.user_id', 'left');
+        $builder->limit(10);
 
-        $builder->join('users as u', 'u.id = s.user_id ', "left");
+
         if (!empty($search_term)) {
-            $multipleWhere = [
-                'u.`id`' => $search_term,
-                'u.`first_name`' => $search_term,
-                's.`balance`' => $search_term,
-            ];
+            $builder->groupStart(); // Start grouping OR LIKEs
+            $builder->orLike('u.id', $search_term);
+            $builder->orLike('u.first_name', $search_term);
+            $builder->orLike('s.balance', $search_term);
+            $builder->groupEnd(); // End grouping
         }
-        $builder->groupStart();
-        $builder->orLike($multipleWhere);
-        $builder->groupEnd();
+
         $users = $builder->get()->getResultArray();
 
-        $data = array();
+        $data = [];
         foreach ($users as $user) {
-            $data[] = array("id" => $user['id'], "text" => $user['first_name'], "balance" => $user['balance'], "status" => $user['status']);
+            $data[] = [
+                "id" => $user['id'],
+                "text" => $user['first_name'],
+                "balance" => $user['balance'],
+                "status" => $user['status']
+            ];
         }
+
         $response['data'] = $data;
         return json_encode($response);
     }
