@@ -5,23 +5,31 @@ namespace App\Controllers\admin;
 use App\Controllers\BaseController;
 use App\Models\Businesses_model;
 use App\Models\Currency_model;
+use DateTime; // Add this line
+use Exception; // Also add this since you're using it
 
 class Currency extends BaseController
 {
+    protected $db;
+
     protected $ionAuth;
     protected $validation;
     protected $configIonAuth;
     protected $session;
     protected $currency_model;
+    protected $exchange_rates_model;
 
     public function __construct()
     {
+        $this->db = \Config\Database::connect();
+
         $this->ionAuth = new \App\Libraries\IonAuth();
         $this->validation = \Config\Services::validation();
         helper(['form', 'url', 'filesystem', 'common']);
         $this->configIonAuth = config('IonAuth');
         $this->session = \Config\Services::session();
         $this->currency_model = new Currency_model();
+        $this->exchange_rates_model = new \App\Models\ExchangeRatesModel();
     }
 
     public function index()
@@ -302,5 +310,161 @@ class Currency extends BaseController
         print_r($currencies);
         echo "</pre>";
         die();
+    }
+
+    // Get current exchange rates (for AJAX)
+    public function get_exchange_rates()
+    {
+        $businessId = session('business_id');
+
+        // Get all currencies with decimal places
+        $currencies = $this->currency_model
+            ->where('business_id', $businessId)
+            ->where('status', 1)
+            ->findAll();
+
+        // Get current rates
+        $rates = [];
+        foreach ($currencies as $currency) {
+            if (!$currency['is_base']) {
+                $rate = $this->exchange_rates_model
+                    ->where('currency_id', $currency['id'])
+                    ->orderBy('effective_date', 'DESC')
+                    ->first();
+
+                if ($rate) {
+                    // Include currency details with each rate
+                    $rate['currency_decimal_places'] = $currency['decimal_places'];
+                    $rate['currency_symbol'] = $currency['symbol'];
+                    $rates[] = $rate;
+                }
+            }
+        }
+
+        return $this->response->setJSON([
+            'success' => true,
+            'currencies' => $currencies,
+            'rates' => $rates
+        ]);
+    }
+
+    public function save_exchange_rates()
+    {
+        // Verify AJAX request
+        if (!$this->request->isAJAX()) {
+            return $this->response->setStatusCode(405)->setJSON([
+                'success' => false,
+                'message' => 'Method not allowed'
+            ]);
+        }
+
+        // Verify CSRF token
+        $headerToken = $this->request->getHeaderLine('X-CSRF-TOKEN');
+        if (!hash_equals($headerToken, csrf_hash())) {
+            return $this->response->setStatusCode(403)->setJSON([
+                'success' => false,
+                'message' => 'Invalid CSRF token'
+            ]);
+        }
+
+        $businessId = session('business_id');
+        $data = $this->request->getJSON(true);
+
+        // Validate input
+        if (!isset($data['rates']) || !is_array($data['rates']) || empty($data['effective_date'])) {
+            return $this->response->setStatusCode(400)->setJSON([
+                'success' => false,
+                'message' => 'Invalid input data'
+            ]);
+        }
+
+        // Validate datetime format
+        try {
+            $effectiveDate = new \DateTime($data['effective_date']);
+            $effectiveDateFormatted = $effectiveDate->format('Y-m-d H:i:s');
+        } catch (\Exception $e) {
+            return $this->response->setStatusCode(400)->setJSON([
+                'success' => false,
+                'message' => 'Invalid datetime format'
+            ]);
+        }
+
+        // Start transaction
+        $this->db->transStart();
+        $updatedCount = 0;
+
+        try {
+            foreach ($data['rates'] as $rateData) {
+                // Validate data structure
+                if (!isset($rateData['currency_id']) || !isset($rateData['rate'])) {
+                    continue;
+                }
+
+                $currencyId = (int)$rateData['currency_id'];
+                $newRate = $rateData['rate'];
+
+                // Validate data values
+                if ($currencyId <= 0 || !is_numeric($newRate) || $newRate <= 0) {
+                    continue;
+                }
+
+                // Get currency details including decimal places
+                $currency = $this->currency_model
+                    ->where('id', $currencyId)
+                    ->where('business_id', $businessId)
+                    ->where('is_base', 0)
+                    ->first();
+
+                if (!$currency) {
+                    continue;
+                }
+
+                // Get decimal places for this currency
+                $decimalPlaces = (int)$currency['decimal_places'];
+                $precision = 10 ** $decimalPlaces;
+
+                // Get current rate
+                $currentRate = $this->exchange_rates_model
+                    ->where('currency_id', $currencyId)
+                    ->orderBy('effective_date', 'DESC')
+                    ->first();
+
+                // Compare rates with proper decimal precision
+                $rateChanged = true;
+                if ($currentRate) {
+                    $currentRateValue = (float)$currentRate['rate'];
+                    $newRateValue = (float)$newRate;
+                    $rateChanged = (round($currentRateValue * $precision) !== round($newRateValue * $precision));
+                }
+
+                // Only update if rate has changed
+                if ($rateChanged) {
+                    $this->exchange_rates_model->insert([
+                        'currency_id' => $currencyId,
+                        'rate' => round($newRate, $decimalPlaces), // Store with proper decimal places
+                        'effective_date' => $effectiveDateFormatted,
+                        'created_at' => date('Y-m-d H:i:s')
+                    ]);
+                    $updatedCount++;
+                }
+            }
+
+            $this->db->transComplete();
+
+            return $this->response->setJSON([
+                'success' => true,
+                'message' => 'Exchange rates updated successfully',
+                'updated_count' => $updatedCount, // Actual number of rates changed
+                'new_token' => csrf_hash() // Return new CSRF token
+            ]);
+        } catch (\Exception $e) {
+            $this->db->transRollback();
+            log_message('error', 'Exchange rate update failed: ' . $e->getMessage());
+
+            return $this->response->setJSON([
+                'success' => false,
+                'message' => 'Failed to update rates: ' . $e->getMessage()
+            ])->setStatusCode(500);
+        }
     }
 }
