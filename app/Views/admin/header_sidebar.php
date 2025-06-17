@@ -1,6 +1,9 @@
 <div class="navbar-bg" id="navebar-bg"></div>
-<nav class="navbar navbar-expand-lg main-navbar">
-    <form class="form-inline mr-auto">
+<?php $first_name = $user->first_name; ?>
+
+<nav x-data="headerData" class="navbar navbar-expand-lg main-navbar">
+    <!-- Left navbar -->
+    <div class="d-flex align-items-center">
         <ul class="navbar-nav mr-3">
             <li class="dropdown"><a href="#" data-toggle="sidebar" class="nav-link nav-link-lg"><i class="fas fa-bars"></i></a></li>
         </ul>
@@ -13,7 +16,7 @@
             } ?>
         </div>
 
-        <ul class="navbar-nav navbar-right">
+        <ul class="navbar-nav">
             <li class="dropdown d-inline">
                 <a href="#" data-bs-toggle="dropdown" class="nav-link dropdown-toggle nav-link-lg nav-link-user">
                     <div class="d-sm-none d-lg-inline-block"></div><?= (isset($_SESSION['business_name']) && !empty($_SESSION['business_name'])) ? $_SESSION['business_name'] : "No business found" ?>
@@ -33,75 +36,104 @@
                 </div>
             </li>
         </ul>
+    </div>
 
-    </form>
-    <?php
-    $first_name = $user->first_name; ?>
-    <ul class="navbar-nav navbar-right">
-        <div class="mx-2 " data-bs-toggle="tooltip" data-bs-placement="top" title="Calculator">
-            <!-- Calculator Icon (Bootstrap icon) -->
-            <button type="button" class="calculator-icon btn bg-body pt-0" id="calculatorIcon">
-                <i class="fas fa-calculator"></i> <!-- Using FontAwesome for calculator icon -->
-            </button>
+    <!-- Right navbar - collapsible -->
+    <button class="navbar-toggler fas fa-bars" type="button" data-bs-toggle="collapse" data-bs-target="#rightNavbar">
+        <i></i>
+    </button>
 
-            <!-- Dropdown Calculator -->
-            <div class="dropdown-calculator" id="dropdownCalculator">
-                <div class="calculator">
-                    <input type="text" id="display" class="form-control mb-3" readonly>
-                    <button class="btn btn-light" onclick="clearDisplay()">C</button>
-                    <button class="btn btn-light" onclick="backspace()">←</button> <!-- Backspace button -->
-                    <button class="btn btn-light" onclick="appendValue('(')">(</button>
-                    <button class="btn btn-light" onclick="appendValue(')')">)</button>
-                    <button class="btn btn-light" onclick="appendValue('/')">/</button>
-                    <button class="btn btn-light" onclick="appendValue('7')">7</button>
-                    <button class="btn btn-light" onclick="appendValue('8')">8</button>
-                    <button class="btn btn-light" onclick="appendValue('9')">9</button>
-                    <button class="btn btn-light" onclick="appendValue('*')">*</button>
-                    <button class="btn btn-light" onclick="appendValue('4')">4</button>
-                    <button class="btn btn-light" onclick="appendValue('5')">5</button>
-                    <button class="btn btn-light" onclick="appendValue('6')">6</button>
-                    <button class="btn btn-light" onclick="appendValue('-')">-</button>
-                    <button class="btn btn-light" onclick="appendValue('1')">1</button>
-                    <button class="btn btn-light" onclick="appendValue('2')">2</button>
-                    <button class="btn btn-light" onclick="appendValue('3')">3</button>
-                    <button class="btn btn-light" onclick="appendValue('+')">+</button>
-                    <button class="btn btn-light" onclick="appendValue('0')">0</button>
-                    <button class="btn btn-light" onclick="appendValue('.')">.</button>
-                    <button class="btn btn-primary" onclick="calculateResult()" style="grid-column: span 2">=</button>
+    <div class="collapse navbar-collapse justify-content-end" id="rightNavbar">
+        <ul class="navbar-nav">
+
+            <!-- Exchange Rate Button with Custom Tooltip -->
+            <li class="nav-item mx-2" x-data="{ showTooltip: false }">
+                <button class="btn btn-info position-relative"
+                    @click="openExchangeRateModal"
+                    @mouseenter="showTooltip = true"
+                    @mouseleave="showTooltip = false">
+                    <i class="bi bi-currency-exchange"></i>
+                    <span x-text="buttonText">Exchange Rate</span>
+
+                    <!-- Custom tooltip -->
+                    <div x-show="showTooltip" x-transition
+                        class="position-absolute top-100 start-50 translate-middle-x mt-2 p-2 bg-dark text-white rounded shadow"
+                        style="min-width: 200px; z-index: 1000;">
+                        <template x-for="rate in rates" :key="rate.currency_id">
+                            <div class="d-flex justify-content-between">
+                                <!-- Fixed: Using component method properly -->
+                                <span x-text="'1 ' + getCurrencyCode(rate.currency_id)"></span>
+                                <span x-text="formatRate(rate.rate, rate.currency_id)"></span>
+                            </div>
+                        </template>
+                    </div>
+                </button>
+            </li>
+            <li class="nav-item mx-2" data-bs-toggle="tooltip" data-bs-placement="top" title="Calculator">
+                <!-- Calculator Icon (Bootstrap icon) -->
+                <button type="button" class="btn bf-body text-white pt-0" id="calculatorIcon">
+                    <i class="bi bi-calculator fs-4"></i>
+                </button>
+
+                <!-- Dropdown Calculator -->
+                <div class="dropdown-calculator" id="dropdownCalculator">
+                    <div class="calculator">
+                        <input type="text" id="display" class="form-control mb-3" readonly>
+                        <button class="btn btn-light" onclick="clearDisplay()">C</button>
+                        <button class="btn btn-light" onclick="backspace()">←</button>
+                        <button class="btn btn-light" onclick="appendValue('(')">(</button>
+                        <button class="btn btn-light" onclick="appendValue(')')">)</button>
+                        <button class="btn btn-light" onclick="appendValue('/')">/</button>
+                        <button class="btn btn-light" onclick="appendValue('7')">7</button>
+                        <button class="btn btn-light" onclick="appendValue('8')">8</button>
+                        <button class="btn btn-light" onclick="appendValue('9')">9</button>
+                        <button class="btn btn-light" onclick="appendValue('*')">*</button>
+                        <button class="btn btn-light" onclick="appendValue('4')">4</button>
+                        <button class="btn btn-light" onclick="appendValue('5')">5</button>
+                        <button class="btn btn-light" onclick="appendValue('6')">6</button>
+                        <button class="btn btn-light" onclick="appendValue('-')">-</button>
+                        <button class="btn btn-light" onclick="appendValue('1')">1</button>
+                        <button class="btn btn-light" onclick="appendValue('2')">2</button>
+                        <button class="btn btn-light" onclick="appendValue('3')">3</button>
+                        <button class="btn btn-light" onclick="appendValue('+')">+</button>
+                        <button class="btn btn-light" onclick="appendValue('0')">0</button>
+                        <button class="btn btn-light" onclick="appendValue('.')">.</button>
+                        <button class="btn btn-primary" onclick="calculateResult()" style="grid-column: span 2">=</button>
+                    </div>
                 </div>
-            </div>
-        </div>
-        <div><span class='badge badge-danger'><?= $version ?></span></div>
-        <?= (defined('ALLOW_MODIFICATION') && ALLOW_MODIFICATION == 0) ? "<div><span class='badge badge-info'>Demo Mode</span></div>" : ""  ?>
+            </li>
 
-        <li class="dropdown">
-            <a href="#" data-toggle="dropdown" class="nav-link dropdown-toggle nav-link-lg nav-link-user">
-                <?= strtoupper($current_lang) ?>
-            </a>
-            <div class="dropdown-menu dropdown-menu-left">
-                <?php foreach ($languages_locale as $language) { ?>
-                    <span onclick="set_locale('<?= $language['code'] ?>')" class="dropdown-item has-icon <?= ($language['code'] == $current_lang) ? "text-primary" : "" ?>">
-                        <?= strtoupper($language['code']) . " - "  . ucwords($language['language']) ?>
-                    </span>
-                <?php } ?>
+            <li class="nav-item"><span class='badge badge-danger'><?= $version ?></span></li>
+            <?= (defined('ALLOW_MODIFICATION') && ALLOW_MODIFICATION == 0) ? "<li class='nav-item'><span class='badge badge-info'>Demo Mode</span></li>" : ""  ?>
 
-            </div>
-        </li>
-        <li class="dropdown mr-5">
-            <a href="#" data-bs-toggle="dropdown" class="nav-link dropdown-toggle nav-link-lg nav-link-user">
-                <?= labels('hello', alt: 'Hello') ?> 👋, <?= ucwords($first_name); ?>
-            </a>
-            <div class="dropdown-menu dropdown-menu-left">
-                <a href="<?= base_url('admin/profile');  ?>" class="dropdown-item has-icon">
-                    <i class="far fa-user"></i> <?= labels('profile', 'Profile') ?>
+            <li class="nav-item dropdown">
+                <a href="#" data-toggle="dropdown" class="nav-link dropdown-toggle nav-link-lg nav-link-user">
+                    <?= strtoupper($current_lang) ?>
                 </a>
-                <div class="dropdown-divider"></div>
-                <a href="<?= base_url('auth/logout') ?>" class="dropdown-item has-icon text-danger">
-                    <i class="fas fa-sign-out-alt"></i> <?= labels('logout', 'Logout') ?>
+                <div class="dropdown-menu dropdown-menu-left">
+                    <?php foreach ($languages_locale as $language) { ?>
+                        <span onclick="set_locale('<?= $language['code'] ?>')" class="dropdown-item has-icon <?= ($language['code'] == $current_lang) ? "text-primary" : "" ?>">
+                            <?= strtoupper($language['code']) . " - "  . ucwords($language['language']) ?>
+                        </span>
+                    <?php } ?>
+                </div>
+            </li>
+            <li class="nav-item dropdown mr-5">
+                <a href="#" data-bs-toggle="dropdown" class="nav-link dropdown-toggle nav-link-lg nav-link-user">
+                    <?= labels('hello', alt: 'Hello') ?> 👋, <?= ucwords($first_name); ?>
                 </a>
-            </div>
-        </li>
-    </ul>
+                <div class="dropdown-menu dropdown-menu-left">
+                    <a href="<?= base_url('admin/profile');  ?>" class="dropdown-item has-icon">
+                        <i class="far fa-user"></i> <?= labels('profile', 'Profile') ?>
+                    </a>
+                    <div class="dropdown-divider"></div>
+                    <a href="<?= base_url('auth/logout') ?>" class="dropdown-item has-icon text-danger">
+                        <i class="fas fa-sign-out-alt"></i> <?= labels('logout', 'Logout') ?>
+                    </a>
+                </div>
+            </li>
+        </ul>
+    </div>
 </nav>
 <div class="main-sidebar sidebar-style-2">
     <aside id="sidebar-wrapper">
@@ -217,3 +249,194 @@
         </ul>
     </aside>
 </div>
+
+
+<script>
+    document.addEventListener('alpine:init', () => {
+        Alpine.data('headerData', () => ({
+            // Initialize with empty rates data
+            rates: [],
+            currencies: [],
+            baseCurrency: null,
+            buttonText: 'Exchange Rate',
+
+            // Helper methods
+            getCurrency(currencyId) {
+                return this.currencies.find(c => c.id == currencyId);
+            },
+
+            formatRate(rate, currencyId) {
+                const currency = this.getCurrency(currencyId);
+                const decimals = currency ? currency.decimal_places : 2;
+                return parseFloat(rate).toLocaleString(undefined, {
+                    minimumFractionDigits: decimals,
+                    maximumFractionDigits: decimals
+                });
+            },
+            getCurrencyCode(currencyId) {
+                const currency = this.currencies.find(c => c.id == currencyId);
+                return currency ? currency.code : '';
+            },
+            async openExchangeRateModal() {
+                try {
+                    // Show loading indicator
+                    Swal.fire({
+                        title: 'Loading exchange rates',
+                        allowOutsideClick: false,
+                        didOpen: () => {
+                            Swal.showLoading();
+                        }
+                    });
+
+                    // Fetch current rates
+                    const response = await axios.get('<?= base_url('admin/currency/get_exchange_rates') ?>', {
+                        headers: {
+                            'X-Requested-With': 'XMLHttpRequest',
+                            'X-CSRF-TOKEN': '<?= csrf_token() ?>'
+                        }
+                    });
+
+                    this.currencies = response.data.currencies || [];
+                    this.rates = response.data.rates || [];
+                    this.baseCurrency = this.currencies.find(c => parseInt(c.is_base) === 1);
+
+                    // Update button display
+                    this.updateButtonText();
+
+                    // Close loading and show modal
+                    Swal.close();
+                    this.showExchangeRateModal();
+                } catch (error) {
+                    console.error('Error fetching exchange rates:', error);
+                    Swal.fire('Error', 'Failed to load exchange rates', 'error');
+                }
+            },
+
+            updateButtonText() {
+                if (this.rates.length > 0 && this.baseCurrency) {
+                    const mainRate = this.rates[0];
+                    const currency = this.getCurrency(mainRate.currency_id);
+                    this.buttonText = currency ?
+                        `1${currency.symbol}:${this.formatRate(mainRate.rate, mainRate.currency_id)}` :
+                        'Exchange Rates';
+                } else {
+                    this.buttonText = 'Exchange Rates';
+                }
+            },
+
+            showExchangeRateModal() {
+                if (!this.baseCurrency) {
+                    Swal.fire('Error', 'Base currency not found', 'error');
+                    return;
+                }
+
+                // Build form HTML
+                let formHtml = `
+            <form id="exchangeRateForm">
+                <input type="hidden" name="<?= csrf_token() ?>" value="<?= csrf_hash() ?>">
+                <div class="mb-3">
+                    <label class="form-label">Base Currency</label>
+                    <input type="text" class="form-control" 
+                           value="${this.baseCurrency.name} (${this.baseCurrency.code})" readonly>
+                </div>
+            `;
+
+                // Add currency fields with proper decimal places
+                this.currencies.filter(c => !parseInt(c.is_base)).forEach(currency => {
+                    const rate = this.rates.find(r => r.currency_id == currency.id);
+                    const rateValue = rate ? this.formatRate(rate.rate, currency.id) : '';
+                    const step = (0.1 ** currency.decimal_places).toFixed(currency.decimal_places);
+
+                    formHtml += `
+                <div class="mb-3">
+                    <label for="rate_${currency.id}" class="form-label">
+                        ${currency.name} (${currency.code})
+                    </label>
+                    <input type="number" 
+                           id="rate_${currency.id}" 
+                           name="rates[${currency.id}]" 
+                           class="form-control" 
+                           step="${step}" 
+                           min="0" 
+                           value="${rateValue}"
+                           placeholder="Enter rate"
+                           required>
+                    <small class="text-muted">1 ${currency.code} = ${rateValue || '?'} ${this.baseCurrency.code}</small>
+                </div>
+                `;
+                });
+
+                formHtml += `</form>`;
+
+                // Show modal
+                Swal.fire({
+                    title: 'Update Exchange Rates',
+                    html: formHtml,
+                    width: '600px',
+                    showCancelButton: true,
+                    confirmButtonText: 'Save Rates',
+                    focusConfirm: false,
+                    preConfirm: () => {
+                        const formData = new FormData(document.getElementById('exchangeRateForm'));
+                        const rates = [];
+                        const currentRates = {};
+
+                        // Create map of current rates
+                        this.rates.forEach(rate => {
+                            currentRates[rate.currency_id] = rate.rate;
+                        });
+
+                        // Collect changed rates
+                        for (let [key, value] of formData.entries()) {
+                            if (key.startsWith('rates[')) {
+                                const currencyId = key.match(/\[(\d+)\]/)[1];
+                                const currency = this.getCurrency(currencyId);
+                                const decimalPlaces = currency ? currency.decimal_places : 2;
+                                const precision = 10 ** decimalPlaces;
+
+                                const newRate = parseFloat(value);
+                                const oldRate = currentRates[currencyId] || 0;
+
+                                // Compare with proper decimal precision
+                                if (Math.round(newRate * precision) !== Math.round(oldRate * precision)) {
+                                    rates.push({
+                                        currency_id: currencyId,
+                                        rate: newRate
+                                    });
+                                }
+                            }
+                        }
+
+                        return {
+                            base_currency_id: this.baseCurrency.id,
+                            rates: rates,
+                            effective_date: new Date().toISOString()
+                        };
+                    }
+                }).then(async (result) => {
+                    if (result.isConfirmed) {
+                        try {
+                            const response = await axios.post(
+                                '<?= base_url('admin/currency/save_exchange_rates') ?>',
+                                result.value, {
+                                    headers: {
+                                        'Content-Type': 'application/json',
+                                        'X-Requested-With': 'XMLHttpRequest',
+                                        'X-CSRF-TOKEN': '<?= csrf_hash() ?>'
+                                    }
+                                }
+                            );
+
+                            Swal.fire('Success', 'Exchange rates updated successfully', 'success');
+                            this.openExchangeRateModal(); // Refresh data
+                        } catch (error) {
+                            console.error('Error saving rates:', error);
+                            let errorMsg = error.response?.data?.message || 'Failed to update rates';
+                            Swal.fire('Error', errorMsg, 'error');
+                        }
+                    }
+                });
+            }
+        }));
+    });
+</script>
