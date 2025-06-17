@@ -180,6 +180,11 @@
                                                                         <label for=""><?= labels('min_stock', 'Minimum stock') ?><span class="asterisk text-danger"> *</span></label>
                                                                         <input type="number" class="form-control" id="qty_alert" name="qty_alert[]" value="<?= $variant['qty_alert'] ?>" min="0.00" placeholder="0.00">
                                                                     </div>
+                                                                    <div class="col">
+                                                                        <label for=""><?= labels('expiry_alert_days', 'Expiry Alert (Days)') ?></label>
+                                                                        <input type="number" class="form-control" id="expiry_alert_days" name="expiry_alert_days[]" value="<?= $variant['expiry_alert_days'] ?? '' ?>" min="0" placeholder="Enter days before expiry to alert">
+                                                                        <small class="text-muted">Number of days before expiry to send alert</small>
+                                                                    </div>
                                                                 </div>
                                                             </div>
                                                 </div>
@@ -223,6 +228,11 @@
                                                     <div class="col">
                                                         <label for=""><?= labels('min_stock', 'Minimum stock') ?><span class="asterisk text-danger"> *</span></label>
                                                         <input type="number" class="form-control" id="qty_alert" name="qty_alert[]" min="0.00" placeholder="0.00">
+                                                    </div>
+                                                    <div class="col">
+                                                        <label for=""><?= labels('expiry_alert_days', 'Expiry Alert (Days)') ?></label>
+                                                        <input type="number" class="form-control" id="expiry_alert_days" name="expiry_alert_days[]" min="0" placeholder="Enter days before expiry to alert">
+                                                        <small class="text-muted">Number of days before expiry to send alert</small>
                                                     </div>
 
                                                 </div>
@@ -482,6 +492,11 @@
                     <div class="col">
                         <label>Minimum Stock<span class="asterisk text-danger"> *</span></label>
                         <input type="number" class="form-control" id="qty_alert" step="0.1" min="0.1" name="qty_alert[]" min="0.00" placeholder="0.00">
+                    </div>
+                    <div class="col">
+                        <label>Expiry Alert (Days)</label>
+                        <input type="number" class="form-control" id="expiry_alert_days" name="expiry_alert_days[]" min="0" placeholder="Enter days before expiry to alert">
+                        <small class="text-muted">Number of days before expiry to send alert</small>
                     </div>
                 </div>
                 

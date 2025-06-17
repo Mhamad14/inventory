@@ -158,6 +158,7 @@ $routes->group('admin/products', ['filter' => 'permissioncheck', 'checkpermissio
     $routes->get('json', 'admin\Products::json', ['filter' => 'checkpermissions:action=can_read']);
     $routes->get('scanned_barcode_items', 'admin\Products::scanned_barcode_items', ['filter' => 'checkpermissions:action=can_read']);
     $routes->get('products_table', 'admin\Products::products_table', ['filter' => 'checkpermissions:action=can_read']);
+    $routes->get('dashboard_products_table', 'admin\Products::dashboard_products_table', ['filter' => 'checkpermissions:action=can_read']);
     $routes->get('update_variant_status', 'admin\Products::update_variant_status', ['filter' => 'checkpermissions:action=can_update']);
     $routes->get('remove_variant/(:any)', 'admin\Products::remove_variant/$1', ['filter' => 'checkpermissions:action=can_update']);
     $routes->get('variants_table', 'admin\Products::variants_table/$1', ['filter' => 'checkpermissions:action=can_read']);
@@ -167,6 +168,7 @@ $routes->group('admin/products', ['filter' => 'permissioncheck', 'checkpermissio
     $routes->get('fetch_stock', 'admin\Products::fetch_stock', ['filter' => 'checkpermissions:action=can_read']);
     $routes->get('table', 'admin\Products::table', ['filter' => 'checkpermissions:action=can_read']);
     $routes->get('stock_alert', 'admin\Products::stock_alert', ['filter' => 'checkpermissions:action=can_read']);
+    $routes->get('expiry_alert', 'admin\Products::expiry_alert', ['filter' => 'checkpermissions:action=can_read']);
 
     // POST Routes
     $routes->post('save_products', 'admin\Products::save_products', ['filter' => 'checkpermissions:action=can_create']);

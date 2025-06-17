@@ -2334,22 +2334,35 @@ $(document).ready(function () {
     ajax: {
       url: site_url + "admin/purchases/get_suppliers",
       dataType: "json",
+      delay: 250, // Add a small delay to prevent too many requests
       data: function (params) {
-        var query = {
-          search: params.term,
+        return {
+          search: params.term || '',
+          initial: !params.term
         };
-        return query;
       },
       processResults: function (response) {
         return {
-          results: response.data,
+          results: response.data || []
         };
       },
       cache: true,
+      minimumInputLength: 0
     },
     placeholder: "Search for a Supplier",
     templateResult: formatPostSuppliers,
     templateSelection: SuppliersSelection,
+    minimumResultsForSearch: 0,
+    width: '100%'
+  }).on('select2:open', function() {
+    // Only trigger initial search if we haven't loaded results yet
+    if (!$(this).data('initialized')) {
+      var $select = $(this);
+      setTimeout(function() {
+        $select.select2('search', '');
+        $select.data('initialized', true);
+      }, 100);
+    }
   });
 });
 
@@ -5858,3 +5871,131 @@ function showDraftsModal() {
     show_message("Error", error.message, "error");
   }
 }
+
+// Expiry Alert Message
+$(document).ready(function () {
+    console.log("Document ready - initializing expiry alerts");
+    console.log("Base URL:", base_url); // Debug log to check base_url
+
+    // Check if iziToast is loaded (required for notifications)
+    if (typeof iziToast === "undefined") {
+        console.error("iziToast not loaded - expiry alerts disabled");
+        return;
+    }
+    console.log("iziToast is loaded"); // Debug log
+
+    // Function to show expiry alert notification
+    function showExpiryAlert(productName, variantName, warehouseName, quantity, expiryDate, daysRemaining, batchId) {
+        // Create storage key to remember dismissed alerts
+        const storageKey = "expiryAlert_" + batchId;
+
+        // Check if user dismissed this alert previously
+        if (sessionStorage.getItem(storageKey)) {
+            return;
+        }
+
+        // Build the notification message
+        const itemName = variantName ? `${productName} (${variantName})` : productName;
+        const message = `<strong>${itemName}</strong> will expire in ${daysRemaining} days<br>
+                        Current Stock: ${quantity} | Warehouse: ${warehouseName}`;
+
+        // Show the notification with iziToast
+        const toast = iziToast.error({
+            title: "EXPIRY WARNING",
+            message: message,
+            icon: "fas fa-exclamation-triangle",
+            position: "topRight",
+            timeout: 15000,
+            closeOnClick: true,
+            displayMode: "replace",
+            transitionIn: "fadeInDown",
+            transitionOut: "fadeOutUp",
+            buttons: [
+                [
+                    '<button><i class="fas fa-edit"></i> Edit Batch</button>',
+                    function (instance, toast) {
+                        // Fade out the toast
+                        $(toast).fadeOut(300, function() {
+                            $(this).remove();
+                            // Redirect after fade out
+                            window.location.href = '/inventory/admin/batches/return/' + batchId;
+                        });
+                    }
+                ],
+                [
+                    '<button><i class="fas fa-times"></i> Dismiss</button>',
+                    function (instance, toast) {
+                        $(toast).fadeOut(300, function() {
+                            $(this).remove();
+                        });
+                    }
+                ],
+                [
+                    '<button><i class="fas fa-eye-slash"></i> Don\'t Show Again</button>',
+                    function (instance, toast) {
+                        sessionStorage.setItem(storageKey, "true");
+                        $(toast).fadeOut(300, function() {
+                            $(this).remove();
+                        });
+                    }
+                ]
+            ]
+        });
+    }
+
+    // Function to check expiry alerts
+    function checkExpiryAlerts() {
+        console.log("Checking expiry alerts...");
+        console.log("Request URL:", base_url + "admin/products/expiry_alert"); // Debug log
+        
+        $.ajax({
+            url: base_url + "admin/products/expiry_alert",
+            type: "GET",
+            dataType: "json",
+            headers: {
+                'X-CSRF-TOKEN': csrf_token // Add CSRF token if required
+            },
+            success: function (response) {
+                console.log("Received expiry alert response:", response); // Debug log
+                if (response && response.rows && response.rows.length > 0) {
+                    console.log("Found", response.rows.length, "expiring products"); // Debug log
+                    response.rows.forEach(function (item) {
+                        try {
+                            showExpiryAlert(
+                                item.product, // Changed from product_name to match controller
+                                item.variant_name,
+                                item.warehouse, // Changed from warehouse_name to match controller
+                                item.quantity,
+                                item.expiry_date,
+                                item.days_remaining,
+                                item.id
+                            );
+                        } catch (e) {
+                            console.error("Error processing expiry alert:", e);
+                        }
+                    });
+                } else {
+                    console.log("No expiring products found"); // Debug log
+                }
+            },
+            error: function (xhr, status, error) {
+                console.error("Failed to load expiry alerts:", error);
+                console.error("Status:", status);
+                console.error("Response:", xhr.responseText); // Debug log
+                console.error("Status code:", xhr.status); // Debug log
+                // Show error notification
+                iziToast.error({
+                    title: "Error",
+                    message: "Could not check expiry dates: " + error,
+                    position: "topRight",
+                });
+            },
+        });
+    }
+
+    // Check expiry alerts after a short delay to ensure everything is loaded
+    setTimeout(checkExpiryAlerts, 2000);
+
+    // Check expiry alerts every 5 minutes
+    setInterval(checkExpiryAlerts, 5 * 60 * 1000);
+});

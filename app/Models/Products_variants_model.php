@@ -9,7 +9,7 @@ class Products_variants_model extends Model
 
     protected $table = 'products_variants';
     protected $primaryKey = 'id';
-    protected $allowedFields = ['id', 'product_id', 'variant_name', 'sale_price', 'purchase_price', 'stock', 'unit_id', 'qty_alert', 'status', 'barcode'];
+    protected $allowedFields = ['id', 'product_id', 'variant_name', 'sale_price', 'purchase_price', 'stock', 'unit_id', 'qty_alert', 'expiry_alert_days', 'status', 'barcode'];
     protected $warehouse_product_stock_model;
 
     public function __construct()

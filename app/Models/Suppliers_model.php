@@ -75,8 +75,9 @@ class Suppliers_model extends Model
         $builder = $db->table("suppliers as s");
         $builder->select('u.id, u.first_name, s.vendor_id, s.balance, s.status');
         $builder->join('users as u', 'u.id = s.user_id', 'left');
+        $builder->where('s.status', 1); // Only active suppliers
+        $builder->orderBy('u.first_name', 'ASC'); // Order by name
         $builder->limit(10);
-
 
         if (!empty($search_term)) {
             $builder->groupStart(); // Start grouping OR LIKEs
