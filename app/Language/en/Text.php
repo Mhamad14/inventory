@@ -375,4 +375,7 @@ $lang['edit_suppliers'] = "Edit Suppliers";
 $lang['edit_expenses'] = "Edit Expenses";
 $lang['hold_cart'] = "Hold Cart";
 $lang['load_drafts'] = "Load Drafts";
+$lang['display_currency'] = "Display Currency";
+$lang['base_currency'] = "Base Currency";
+$lang['currency_conversion_note'] = "Select currency to view totals in different currency";
 return $lang;

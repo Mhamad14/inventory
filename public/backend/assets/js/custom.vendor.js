@@ -2935,6 +2935,7 @@ function purchase_total() {
   var sell_total = 0;
   var profit_total = 0;
   var currency = $("#sub_total").attr("data-currency");
+  var isIQD = currency === 'IQD' || currency === 'د.ع'; // Check for IQD symbol
 
   $(".table_price").each(function (i, el) {
     var row = $(el).closest("tr");
@@ -2954,13 +2955,14 @@ function purchase_total() {
     var row_total = price * qty - discount;
     total += row_total;
 
-    // sell price total
+    // sell price total (calculate before applying order discount)
     var sell_price = parseFloat(row.find(".sell_price").val()) || 0;
     var row_sell_total = sell_price * qty;
     sell_total += row_sell_total;
 
-    // profit total
-    profit_total += row_sell_total - row_total;
+    // profit total (calculate before applying order discount)
+    var row_profit = (sell_price * qty) - row_total;
+    profit_total += row_profit;
   });
 
   var order_discount = parseFloat($("#order_discount").val()) || 0;
@@ -2969,13 +2971,16 @@ function purchase_total() {
   // Apply order discount and shipping
   final_total = total - order_discount + shipping;
   profit_total = sell_total - final_total;
-  // Update fields
-  $("#sub_total").html(currency + final_total.toFixed(3));
-  $('input[name="total"]').val(final_total.toFixed(3));
-
-  // Show sell total and profit total
-  $("#sell_total").html(currency + sell_total.toFixed(3));
-  $("#profit_total").html(currency + profit_total.toFixed(3));
+  
+  // Store base values in hidden inputs for currency conversion
+  $('input[name="total"]').val(final_total.toFixed(isIQD ? 0 : 3));
+  $('input[name="sell_total"]').val(sell_total.toFixed(isIQD ? 0 : 3));
+  $('input[name="profit_total"]').val(profit_total.toFixed(isIQD ? 0 : 3));
+  
+  // Update fields with base currency
+  $("#sub_total").html(currency + final_total.toFixed(isIQD ? 0 : 3));
+  $("#sell_total").html(currency + sell_total.toFixed(isIQD ? 0 : 3));
+  $("#profit_total").html(currency + profit_total.toFixed(isIQD ? 0 : 3));
 }
 
 // purchase order status update bulk

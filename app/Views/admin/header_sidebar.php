@@ -250,6 +250,9 @@
     </aside>
 </div>
 
+<?= view('common_partials/js/number_utils/text_input_formatter'); ?>
+<?= view('common_partials/js/number_utils/unmask'); ?>
+
 
 <script>
     document.addEventListener('alpine:init', () => {
@@ -348,27 +351,28 @@
                     const step = (0.1 ** currency.decimal_places).toFixed(currency.decimal_places);
 
                     formHtml += `
-                <div class="mb-3">
-                    <label for="rate_${currency.id}" class="form-label">
-                        ${currency.name} (${currency.code})
-                    </label>
-                    <input type="number" 
-                           id="rate_${currency.id}" 
-                           name="rates[${currency.id}]" 
-                           class="form-control" 
-                           step="${step}" 
-                           min="0" 
-                           value="${rateValue}"
-                           placeholder="Enter rate"
-                           required>
-                    <small class="text-muted">1 ${currency.code} = ${rateValue || '?'} ${this.baseCurrency.code}</small>
-                </div>
-                `;
+        <div class="mb-3">
+            <label for="rate_${currency.id}" class="form-label">
+                ${currency.name} (${currency.code})
+            </label>
+            <input type="text" 
+                x-numberformat="{ decimals: ${currency.decimal_places}, allowDecimal: true }"
+                id="rate_${currency.id}" 
+                name="rates[${currency.id}]" 
+                class="form-control" 
+                step="${step}" 
+                min="0" 
+                value="${rateValue}"
+                placeholder="Enter rate"
+                required>
+            <small class="text-muted">1 ${currency.code} = ${rateValue || '?'} ${this.baseCurrency.code}</small>
+        </div>
+    `;
                 });
 
-                formHtml += `</form>`;
+                formHtml += `</form>`; // ✅ Close the form AFTER loop
 
-                // Show modal
+                // ✅ Now show modal once
                 Swal.fire({
                     title: 'Update Exchange Rates',
                     html: formHtml,
@@ -394,7 +398,7 @@
                                 const decimalPlaces = currency ? currency.decimal_places : 2;
                                 const precision = 10 ** decimalPlaces;
 
-                                const newRate = parseFloat(value);
+                                const newRate = parseFloat(this.$number.unmask(value));
                                 const oldRate = currentRates[currencyId] || 0;
 
                                 // Compare with proper decimal precision
@@ -434,9 +438,10 @@
                             let errorMsg = error.response?.data?.message || 'Failed to update rates';
                             Swal.fire('Error', errorMsg, 'error');
                         }
-                    }
-                });
-            }
-        }));
-    });
+                    } // if (result.isConfirmed)
+                }); // close Swal.fire
+            } // showExchangeRateModal method
+
+        })); // close Alpine.data
+    }); // close document.addEventListener
 </script>

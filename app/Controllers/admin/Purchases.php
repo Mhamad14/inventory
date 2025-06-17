@@ -611,4 +611,74 @@ class Purchases extends BaseController
             echo json_encode($array);
         }
     }
+
+    /**
+     * Get currencies and exchange rates for purchases form
+     */
+    public function get_currencies_for_purchases()
+    {
+        if (!$this->request->isAJAX()) {
+            return $this->response->setStatusCode(405)->setJSON([
+                'success' => false,
+                'message' => 'Method not allowed'
+            ]);
+        }
+
+        try {
+            $businessId = session('business_id');
+            
+            // Get currency model
+            $currency_model = new \App\Models\Currency_model();
+            $exchange_rates_model = new \App\Models\ExchangeRatesModel();
+            
+            // Get all active currencies
+            $currencies = $currency_model
+                ->where('business_id', $businessId)
+                ->where('status', 1)
+                ->where('deleted_at IS NULL')
+                ->findAll();
+            
+            // Get base currency
+            $baseCurrency = $currency_model->get_base_currency($businessId);
+            
+            // Get current exchange rates
+            $rates = [];
+            foreach ($currencies as $currency) {
+                if (!$currency['is_base']) {
+                    $rate = $exchange_rates_model
+                        ->where('currency_id', $currency['id'])
+                        ->orderBy('effective_date', 'DESC')
+                        ->first();
+                    
+                    if ($rate) {
+                        $rates[$currency['id']] = $rate['rate'];
+                    }
+                }
+            }
+            
+            // Debug logging
+            log_message('info', 'Currencies found: ' . count($currencies));
+            log_message('info', 'Base currency: ' . json_encode($baseCurrency));
+            log_message('info', 'Exchange rates: ' . json_encode($rates));
+            
+            return $this->response->setJSON([
+                'success' => true,
+                'currencies' => $currencies,
+                'base_currency' => $baseCurrency,
+                'exchange_rates' => $rates,
+                'debug' => [
+                    'business_id' => $businessId,
+                    'currencies_count' => count($currencies),
+                    'rates_count' => count($rates)
+                ]
+            ]);
+            
+        } catch (\Exception $e) {
+            log_message('error', 'Failed to get currencies for purchases: ' . $e->getMessage());
+            return $this->response->setStatusCode(500)->setJSON([
+                'success' => false,
+                'message' => 'Failed to load currencies: ' . $e->getMessage()
+            ]);
+        }
+    }
 }

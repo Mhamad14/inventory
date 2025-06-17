@@ -52,6 +52,7 @@ $routes->group('admin/purchases', ['filter' => 'checkpermissions:module=purchase
     $routes->get('update_order_status', 'admin\Purchases::update_order_status', ['filter' => 'checkpermissions:action=can_read']);
     $routes->get('purchase_return/(:any)', 'admin\Purchases::purchase_return/$1', ['filter' => 'checkpermissions:action=can_read']);
     $routes->get('purchase_return_table', 'admin\Purchases::purchase_return_table', ['filter' => 'checkpermissions:action=can_read']);
+    $routes->get('get_currencies_for_purchases', 'admin\Purchases::get_currencies_for_purchases', ['filter' => 'checkpermissions:action=can_read']);
 });
 //,checkpermissions:module=customers
 $routes->group('admin/customers', ['filter' => 'checkpermissions:module=customers|permissioncheck'], function ($routes) {

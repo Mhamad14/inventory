@@ -26,4 +26,4 @@
         <h4 class="text-success h6 m-1 px-2" id="profit_total" data-currency="<?= $currency ?>"></h4>
         <input type="hidden" name="profit_total" id="profit_total_input">
     </div>
-</div>
+</div> 
