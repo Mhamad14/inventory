@@ -121,20 +121,22 @@ $routes->group('admin/customers_subscription', ['filter' => 'checkpermissions:mo
 });
 
 // Currency Routes
-$routes->group('admin/currency', ['filter' => 'checkpermissions:module=currency', 'permissioncheck'], function($routes) {
+$routes->group('admin/currency', ['filter' => 'permissioncheck', 'checkpermissions:module=currency'], function ($routes) {
     // Main routes with permissions
     $routes->get('/', 'admin\Currency::index', ['filter' => 'checkpermissions:action=can_read']);
     $routes->add('add', 'admin\Currency::add', ['filter' => 'checkpermissions:action=can_create']);
     $routes->add('edit/(:any)', 'admin\Currency::edit/$1', ['filter' => 'checkpermissions:action=can_update']);
     $routes->add('save', 'admin\Currency::save', ['filter' => 'checkpermissions:action=can_create']);
     $routes->add('delete/(:any)', 'admin\Currency::delete/$1', ['filter' => 'checkpermissions:action=can_delete']);
-    
-    // Data table routes
+    // exchange rates routes
+    $routes->get('get_exchange_rates', 'admin\Currency::get_exchange_rates');
+    $routes->post('save_exchange_rates', 'admin\Currency::save_exchange_rates');
+
     $routes->add('currency_table', 'admin\Currency::currency_table', ['filter' => 'checkpermissions:action=can_read']);
 });
 
 // Exchange Rates Routes (if needed)
-$routes->group('admin/exchange_rates', ['filter' => 'checkpermissions:module=exchange_rates'], function($routes) {
+$routes->group('admin/exchange_rates', ['filter' => 'checkpermissions:module=exchange_rates'], function ($routes) {
     $routes->get('/', 'admin\ExchangeRates::index', ['filter' => 'checkpermissions:action=can_read']);
     $routes->add('save', 'admin\ExchangeRates::save', ['filter' => 'checkpermissions:action=can_create']);
     $routes->add('edit/(:any)', 'admin\ExchangeRates::edit/$1', ['filter' => 'checkpermissions:action=can_update']);
@@ -158,6 +160,7 @@ $routes->group('admin/products', ['filter' => 'permissioncheck', 'checkpermissio
     $routes->get('json', 'admin\Products::json', ['filter' => 'checkpermissions:action=can_read']);
     $routes->get('scanned_barcode_items', 'admin\Products::scanned_barcode_items', ['filter' => 'checkpermissions:action=can_read']);
     $routes->get('products_table', 'admin\Products::products_table', ['filter' => 'checkpermissions:action=can_read']);
+    $routes->get('dashboard_products_table', 'admin\Products::dashboard_products_table', ['filter' => 'checkpermissions:action=can_read']);
     $routes->get('update_variant_status', 'admin\Products::update_variant_status', ['filter' => 'checkpermissions:action=can_update']);
     $routes->get('remove_variant/(:any)', 'admin\Products::remove_variant/$1', ['filter' => 'checkpermissions:action=can_update']);
     $routes->get('variants_table', 'admin\Products::variants_table/$1', ['filter' => 'checkpermissions:action=can_read']);
@@ -167,6 +170,7 @@ $routes->group('admin/products', ['filter' => 'permissioncheck', 'checkpermissio
     $routes->get('fetch_stock', 'admin\Products::fetch_stock', ['filter' => 'checkpermissions:action=can_read']);
     $routes->get('table', 'admin\Products::table', ['filter' => 'checkpermissions:action=can_read']);
     $routes->get('stock_alert', 'admin\Products::stock_alert', ['filter' => 'checkpermissions:action=can_read']);
+    $routes->get('expiry_alert', 'admin\Products::expiry_alert', ['filter' => 'checkpermissions:action=can_read']);
 
     // POST Routes
     $routes->post('save_products', 'admin\Products::save_products', ['filter' => 'checkpermissions:action=can_create']);

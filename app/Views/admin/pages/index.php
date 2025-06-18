@@ -267,7 +267,7 @@
             </div>
             <div class="card-body">
                 <div class="row">
-                    <div class="col-lg-4 col-md-6 col-sm-6 col-12">
+                    <div class="col-lg-3 col-md-6 col-sm-6 col-12">
                         <div class="card card-statistic-1">
                             <div class="card-icon bg-primary">
                                 <i class="far fa-user"></i>
@@ -282,7 +282,7 @@
                             </div>
                         </div>
                     </div>
-                    <div class="col-lg-4 col-md-6 col-sm-6 col-12">
+                    <div class="col-lg-3 col-md-6 col-sm-6 col-12">
                         <div class="card card-statistic-1">
                             <div class="card-icon bg-warning">
                                 <i class="far fa-file"></i>
@@ -298,7 +298,7 @@
                         </div>
                     </div>
 
-                    <div class="col-lg-4 col-md-6 col-sm-6 col-12">
+                    <div class="col-lg-3 col-md-6 col-sm-6 col-12">
                         <div class="card card-statistic-1">
                             <div class="card-icon bg-danger">
                                 <i class="far fa-newspaper"></i>
@@ -313,16 +313,32 @@
                             </div>
                         </div>
                     </div>
+
+                    <div class="col-lg-3 col-md-6 col-sm-6 col-12">
+                        <div class="card card-statistic-1">
+                            <div class="card-icon bg-info">
+                                <i class="far fa-clock"></i>
+                            </div>
+                            <div class="card-wrap">
+                                <div class="card-header">
+                                    <h4><?= labels('expiring_soon', 'Expiring Soon') ?></h4>
+                                </div>
+                                <div class="card-body">
+                                    <?= isset($expiring_count) ? $expiring_count : 0 ?>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                     <a href="<?= base_url('admin/products') ?>" class="text-decoration-none small-box-footer">More info <i class="fa fa-arrow-circle-right"></i></a>
                 </div>
                 <div class="row">
-                    <table class="table table-hover table-borderd" data-auto-refresh="true" data-show-columns="true" data-show-toggle="true" data-show-refresh="true" data-toggle="table" data-search-highlight="true" data-page-list="[5, 10, 25, 50, 100, 200, All]" data-url="<?= base_url('admin/products/products_table'); ?>" data-side-pagination="server" data-pagination="true" data-search="true">
+                    <table class="table table-hover table-borderd" data-auto-refresh="true" data-show-columns="true" data-show-toggle="true" data-show-refresh="true" data-toggle="table" data-search-highlight="true" data-page-list="[5, 10, 25, 50, 100, 200, All]" data-url="<?= base_url('admin/products/dashboard_products_table'); ?>" data-side-pagination="server" data-pagination="true" data-search="true">
                         <thead>
                             <tr>
                                 <th data-field="id" data-sortable="true" data-visible="false"><?= labels('id', 'ID') ?></th>
                                 <th data-field="name" data-sortable="true" data-visible="true"><?= labels('name', 'Name') ?></th>
-                                <th data-field="type" data-sortable="true" data-visible="true"><?= labels('product_type', 'Product Type') ?></th>
-                                <th data-field="stock" data-sortable="true" data-visible="true"><?= labels('stock', 'Stock(qty)') ?></th>
+                                <th data-field="brand_name" data-sortable="true" data-visible="true"><?= labels('brand_name', 'Brand') ?></th>
+                                <th data-field="stock" data-sortable="true" data-visible="true"><?= labels('stock', 'Total Stock') ?></th>
                                 <th data-field="qty_alert" data-sortable="true" data-visible="true"><?= labels('quantity_alert', 'Quantity Alert') ?></th>
                             </tr>
                         </thead>
