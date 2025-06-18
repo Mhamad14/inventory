@@ -303,4 +303,16 @@ class warehouse_batches_model extends Model
             throw $e;
         }
     }
+
+    /**
+     * Get available batches for a product variant in FIFO order (oldest first, quantity > 0)
+     */
+    public function getAvailableBatchesFIFO($product_variant_id, $business_id)
+    {
+        return $this->where('product_variant_id', $product_variant_id)
+                    ->where('business_id', $business_id)
+                    ->where('quantity >', 0)
+                    ->orderBy('created_at', 'ASC')
+                    ->findAll();
+    }
 }
