@@ -77,6 +77,7 @@ $routes->group('admin/delivery_boys', ['filter' => 'checkpermissions:module=deli
 $routes->group('admin/orders', ['filter' => 'checkpermissions:module=orders', 'permissioncheck'], function ($routes) {
     $routes->get('/', 'admin\Orders::index', ['filter' => 'checkpermissions:module=pos,action=can_create']);
     $routes->get('orders', 'admin\Orders::orders', ['filter' => 'checkpermissions:action=can_read']);
+    $routes->get('fetch_pos_products', 'admin\Orders::fetch_pos_products', ['filter' => 'checkpermissions:action=can_read']);
 
     $routes->get('sales_order', 'admin\Orders::sales_order', ['filter' => 'checkpermissions:action=can_create']);
     $routes->post('save_sales_order', 'admin\Orders::save_sales_order', ['filter' => 'checkpermissions:action=can_create']);
