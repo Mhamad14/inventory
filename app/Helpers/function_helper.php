@@ -531,7 +531,6 @@ function product_stock($business_id = "")
     $product_variant_model = new Products_variants_model();
     $products =  $product_model->where('business_id', $business_id)->findAll();
 
-
     $response = [
         'out' => 0,
         'low' => 0,
@@ -543,43 +542,22 @@ function product_stock($business_id = "")
         $low = 0;
         $out = 0;
         foreach ($products as $product) {
-
-            if ($product['stock_management'] == "1") {
-                $stock = (int) trim($product['stock']);
-                $qty_alert = (int) trim($product['qty_alert']);
-                if ($stock == 0 || empty($stock)) {
-                    $out++;
-
-                    $response['out'] = $out;
-                    $response['out_stock_product_name'][] = $product['name'];
-                    $response['message'][] = $product['name'] . " is Out of Stock";
-                } elseif ($stock <= $qty_alert) {
-                    $low++;
-
-                    $response['low_stock_product_name'][] = $product['name'];
-                    $response['message'][] = $product['name'] . " is Low in Stock";
-                    $response['low'] = $low;
-                }
-            }
-            if ($product['stock_management'] == "2") {
-
-                $variants =  $product_variant_model->where('product_id', $product['id'])->findAll();
-                if (!empty($variants)) {
-                    for ($i = 0; $i < count($variants); $i++) {
-                        $stock = (int)  trim($variants[$i]['stock']);
-                        $qty_alert = (int) trim($variants[$i]['qty_alert']);
-                        if ($stock == "0" || $stock == "") {
-                            $response['out_stock_product_name'][] = $variants[$i]['variant_name'];
-                            $response['message'][] = $variants[$i]['variant_name'] . " is Out of Stock";
-                            $out++;
-                            $response['out'] = $out;
-                        } elseif ($stock <= $qty_alert) {
-                            $low++;
-
-                            $response['low_stock_product_name'][] = $variants[$i]['variant_name'];
-                            $response['message'][] = $variants[$i]['variant_name'] . " is Low in Stock";
-                            $response['low'] = $low;
-                        }
+            // Since stock_management column is removed, we'll treat all products as variant-level stock management
+            $variants = $product_variant_model->where('product_id', $product['id'])->findAll();
+            if (!empty($variants)) {
+                foreach ($variants as $variant) {
+                    $stock = (int) trim($variant['stock']);
+                    $qty_alert = (int) trim($variant['qty_alert']);
+                    if ($stock == 0 || empty($stock)) {
+                        $out++;
+                        $response['out'] = $out;
+                        $response['out_stock_product_name'][] = $product['name'] . ' - ' . $variant['variant_name'];
+                        $response['message'][] = $product['name'] . ' - ' . $variant['variant_name'] . " is Out of Stock";
+                    } elseif ($stock <= $qty_alert) {
+                        $low++;
+                        $response['low_stock_product_name'][] = $product['name'] . ' - ' . $variant['variant_name'];
+                        $response['message'][] = $product['name'] . ' - ' . $variant['variant_name'] . " is Low in Stock";
+                        $response['low'] = $low;
                     }
                 }
             }

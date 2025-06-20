@@ -46,11 +46,40 @@
     $secondary_color = (isset($data['secondary_color']) && $data['secondary_color'] != "") ? $data['secondary_color'] : '#003e64';
     $primary_shadow = (isset($data['primary_shadow']) && $data['primary_shadow'] != "") ? $data['primary_shadow'] : '#05a6e8';
     ?>
+    <!-- Add NRT font for Kurdish -->
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Naskh+Arabic&display=swap" rel="stylesheet">
     <style>
         body {
             --primary-color: <?= $primary_color ?>;
             --secondary-color: <?= $secondary_color ?>;
             --shadow: <?= $primary_shadow ?>;
+        }
+
+        /* Default font for English */
+        body {
+            font-family: 'Poppins', sans-serif;
+        }
+
+        /* Font for Kurdish language */
+        body[lang="ku"] {
+            font-family: 'Noto Naskh Arabic', serif;
+        }
+
+        /* Apply font to specific elements */
+        body[lang="ku"] h1,
+        body[lang="ku"] h2,
+        body[lang="ku"] h3,
+        body[lang="ku"] h4,
+        body[lang="ku"] h5,
+        body[lang="ku"] h6,
+        body[lang="ku"] p,
+        body[lang="ku"] span,
+        body[lang="ku"] div,
+        body[lang="ku"] button,
+        body[lang="ku"] input,
+        body[lang="ku"] select,
+        body[lang="ku"] textarea {
+            font-family: 'Noto Naskh Arabic', serif;
         }
     </style>
     <script>
@@ -62,7 +91,7 @@
     <script src="<?= base_url("public/backend/assets/module/js/iziToast.js") ?>"></script>
 </head>
 
-<body>
+<body lang="<?= $current_lang ?>">
 
     <div id="app">
         <div class="main-wrapper">

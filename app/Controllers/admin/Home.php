@@ -240,6 +240,12 @@ class Home extends BaseController
             $data['product_stock'] = $products_stock ? $products_stock['message'] : [];
             $data['low'] = $products_stock && isset($products_stock['low']) ? $products_stock['low'] : "0";
             $data['out'] = $products_stock && isset($products_stock['out']) ? $products_stock['out'] : "0";
+            
+            // Get expiring items count
+            $warehouseBatchesModel = new \App\Models\warehouse_batches_model();
+            $expiringBatches = $warehouseBatchesModel->get_expiring_batches($business_id);
+            $data['expiring_count'] = count($expiringBatches);
+            
             return view("admin/template", $data);
         }
     }

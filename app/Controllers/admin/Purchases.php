@@ -419,11 +419,6 @@ class Purchases extends BaseController
         $suppliers_model = new Suppliers_model();
         $search = $this->request->getGet('search');
 
-        // Validate input
-        if (empty($search) || strlen($search) < 2) {
-            return $this->response->setJSON(['data' => []]);
-        }
-
         try {
             // Get and decode the response
             $response = $suppliers_model->search_suppliers($search);
@@ -436,7 +431,7 @@ class Purchases extends BaseController
                     if ($supplier->status) { // Only active suppliers
                         $results[] = [
                             "id"      => $supplier->id,
-                            "text"    => $supplier->name ?? $supplier->text, // Fallback to 'name' if 'text' doesn't exist
+                            "text"    => $supplier->text,
                             "balance" => $supplier->balance,
                             "status"  => $supplier->status,
                         ];

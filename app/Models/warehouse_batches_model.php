@@ -269,4 +269,67 @@ class warehouse_batches_model extends Model
         }
         return true;
     }
+    public function get_expiring_batches($business_id)
+    {
+        try {
+            if (empty($business_id)) {
+                log_message('error', 'Business ID is empty in get_expiring_batches');
+                throw new \Exception('Business ID is required');
+            }
+
+            $db = \Config\Database::connect();
+            if (!$db) {
+                log_message('error', 'Database connection failed in get_expiring_batches');
+                throw new \Exception('Database connection failed');
+            }
+
+            $builder = $db->table('warehouse_batches wb');
+            
+            // Join with products_variants to get expiry_alert_days
+            $builder->select('wb.*, p.name as product_name, pv.variant_name, pv.expiry_alert_days, w.name as warehouse_name, DATEDIFF(wb.expiration_date, CURDATE()) as days_remaining')
+                    ->join('products_variants pv', 'pv.id = wb.product_variant_id')
+                    ->join('products p', 'p.id = pv.product_id')
+                    ->join('warehouses w', 'w.id = wb.warehouse_id')
+                    ->where('wb.business_id', $business_id)
+                    ->where('wb.expiration_date IS NOT NULL')
+                    ->where('wb.quantity >', 0)
+                    ->where('pv.expiry_alert_days IS NOT NULL')
+                    ->where('pv.expiry_alert_days >', 0)
+                    ->where('wb.expiration_date >', date('Y-m-d'))
+                    ->where('DATEDIFF(wb.expiration_date, CURDATE()) <= pv.expiry_alert_days')
+                    ->where('DATEDIFF(wb.expiration_date, CURDATE()) > 0');
+
+            // Log the query we're about to execute
+            $query = $builder->getCompiledSelect(false);
+            log_message('info', 'Executing expiry query: ' . $query);
+
+            // Execute the query
+            $result = $builder->get()->getResultArray();
+            
+            // Log the results
+            log_message('info', 'Query returned ' . count($result) . ' rows');
+            if (empty($result)) {
+                log_message('info', 'No expiring batches found for business_id: ' . $business_id);
+            } else {
+                log_message('info', 'Sample batch data: ' . json_encode(array_slice($result, 0, 1)));
+            }
+
+            return $result;
+        } catch (\Exception $e) {
+            log_message('error', 'Error in get_expiring_batches: ' . $e->getMessage() . "\n" . $e->getTraceAsString());
+            throw $e;
+        }
+    }
+
+    /**
+     * Get available batches for a product variant in FIFO order (oldest first, quantity > 0)
+     */
+    public function getAvailableBatchesFIFO($product_variant_id, $business_id)
+    {
+        return $this->where('product_variant_id', $product_variant_id)
+                    ->where('business_id', $business_id)
+                    ->where('quantity >', 0)
+                    ->orderBy('created_at', 'ASC')
+                    ->findAll();
+    }
 }

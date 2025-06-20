@@ -197,7 +197,6 @@ class Products extends BaseController
             $variant_ids = $this->request->getVar('variant_id');
 
             for ($i = 0; $i < $variant_count; $i++) {
-
                 $variants = [];
                 if (isset($variant_ids[$i])) {
                     $variants['id'] = $variant_ids[$i];
@@ -208,6 +207,14 @@ class Products extends BaseController
                 } else {
                     $variants['qty_alert'] = '0';
                 }
+
+                // Handle expiry alert days
+                if (isset($this->request->getVar('expiry_alert_days')[$i])) {
+                    $variants['expiry_alert_days'] = $this->request->getVar('expiry_alert_days')[$i];
+                } else {
+                    $variants['expiry_alert_days'] = null;
+                }
+
                 $variants['unit_id']  = $this->request->getVar('unit_id')[$i];
                 $variants['product_id'] = $product_id;
                 $variants['variant_name'] = $this->request->getVar('variant_name')[$i];
@@ -234,6 +241,17 @@ class Products extends BaseController
     public function products_table()
     {
         $rows = $this->products_model->get_all_products($this->business_id);
+        
+        // Calculate total stock for each product
+        foreach ($rows['data'] as &$row) {
+            $variants = $this->products_variants_model->where('product_id', $row['product_id'])->findAll();
+            $total_stock = 0;
+            foreach ($variants as $variant) {
+                $total_stock += floatval($variant['stock']);
+            }
+            $row['stock'] = $total_stock;
+        }
+        
         return $this->response->setJSON([
             'rows' => array_map('prepareProductsRow', $rows['data']),
             'total' => $rows['total']
@@ -950,6 +968,118 @@ class Products extends BaseController
             'message' => 'Stock transfer completed successfully.',
             'csrf_token' => csrf_token(),
             'csrf_hash' => csrf_hash(),
+        ]);
+    }
+
+    public function expiry_alert()
+    {
+        try {
+            log_message('info', 'Starting expiry_alert check for business_id: ' . $this->business_id);
+            
+            if (empty($this->business_id)) {
+                log_message('error', 'Business ID is empty in expiry_alert');
+                throw new \Exception('Business ID is not set');
+            }
+
+            $warehouseBatchesModel = new \App\Models\warehouse_batches_model();
+            
+            // Debug log the query parameters
+            log_message('info', 'Checking for expiring batches with parameters: ' . json_encode([
+                'business_id' => $this->business_id,
+                'date_range' => [
+                    'from' => date('Y-m-d'),
+                    'to' => date('Y-m-d', strtotime('+3 days'))
+                ]
+            ]));
+
+            $expiringBatches = $warehouseBatchesModel->get_expiring_batches($this->business_id);
+            
+            log_message('info', 'Found ' . count($expiringBatches) . ' expiring batches');
+
+            $rows = [];
+            $i = 0;
+
+            foreach ($expiringBatches as $batch) {
+                try {
+                    $daysUntilExpiry = ceil((strtotime($batch['expiration_date']) - time()) / (60 * 60 * 24));
+                    
+                    $rows[$i] = [
+                        "product_id" => $batch['product_id'] ?? null,
+                        "variant_id" => $batch['product_variant_id'] ?? null,
+                        "product" => $batch['product_name'] ?? 'Unknown Product',
+                        "variant_name" => $batch['variant_name'] ?? '',
+                        "warehouse" => $batch['warehouse_name'] ?? 'Unknown Warehouse',
+                        "quantity" => $batch['quantity'] ?? 0,
+                        "expiry_date" => $batch['expiration_date'] ?? '',
+                        "days_remaining" => $daysUntilExpiry,
+                        "id" => $batch['id'] ?? null,
+                        "action" => '<a type="button" class="btn btn-primary text-white" data-bs-toggle="modal" 
+                                    data-batch_id="' . ($batch['id'] ?? '') . '" 
+                                    data-bs-target="#batch_edit_modal">
+                                    <i class="fas fa-edit"></i></a>'
+                    ];
+                    $i++;
+                } catch (\Exception $e) {
+                    log_message('error', 'Error processing batch: ' . json_encode($batch) . ' - ' . $e->getMessage());
+                    continue;
+                }
+            }
+
+            log_message('info', 'Successfully processed ' . count($rows) . ' batches for expiry alerts');
+
+            return $this->response->setJSON([
+                'error' => false,
+                'rows' => $rows,
+                'total' => count($rows)
+            ]);
+        } catch (\Exception $e) {
+            log_message('error', 'Expiry alert error: ' . $e->getMessage() . "\n" . $e->getTraceAsString());
+            return $this->response->setStatusCode(500)->setJSON([
+                'error' => true,
+                'message' => 'An error occurred while fetching expiry alerts: ' . $e->getMessage()
+            ]);
+        }
+    }
+
+    public function dashboard_products_table()
+    {
+        $rows = $this->products_model->get_all_products($this->business_id);
+        
+        // Calculate total stock and get the lowest qty_alert for each product
+        foreach ($rows['data'] as &$row) {
+            $variants = $this->products_variants_model->where('product_id', $row['product_id'])->findAll();
+            $total_stock = 0;
+            $lowest_qty_alert = PHP_FLOAT_MAX;
+            
+            foreach ($variants as $variant) {
+                $total_stock += floatval($variant['stock']);
+                // Get the lowest qty_alert value among all variants
+                if (floatval($variant['qty_alert']) > 0 && floatval($variant['qty_alert']) < $lowest_qty_alert) {
+                    $lowest_qty_alert = floatval($variant['qty_alert']);
+                }
+            }
+            
+            $row['stock'] = $total_stock;
+            // If no qty_alert was found (all were 0 or null), set to 0
+            $row['qty_alert'] = ($lowest_qty_alert === PHP_FLOAT_MAX) ? 0 : $lowest_qty_alert;
+        }
+        
+        // Format the data for dashboard display
+        $dashboard_rows = [];
+        foreach ($rows['data'] as $row) {
+            $dashboard_rows[] = [
+                'id' => $row['product_id'],
+                'name' => ucwords($row['product_name']),
+                'brand_name' => $row['brand_name'] ?? '',
+                'variant_name' => '', // We'll leave this empty since we're showing total stock
+                'stock' => $row['stock'],
+                'qty_alert' => $row['qty_alert']
+            ];
+        }
+        
+        return $this->response->setJSON([
+            'rows' => $dashboard_rows,
+            'total' => $rows['total']
         ]);
     }
 }

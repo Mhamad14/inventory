@@ -1,6 +1,7 @@
 <div class="main-content">
     <!-- section title and Back button ..Strart -->
     <section class="section">
+
         <div class="section-header mt-2">
             <h1><?= labels('customer_detail', 'Customer Details') ?></h1>
             <div class="section-header-breadcrumb">
@@ -76,6 +77,7 @@
                 </form>
             </div>
         </div>
+
     </div>
     <!-- section Customer Details ..End -->
 
