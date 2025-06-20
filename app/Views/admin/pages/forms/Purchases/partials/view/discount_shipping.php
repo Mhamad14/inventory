@@ -8,7 +8,7 @@
                          <span><?= $currency ?></span>
                      </div>
                  </div>
-                 <input type="text" class="form-control" name="order_discount" id="order_discount">
+                 <input type="text" class="form-control" name="order_discount" id="order_discount" value="<?= isset($purchase['discount']) ? esc($purchase['discount']) : '' ?>">
              </div>
          </div>
      </div>
@@ -21,7 +21,7 @@
                          <span><?= $currency ?></span>
                      </div>
                  </div>
-                 <input type="text" class="form-control" name="shipping" id="shipping">
+                 <input type="text" class="form-control" name="shipping" id="shipping" value="<?= isset($purchase['delivery_charges']) ? esc($purchase['delivery_charges']) : '' ?>">
              </div>
          </div>
      </div>

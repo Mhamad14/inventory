@@ -51,6 +51,7 @@ function getData($tableName, $tableData, $page, $optionalData1 = '', $optionalDa
         'languages_locale' => $languages,
         'business_id' => session('business_id'),
         'page' => $page,
+        'currency' => $settings['currency_symbol'],
         'title' => "Orders - " . $settings['title'] ?? "",
         'from_title' => 'Purchase',
         'meta_keywords' => "subscriptions app, digital subscription, daily subscription, software, app, module",

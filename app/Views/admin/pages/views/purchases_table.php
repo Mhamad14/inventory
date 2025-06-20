@@ -31,7 +31,7 @@
                                             <th data-field="amount_paid" data-sortable="true" data-visible="true"><?= labels('amount_paid', 'Amount Paid') ?></th>
                                             <th data-field="total" data-sortable="true" data-visible="true"><?= labels('purchase_total', 'Total') ?></th>
 
-                                            <th data-field="action" data-visible="true"><?= labels('action', 'Action') ?></th>
+                                            <th data-field="action" data-formatter="actionFormatter" data-events="window.actionEvents" data-visible="true"><?= labels('action', 'Action') ?></th>
                                         </tr>
                                     </thead>
                                 </table>
@@ -46,6 +46,24 @@
                                             search: params.search
                                         };
                                     }
+                                    function actionFormatter(value, row, index) {
+                                        let editUrl = base_url + '/admin/purchases/edit_purchase/' + row.id;
+                                        let viewUrl = base_url + '/admin/purchases/view_purchase/' + row.id;
+                                        let invoiceUrl = base_url + '/admin/purchases/invoice/' + row.id;
+                                        let batchUrl = base_url + '/admin/batches/return/' + row.id;
+
+                                        return [
+                                            `<a href="${editUrl}" class="btn btn-sm btn-info" title="Edit"><i class="fas fa-edit"></i></a>`,
+                                            `<a href="${viewUrl}" class="btn btn-sm btn-primary" title="View"><i class="fas fa-eye"></i></a>`,
+                                            `<a href="${invoiceUrl}" class="btn btn-sm btn-warning" title="Invoice"><i class="bi bi-receipt-cutoff"></i></a>`,
+                                            `<a href="${batchUrl}" class="btn btn-sm btn-info" title="Return"><i class="bi bi-box-arrow-down"></i></a>`
+
+                                        ].join(' ');
+
+                                    }
+                                    window.actionEvents = {
+                                        // You can add JS event handlers here if needed
+                                    };
                                 </script>
                             </div>
                         </div>

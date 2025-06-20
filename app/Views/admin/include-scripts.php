@@ -8,6 +8,8 @@
 <!-- choises -->
 <script src="https://cdn.jsdelivr.net/npm/choices.js/public/assets/scripts/choices.min.js"></script>
 
+<!-- for numerical formats -->
+<script src="https://cdn.jsdelivr.net/npm/numeral@2.0.6/numeral.min.js"></script>
 
 <script src="<?= base_url("public/backend/assets/js/lightbox-plus-jquery.min.js") ?>"></script>
 <script src="<?= base_url("public/backend/assets/js/jquery.validate.min.js") ?>"> </script>
