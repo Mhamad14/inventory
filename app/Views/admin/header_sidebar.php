@@ -52,7 +52,6 @@
                     @click="openExchangeRateModal"
                     @mouseenter="showTooltip = true"
                     @mouseleave="showTooltip = false">
-                    <i class="bi bi-currency-exchange"></i>
                     <span x-text="buttonText">Exchange Rate</span>
 
                     <!-- Custom tooltip -->
@@ -62,7 +61,7 @@
                         <template x-for="rate in rates" :key="rate.currency_id">
                             <div class="d-flex justify-content-between">
                                 <!-- Fixed: Using component method properly -->
-                                <span x-text="'1 ' + getCurrencyCode(rate.currency_id)"></span>
+                                <span x-text="'100 ' + getCurrencyCode(rate.currency_id)"></span>
                                 <span x-text="formatRate(rate.rate, rate.currency_id)"></span>
                             </div>
                         </template>
@@ -320,7 +319,7 @@
                     const mainRate = this.rates[0];
                     const currency = this.getCurrency(mainRate.currency_id);
                     this.buttonText = currency ?
-                        `1${currency.symbol}:${this.formatRate(mainRate.rate, mainRate.currency_id)}` :
+                        `100${currency.symbol} : ${this.formatRate(mainRate.rate, mainRate.currency_id)}` :
                         'Exchange Rates';
                 } else {
                     this.buttonText = 'Exchange Rates';
@@ -365,7 +364,7 @@
                 value="${rateValue}"
                 placeholder="Enter rate"
                 required>
-            <small class="text-muted">1 ${currency.code} = ${rateValue || '?'} ${this.baseCurrency.code}</small>
+            <small class="text-muted">100 ${currency.code} = ${rateValue || '?'} ${this.baseCurrency.code}</small>
         </div>
     `;
                 });

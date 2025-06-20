@@ -227,4 +227,13 @@ class Products_variants_model extends Model
                 ->update();
         }
     }
+
+    public function getVariantWithProduct($variant_id)
+    {
+        $builder = $this->db->table('products_variants pv');
+        $builder->select('pv.*, p.name as product_name, p.image');
+        $builder->join('products p', 'p.id = pv.product_id', 'left');
+        $builder->where('pv.id', $variant_id);
+        return $builder->get()->getRowArray();
+    }
 }

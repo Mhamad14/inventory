@@ -2746,14 +2746,17 @@ function subTotal(e) {
   var discount = $(
     e.parentElement.parentElement.getElementsByClassName("discount")
   ).val();
+  // Strip commas before parsing
+  price = price ? price.replace(/,/g, "") : "0";
+  discount = discount ? discount.replace(/,/g, "") : "0";
   $(table_subtotal).html("0");
   if (qty != 0 && qty != null) {
     var sub_total = parseFloat(price) * parseFloat(qty);
-    $(table_subtotal).html(sub_total);
+    $(table_subtotal).html(Number(sub_total).toLocaleString());
   }
   if (discount != 0 && discount != null) {
     var sub_total = parseFloat(price) * parseFloat(qty) - parseFloat(discount);
-    $(table_subtotal).html(sub_total);
+    $(table_subtotal).html(Number(sub_total).toLocaleString());
   }
 }
 
@@ -2769,19 +2772,21 @@ function settlePrice(e) {
   var discount = $(
     e.parentElement.parentElement.getElementsByClassName("discount")
   ).val();
-  var price = $(price_class).val();
+  // Strip commas before parsing
+  price = price ? price.replace(/,/g, "") : "0";
+  discount = discount ? discount.replace(/,/g, "") : "0";
   var sub_total = parseFloat(price) * parseFloat(qty);
-  $(table_subtotal).html(sub_total);
+  $(table_subtotal).html(Number(sub_total).toLocaleString());
   if (price != 0 && price != null) {
-    $(table_subtotal).html(sub_total);
+    $(table_subtotal).html(Number(sub_total).toLocaleString());
     if (qty != 0 && qty != null) {
       sub_total = parseFloat(price) * parseFloat(qty);
-      $(table_subtotal).html(sub_total);
+      $(table_subtotal).html(Number(sub_total).toLocaleString());
     }
     if (discount != 0 && discount != null) {
       var sub_total =
         parseFloat(price) * parseFloat(qty) - parseFloat(discount);
-      $(table_subtotal).html(sub_total);
+      $(table_subtotal).html(Number(sub_total).toLocaleString());
     }
   }
 }
@@ -2894,11 +2899,14 @@ function settleDisount(e) {
   var price = $(
     e.parentElement.parentElement.getElementsByClassName("price")
   ).val();
+  // Strip commas before parsing
+  price = price ? price.replace(/,/g, "") : "0";
+  discount = discount ? discount.replace(/,/g, "") : "0";
   var sub_total = parseFloat(price) * parseFloat(qty);
-  $(table_subtotal).html(sub_total);
+  $(table_subtotal).html(Number(sub_total).toLocaleString());
   if (discount != 0 && discount != null) {
     sub_total = parseFloat(price) * parseFloat(qty) - parseFloat(discount);
-    $(table_subtotal).html(sub_total);
+    $(table_subtotal).html(Number(sub_total).toLocaleString());
   }
 }
 $(document).on("change", "#order_taxes", function (e) {
@@ -2939,37 +2947,43 @@ function purchase_total() {
 
   $(".table_price").each(function (i, el) {
     var row = $(el).closest("tr");
-
-    var price = parseFloat(row.find(".price").val()) || 0;
-    var qty = parseFloat(row.find(".qty").val()) || 0;
+    var price = row.find(".price").val();
+    var qty = row.find(".qty").val();
     var discountInput = row.find(".discount").val().trim();
     var discount = 0;
+    var sell_price = row.find(".sell_price").val();
+    // Strip commas before parsing
+    price = price ? price.replace(/,/g, "") : "0";
+    qty = qty ? qty.replace(/,/g, "") : "0";
+    discountInput = discountInput ? discountInput.replace(/,/g, "") : "0";
+    sell_price = sell_price ? sell_price.replace(/,/g, "") : "0";
 
     if (discountInput.endsWith("%")) {
       var percentValue = parseFloat(discountInput.slice(0, -1));
-      discount = (percentValue / 100) * (price * qty);
+      discount = (percentValue / 100) * (parseFloat(price) * parseFloat(qty));
     } else {
       discount = parseFloat(discountInput) || 0;
     }
 
-    var row_total = price * qty - discount;
+    var row_total = parseFloat(price) * parseFloat(qty) - discount;
     total += row_total;
 
     // sell price total (calculate before applying order discount)
-    var sell_price = parseFloat(row.find(".sell_price").val()) || 0;
-    var row_sell_total = sell_price * qty;
+    var row_sell_total = parseFloat(sell_price) * parseFloat(qty);
     sell_total += row_sell_total;
 
     // profit total (calculate before applying order discount)
-    var row_profit = (sell_price * qty) - row_total;
+    var row_profit = (parseFloat(sell_price) * parseFloat(qty)) - row_total;
     profit_total += row_profit;
   });
 
-  var order_discount = parseFloat($("#order_discount").val()) || 0;
-  var shipping = parseFloat($("#shipping").val()) || 0;
+  var order_discount = $("#order_discount").val();
+  var shipping = $("#shipping").val();
+  order_discount = order_discount ? order_discount.replace(/,/g, "") : "0";
+  shipping = shipping ? shipping.replace(/,/g, "") : "0";
 
   // Apply order discount and shipping
-  final_total = total - order_discount + shipping;
+  final_total = total - parseFloat(order_discount) + parseFloat(shipping);
   profit_total = sell_total - final_total;
   
   // Store base values in hidden inputs for currency conversion
@@ -5863,3 +5877,45 @@ function showDraftsModal() {
     show_message("Error", error.message, "error");
   }
 }
+
+// Add this function to format all SubTotal cells with commas
+function formatAllSubTotals() {
+  $(".table_price").each(function() {
+    var val = $(this).text().replace(/,/g, '');
+    if (!isNaN(val) && val !== "") {
+      $(this).text(Number(val).toLocaleString());
+    }
+  });
+}
+
+// Call it on page load
+$(document).ready(function() {
+  formatAllSubTotals();
+});
+
+// If you have a function that renders or refreshes the purchase order table, call formatAllSubTotals() at the end of that function as well.
+
+// Add this function at the end of the file or after document ready
+function formatAllNumbers() {
+  $(".format-number").each(function() {
+    // Skip input[type=number] fields!
+    if ($(this).is("input[type='number']")) {
+      // Do NOT format with commas
+      return;
+    }
+    if ($(this).is("input")) {
+      var val = $(this).val().replace(/,/g, '');
+      if (!isNaN(val) && val !== "") {
+        $(this).val(Number(val).toLocaleString());
+      }
+    } else {
+      var val = $(this).text().replace(/,/g, '');
+      if (!isNaN(val) && val !== "") {
+        $(this).text(Number(val).toLocaleString());
+      }
+    }
+  });
+}
+$(document).ready(function() {
+  formatAllNumbers();
+});

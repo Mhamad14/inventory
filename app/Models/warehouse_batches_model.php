@@ -251,4 +251,22 @@ class warehouse_batches_model extends Model
         // 3. Return true/false
         return $updateResult;
     }
+
+    /**
+     * Update warehouse_id for all batches in a purchase
+     */
+    public function updateWarehouseIdByPurchase($purchase_id, $new_warehouse_id)
+    {
+        $db = \Config\Database::connect();
+        // Find all batches for this purchase (via purchases_items)
+        $builder = $db->table('warehouse_batches wb');
+        $builder->join('purchases_items pi', 'pi.id = wb.purchase_item_id');
+        $builder->where('pi.purchase_id', $purchase_id);
+        $batches = $builder->select('wb.id')->get()->getResultArray();
+        $batch_ids = array_column($batches, 'id');
+        if (!empty($batch_ids)) {
+            $db->table('warehouse_batches')->whereIn('id', $batch_ids)->update(['warehouse_id' => $new_warehouse_id]);
+        }
+        return true;
+    }
 }
