@@ -9,12 +9,12 @@
                      <th data-field="variant_ids" data-sortable="true" data-visible="false" data-card-visible="false"><?= labels('variant_ids', 'variant_ids') ?></th>
                      <th data-field="image" data-sortable="true" data-visible="true"><?= labels('image', 'Image') ?></th>
                      <th data-field="name" data-sortable="true" data-visible="true"><?= labels('name', 'Name') ?></th>
-                     <th data-field="quantity" data-sortable="true" data-visible="true"><?= labels('qty', 'Qty') ?></th>
-                     <th data-field="price" data-editable="true" data-sortable="true" data-visible="true"><?= labels('cost_price', 'Cost Price') ?></th>
-                     <th data-field="sell_price" data-editable="true" data-sortable="true" data-visible="true"><?= labels('sell_price', 'Sell Price') ?></th>
+                     <th data-field="quantity" data-sortable="true" data-visible="true"><?= labels('qty', 'Quantity') ?></th>
+                     <th data-field="price" data-editable="true" data-sortable="true" data-visible="true"><?= currency_location(labels('cost_price', 'Cost Price')) ?></th>
+                     <th data-field="sell_price" data-editable="true" data-sortable="true" data-visible="true"><?= currency_location(labels('sell_price', 'Sell Price')) ?></th>
                      <th data-field="expire" data-editable="true" data-sortable="true" data-visible="true"><?= labels('expiration_date', 'Expiration Date') ?></th>
-                     <th data-field="discount" data-sortable="true" data-visible="true"><?= labels('discount', 'Discount') . "<small> $currency</small>" ?></th>
-                     <th data-field="total" data-sortable="true" data-visible="true"><?= labels('sub_total', 'SubTotal') ?></th>
+                     <th data-field="discount" data-sortable="true" data-visible="true"><?= currency_location(labels('discount', 'Discount')) ?></th>
+                     <th data-field="total" data-sortable="true" data-visible="true"><?= currency_location(labels('sub_total', 'SubTotal')) ?></th>
                      <th data-field="hidden_inputs" data-visible="false"></th>
                  </tr>
              </thead>

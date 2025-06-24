@@ -11,11 +11,14 @@ function getPurchaseValidationRules($request)
         'warehouse_id'  => ['rules' => 'required', 'label' => 'Warehouse'],
     ];
 
-    $payment_status = $request->getVar('payment_status');
-
-    if ($payment_status == "partially_paid") {
-        $rules['amount_paid'] = ['rules' => 'required', 'label' => 'Amount Paid'];
-    }
+     //Optionally, require at least one payment for partially_paid
+     $payment_status = $request->getVar('payment_status');
+     if ($payment_status == "partially_paid") {
+         $payments = $request->getVar('payments');
+         if (empty($payments) || !is_array($payments) || count($payments) == 0) {
+             $rules['payments'] = ['rules' => 'required', 'label' => 'Payments'];
+         }
+     }
 
     return $rules;
 }

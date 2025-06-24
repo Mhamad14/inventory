@@ -24,4 +24,9 @@ class Purchases_items_model extends Model
             ]
         ) !== false;
     }
+
+    public function getItemsByPurchase($purchase_id)
+    {
+        return $this->where('purchase_id', $purchase_id)->findAll();
+    }
 }
