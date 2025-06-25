@@ -91,6 +91,55 @@ class Purchases extends BaseController
 
         return view("admin/template", $data);
     }
+    public function edit_purchase($purchase_id = '')
+    {
+        $data = getdata(
+            'status',
+            $this->status_model->get_status($this->business_id),
+            FORMS . 'purchases',
+            'warehouses',
+            $this->warehouse_model->where('business_id', $this->business_id)->get()->getResultArray()
+        );
+
+        $data['purchase'] = $this->purchase_model->getPurchase($purchase_id);
+
+        // Fetch and enrich items
+        $items = $this->Purchases_items_model->getItemsByPurchase($purchase_id);
+        $enriched_items = [];
+        // Fetch all batches for this purchase
+        $batches_result = $this->warehouse_batches_model->getBatches($purchase_id);
+        $batches = $batches_result['result'] ?? [];
+        foreach ($items as $item) {
+            $variant = $this->products_variants_model->getVariantWithProduct($item['product_variant_id']);
+            // Find the batch for this item
+            $batch = null;
+            foreach ($batches as $b) {
+                if ($b['product_variant_id'] == $item['product_variant_id'] && $b['purchase_item_id'] == $item['id']) {
+                    $batch = $b;
+                    break;
+                }
+            }
+            $enriched_items[] = [
+                'product_variant_id' => $item['product_variant_id'],
+                'product_name' => $variant['product_name'] ?? '',
+                'variant_name' => $variant['variant_name'] ?? '',
+                'image' => $variant['image'] ?? '',
+                'quantity' => $item['quantity'],
+                'price' => $item['price'],
+                'discount' => $item['discount'],
+                'sell_price' => $batch['sell_price'] ?? '',
+                'expire' => $batch['expiration_date'] ?? ($item['expire'] ?? ''),
+            ];
+        }
+        $data['purchase']['items'] = $enriched_items;
+        $data['purchase_id'] = $purchase_id;
+        // Fetch payments
+        $PaymentsModel = new \App\Models\Payments_model();
+        $payments = $PaymentsModel->getPaymentsByPurchase($purchase_id);
+        $data['purchase']['payments'] = $payments;
+
+        return view("admin/template", $data);
+    }
 
     public function save()
     {
@@ -101,8 +150,7 @@ class Purchases extends BaseController
         $sell_prices = $this->request->getVar('sell_price');
         $prices = $this->request->getVar('price');
         $order_type = $this->request->getVar('order_type');
-
-
+       
         // validation
         $rules =  getPurchaseValidationRules($this->request);
         $this->validation->setRules($rules);
@@ -167,20 +215,203 @@ class Purchases extends BaseController
                 // save a batch
                 $this->warehouse_batches_model->saveBatch($purchase_items_id, $warehouse_id, $item, 'order');
                 $this->products_variants_model->upsert_warehouse_stock($warehouse_id, $item->id, $item->qty);
-                // update_stock(product_variant_ids: $item->id, qtns: $item->qty, type: 'plus');
-                // updateWarehouseStocks(warehouse_id: $warehouse_id,  product_variant_id: $item->id,  warehouse_stock: $item->qty, type: 1);
+
             } elseif ($order_type == "return") {
                 $this->warehouse_batches_model->saveBatch($purchase_items_id, $warehouse_id, $item, 'return');
-                // update_stock(product_variant_ids: $item->id, qtns: $item->qty);
-                // updateWarehouseStocks(warehouse_id: $warehouse_id,  product_variant_id: $item->id,  warehouse_stock: $item->qty, type: 0);
             }
         }
+
+        // --- MULTI-CURRENCY PAYMENTS HANDLING ---
+        $payments = $this->request->getVar('payments');
+        $total_paid_iqd = 0;
+        // Only process payments if they exist and payment status requires them
+        if ($payments && is_array($payments) && !in_array($payment_status, ['unpaid', 'cancelled'])) {
+            $PaymentsModel = new \App\Models\Payments_model();
+            foreach ($payments as $payment) {
+                // Skip empty payment entries
+                if (empty($payment['amount']) || empty($payment['currency_id'])) {
+                    continue;
+                }
+                
+                $payment_data = [
+                    'purchase_id' => $purchase_id,
+                    'currency_id' => $payment['currency_id'],
+                    'amount' => $payment['amount'],
+                    'converted_iqd' => $payment['converted_iqd'],
+                    'rate_at_payment' => $payment['rate_at_payment'],
+                    'payment_type' => $payment['payment_type'],
+                    'paid_at' => $payment['paid_at'] ?? date('Y-m-d H:i:s'),
+                ];
+                $PaymentsModel->addPayment($payment_data);
+                $total_paid_iqd += floatval($payment['converted_iqd']);
+            }
+        }
+        
+        // Update purchase with total paid and payment status
+        $this->purchase_model->update($purchase_id, [
+            'amount_paid' => $total_paid_iqd,
+            'payment_status' => $payment_status
+        ]);
 
         return $this->response->setJSON(csrfResponseData([
             'success' => true,
             'message' => 'Purchase Order saved successfully',
             'data' => []
         ]));
+    }
+
+    /**
+     * Update an existing purchase and all related data (items, batches, payments)
+     */
+    public function update()
+    {
+        $purchase_id = $this->request->getVar('purchase_id');
+        if (!$purchase_id) {
+            return $this->response->setJSON([
+                'success' => false,
+                'message' => 'purchase_id is required',
+            ]);
+        }
+
+        // Validation (reuse save logic if possible)
+        $rules = getPurchaseValidationRules($this->request);
+        $this->validation->setRules($rules);
+        if (!$this->validation->withRequest($this->request)->run()) {
+            $errors = $this->validation->getErrors();
+            return $this->response->setJSON([
+                'success' => false,
+                'message' => $errors,
+            ]);
+        }
+
+        // Prepare main purchase data
+        $warehouse_id = $this->request->getVar('warehouse_id');
+        $payment_status = $this->request->getVar('payment_status');
+        $amount_paid = $payment_status === 'fully_paid'
+            ? $this->request->getVar('total')
+            : ($payment_status === 'partially_paid' ? ($this->request->getVar('amount_paid') ?? 0) : 0);
+        $purchase_data = [
+            'vendor_id' => getUserId(),
+            'business_id' => $this->business_id,
+            'warehouse_id' => $warehouse_id,
+            'order_type' => $this->request->getVar('order_type') ?? '',
+            'purchase_date' => $this->request->getVar('purchase_date') ?? '',
+            'supplier_id' => $this->request->getVar('supplier_id') ?? '',
+            'discount' => $this->request->getVar('order_discount') ?? 0,
+            'delivery_charges' => $this->request->getVar('shipping') ?? 0,
+            'payment_status' => $payment_status,
+            'amount_paid' => $amount_paid ?? 0,
+            'total' => $this->request->getVar('total'),
+            'status' => $this->request->getVar('status'),
+            'message' => $this->request->getVar('message'),
+        ];
+        // Fetch the old warehouse_id before update
+        $old_purchase = $this->purchase_model->find($purchase_id);
+        $old_warehouse_id = $old_purchase['warehouse_id'] ?? null;
+        $this->purchase_model->update($purchase_id, $purchase_data);
+        // If warehouse_id changed, update all batches
+        if ($old_warehouse_id && $warehouse_id && $old_warehouse_id != $warehouse_id) {
+            $this->warehouse_batches_model->updateWarehouseIdByPurchase($purchase_id, $warehouse_id);
+        }
+
+        // --- Handle purchase items and batches ---
+        $products = json_decode($this->request->getPost('products'));
+        $qtys = $this->request->getVar('qty');
+        $discounts = $this->request->getVar('discount');
+        $expiry_dates = $this->request->getVar('expire');
+        $sell_prices = $this->request->getVar('sell_price');
+        $prices = $this->request->getVar('price');
+        $order_type = $this->request->getVar('order_type');
+
+        // Fetch existing items for this purchase
+        $existing_items = $this->Purchases_items_model->where('purchase_id', $purchase_id)->findAll();
+        $existing_items_map = [];
+        foreach ($existing_items as $item) {
+            $existing_items_map[$item['product_variant_id']] = $item;
+        }
+        $submitted_variant_ids = [];
+        foreach ($products as $product) {
+            $id = $product->id;
+            $product->qty = $qtys[$id];
+            $product->price = $prices[$id];
+            $product->discount = $discounts[$id];
+            $product->sell_price = $sell_prices[$id];
+            $product->expire = $expiry_dates[$id];
+            $submitted_variant_ids[] = $id;
+
+            if (isset($existing_items_map[$id])) {
+                // Update item
+                $item_id = $existing_items_map[$id]['id'];
+                $this->Purchases_items_model->update($item_id, [
+                    'quantity' => $product->qty,
+                    'price' => $product->price,
+                    'discount' => $product->discount,
+                    'status' => $this->request->getVar('status'),
+                ]);
+                // Update batch
+                $batch = $this->warehouse_batches_model->where('purchase_item_id', $item_id)->first();
+                if ($batch) {
+                    $this->warehouse_batches_model->update_batch(
+                        $batch['id'], $item_id, $product->qty, $product->price, $product->sell_price, $product->discount, $product->expire, $id
+                    );
+                }
+                // Update warehouse stock (set to new qty)
+                // (Optional: implement logic to adjust stock difference if needed)
+            } else {
+                // New item: insert
+                $this->Purchases_items_model->savePurchaseItem($purchase_id, $this->request->getVar('status'), $product);
+                $purchase_items_id = $this->Purchases_items_model->getInsertID();
+                $this->warehouse_batches_model->saveBatch($purchase_items_id, $warehouse_id, $product, $order_type);
+                $this->products_variants_model->upsert_warehouse_stock($warehouse_id, $product->id, $product->qty);
+            }
+        }
+        // Delete removed items and their batches
+        foreach ($existing_items as $item) {
+            if (!in_array($item['product_variant_id'], $submitted_variant_ids)) {
+                // Delete batch and item
+                $batch = $this->warehouse_batches_model->where('purchase_item_id', $item['id'])->first();
+                if ($batch) {
+                    $this->warehouse_batches_model->delete_batch($batch['id'], $item['id']);
+                } else {
+                    $this->Purchases_items_model->delete($item['id']);
+                }
+            }
+        }
+        // --- Handle payments ---
+        $PaymentsModel = new \App\Models\Payments_model();
+        // Remove all old payments for this purchase
+        $PaymentsModel->where('purchase_id', $purchase_id)->delete();
+        $payments = $this->request->getVar('payments');
+        $total_paid_iqd = 0;
+        if ($payments && is_array($payments) && !in_array($payment_status, ['unpaid', 'cancelled'])) {
+            foreach ($payments as $payment) {
+                if (empty($payment['amount']) || empty($payment['currency_id'])) {
+                    continue;
+                }
+                $payment_data = [
+                    'purchase_id' => $purchase_id,
+                    'currency_id' => $payment['currency_id'],
+                    'amount' => $payment['amount'],
+                    'converted_iqd' => $payment['converted_iqd'],
+                    'rate_at_payment' => $payment['rate_at_payment'],
+                    'payment_type' => $payment['payment_type'],
+                    'paid_at' => $payment['paid_at'] ?? date('Y-m-d H:i:s'),
+                ];
+                $PaymentsModel->addPayment($payment_data);
+                $total_paid_iqd += floatval($payment['converted_iqd']);
+            }
+        }
+        // Update purchase with total paid and payment status
+        $this->purchase_model->update($purchase_id, [
+            'amount_paid' => $total_paid_iqd,
+            'payment_status' => $payment_status
+        ]);
+        // Recalculate purchase total
+        $this->warehouse_batches_model->update_purchase_total($purchase_id);
+        return $this->response->setJSON([
+            'success' => true,
+            'message' => 'Purchase Order updated successfully',
+        ]);
     }
 
     public function get_suppliers()
@@ -248,6 +479,7 @@ class Purchases extends BaseController
             // Action buttons for editing/viewing
             $purchase_id = $purchase['id'];
             $edit = "<a href=" . base_url('admin/purchases/view_purchase') . "/" . $purchase_id . " class='btn btn-primary btn-sm' data-toggle='tooltip' data-placement='bottom' title='View'><i class='bi bi-eye'></i></a>";
+            $edit .= " <a href=" . base_url('admin/purchases/edit_purchase') . "/" . $purchase_id . " class='btn btn-primary btn-sm' data-toggle='tooltip' data-placement='bottom' title='Edit'><i class='bi bi-pencil'></i></a>";
             $edit .= " <a href='" . base_url("admin/purchases/invoice") . "/" . $purchase_id . "' class='btn btn-warning btn-sm' data-toggle='tooltip' data-placement='bottom' title='Invoice'><i class='bi bi-receipt-cutoff'></i></a>";
             $edit .= " <a href='" . base_url("admin/batches/return") . "/" . $purchase_id . "' class='btn btn-info btn-sm' data-toggle='tooltip' data-placement='bottom' title='Return'><i class='bi bi-box-arrow-down'></i></a>";
 
@@ -604,6 +836,87 @@ class Purchases extends BaseController
             $array['rows'] = $rows;
             $array['total'] = count($purchases);
             echo json_encode($array);
+        }
+    }
+
+    public function get_currencies_for_purchases()
+    {
+        if (!$this->request->isAJAX()) {
+            return $this->response->setStatusCode(405)->setJSON([
+                'success' => false,
+                'message' => 'Method not allowed'
+            ]);
+        }
+
+        try {
+            $businessId = session('business_id');
+
+            // Get currency model
+            $currency_model = new \App\Models\Currency_model();
+            $exchange_rates_model = new \App\Models\ExchangeRatesModel();
+
+            // Get all active currencies
+            $currencies = $currency_model
+                ->where('business_id', $businessId)
+                ->where('status', 1)
+                ->findAll();
+            // Get base currency
+            $baseCurrency = $currency_model->get_base_currency($businessId);
+
+            // Get current exchange rates
+            $rates = $exchange_rates_model->getLatestRates($currencies);
+            return $this->response->setJSON([
+                'success' => true,
+                'currencies' => $currencies,
+                'base_currency' => $baseCurrency,
+                'exchange_rates' => $rates,
+                'debug' => [
+                    'business_id' => $businessId,
+                    'currencies_count' => count($currencies),
+                    'rates_count' => count($rates)
+                ]
+            ]);
+        } catch (\Exception $e) {
+            return $this->response->setStatusCode(500)->setJSON([
+                'success' => false,
+                'message' => 'Failed to load currencies: ' . $e->getMessage()
+            ]);
+        }
+    }
+
+    public function delete_payment($id)
+    {
+        if (!$this->request->is('post')) {
+            return $this->response->setJSON([
+                'success' => false,
+                'message' => 'Invalid request method.'
+            ]);
+        }
+        if (!is_numeric($id) || $id <= 0) {
+            return $this->response->setJSON([
+                'success' => false,
+                'message' => 'Invalid payment ID.'
+            ]);
+        }
+        // Optional: check authentication/authorization here
+        $PaymentsModel = new \App\Models\Payments_model();
+        $payment = $PaymentsModel->find($id);
+        if (!$payment) {
+            return $this->response->setJSON([
+                'success' => false,
+                'message' => 'Payment not found.'
+            ]);
+        }
+        if ($PaymentsModel->delete($id)) {
+            return $this->response->setJSON([
+                'success' => true,
+                'message' => 'Payment deleted.'
+            ]);
+        } else {
+            return $this->response->setJSON([
+                'success' => false,
+                'message' => 'Failed to delete payment.'
+            ]);
         }
     }
 }

@@ -41,17 +41,21 @@ $routes->get('variants/products_variants_list', 'admin\Products::products_varian
 $routes->group('admin/purchases', ['filter' => 'checkpermissions:module=purchases'], function ($routes) {
     $routes->get('', 'admin\Purchases::index', ['filter' => 'checkpermissions:action=can_read']);
     $routes->get('get_suppliers', 'admin\Purchases::get_suppliers', ['filter' => 'checkpermissions:action=can_read']);
+    $routes->get('edit_purchase/(:any)', 'admin\Purchases::edit_purchase/$1', ['filter' => 'checkpermissions:action=can_update']);
     $routes->get('purchase_table', 'admin\Purchases::purchase_table', ['filter' => 'checkpermissions:action=can_read']);
     $routes->get('view_purchase/(:any)', 'admin\Purchases::view_purchase/$1', ['filter' => 'checkpermissions:action=can_read']);
     $routes->get('purchase_orders/(:any)', 'admin\Purchases::purchase_orders/$1', ['filter' => 'checkpermissions:action=can_create']);
     $routes->get('return_purchase_orders/(:any)', 'admin\Purchases::return_purchase_orders/$1');
     $routes->post('save', 'admin\Purchases::save', ['filter' => 'checkpermissions:action=can_create']);
+    $routes->post('update', 'admin\Purchases::update', ['filter' => 'checkpermissions:action=can_update']);
     $routes->post('update_status_bulk', 'admin\Purchases::update_status_bulk', ['filter' => 'checkpermissions:action=can_update']);
     $routes->get('invoice/(:any)', 'admin\Purchases::invoice/$1', ['filter' => 'checkpermissions:action=can_read']);
     $routes->get('invoice_table/(:any)', 'admin\Purchases::invoice_table/$1', ['filter' => 'checkpermissions:action=can_read']);
     $routes->get('update_order_status', 'admin\Purchases::update_order_status', ['filter' => 'checkpermissions:action=can_read']);
     $routes->get('purchase_return/(:any)', 'admin\Purchases::purchase_return/$1', ['filter' => 'checkpermissions:action=can_read']);
     $routes->get('purchase_return_table', 'admin\Purchases::purchase_return_table', ['filter' => 'checkpermissions:action=can_read']);
+    $routes->get('get_currencies_for_purchases', 'admin\Purchases::get_currencies_for_purchases', ['filter' => 'checkpermissions:action=can_read']);
+    $routes->post('delete_payment/(:num)', 'admin\Purchases::delete_payment/$1', ['filter' => 'checkpermissions:action=can_update']);
 });
 //,checkpermissions:module=customers
 $routes->group('admin/customers', ['filter' => 'checkpermissions:module=customers|permissioncheck'], function ($routes) {
@@ -497,3 +501,4 @@ $routes->get('admin/seed/warehouse', function () {
         return "Error running seeder: " . $e->getMessage();
     }
 });
+

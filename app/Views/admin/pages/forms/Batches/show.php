@@ -1,7 +1,34 @@
 <?= view('admin/pages/forms/Batches/js/update_purchase_order') ?>
+<?= view('admin/pages/forms/Batches/js/product_search') ?>
 
-<div class="main-content">
+<!-- Alpine.js Store and Component Initialization -->
+<script>
+// Wait for Alpine to be available
+function initializeAlpine() {
+    if (typeof Alpine !== 'undefined') {
+        Alpine.store('purchase', {
+            finalTotal: <?= $purchase['total'] ?? 0 ?>,
+            updateFinalTotal(total) {
+                this.finalTotal = total;
+            }
+        });
+    } else {
+        setTimeout(initializeAlpine, 100); // Try again in 100ms
+    }
+}
 
+// Start initialization when DOM is ready
+document.addEventListener('DOMContentLoaded', initializeAlpine);
+</script>
+
+<div class="main-content" x-data="{ 
+    variantForm: false,
+    selected: null,
+    confirmReturn(item) {
+        this.selected = item;
+        this.variantForm = true;
+    }
+}">
 
     <!-- Header  ...START-->
     <section class="section">
@@ -135,7 +162,6 @@
     const $warehouse_id = <?= $purchase['warehouse_id'] ?>;
 </script>
 
-<?= view('admin/pages/forms/Batches/js/product_search') ?>
 <?= view('admin/pages/forms/Batches/js/return_single_item') ?>
 <script>
     $(document).ready(function() {

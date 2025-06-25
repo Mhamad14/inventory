@@ -1,3 +1,4 @@
+<?php $get_purchase_id = $purchase_id ?? ''; ?>
 <div class="main-content">
     <section class="section">
         <!-- header -->
@@ -18,9 +19,11 @@
 
         <!-- Purchase form  ..START-->
         <div class="section-body">
-            <form action="<?= base_url('admin/purchases/save') ?>" id="purchase_form" accept-charset="utf-8" method="POST">
+            <form action="<?= !empty($get_purchase_id) ? base_url('admin/purchases/update') : base_url('admin/purchases/save') ?>" id="purchase_form" accept-charset="utf-8" method="POST">
                 <?= csrf_field("csrf_test_name") ?> <!-- CSRF Token -->
-
+                <?php if (!empty($get_purchase_id)) : ?>
+                    <input type="hidden" name="purchase_id" value="<?= $get_purchase_id ?>">
+                <?php endif; ?>
                 <input type="text" hidden name="order_type" value="<?= !empty($order_type) ? $order_type : 'order' ?>">
                 <input type="hidden" name="products" id="products_input" />
 
@@ -74,3 +77,14 @@
 <?= view('admin/pages/forms/Purchases/partials/view/create_status_modal') ?>
 
 <?= view('admin/pages/forms/Purchases/partials/js/purchase_form_submit') ?>
+
+<?php if (isset($purchase['items']) && is_array($purchase['items'])): ?>
+    <script>
+        window.prefillPurchaseItems = <?= json_encode($purchase['items']) ?>;
+    </script>
+<?php endif; ?>
+<?php if (isset($purchase['payments']) && is_array($purchase['payments'])): ?>
+    <script>
+        window.prefillPurchasePayments = <?= json_encode($purchase['payments']) ?>;
+    </script>
+<?php endif; ?>

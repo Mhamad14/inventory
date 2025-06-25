@@ -12,7 +12,7 @@ class ExchangeRatesModel extends Model
     protected $returnType       = 'array';
     protected $useSoftDeletes   = false;
     protected $protectFields    = true;
-    
+
     protected $allowedFields    = [
         'id',
         'currency_id',
@@ -39,7 +39,7 @@ class ExchangeRatesModel extends Model
     protected $validationRules      = [
         'currency_id'     => 'required|integer',
         // make rate all numbers, including decimals
-        
+
         'rate'            => 'required|decimal',
         'effective_date'  => 'required|valid_date',
         'created_at'      => 'permit_empty|valid_date',
@@ -48,4 +48,25 @@ class ExchangeRatesModel extends Model
     protected $validationMessages   = [];
     protected $skipValidation       = false;
     protected $cleanValidationRules = true;
+
+    public function getLatestRates(array $currencies): array
+    {
+        $rates = [];
+
+        foreach ($currencies as $currency) {
+            if (!($currency['is_base'] ?? false)) {
+                $rate = $this->where('currency_id', $currency['id'])
+                    ->orderBy('effective_date', 'DESC')
+                    ->first();
+
+                if ($rate) {
+                    $rates[$currency['id']] = $rate['rate'];
+                } else {
+                    log_message('warning', 'No exchange rate found for currency ID: ' . $currency['id']);
+                }
+            }
+        }
+
+        return $rates;
+    }
 }
