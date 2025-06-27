@@ -150,17 +150,34 @@ class Purchases extends BaseController
         $sell_prices = $this->request->getVar('sell_price');
         $prices = $this->request->getVar('price');
         $order_type = $this->request->getVar('order_type');
-       
-        // validation
-        $rules =  getPurchaseValidationRules($this->request);
-        $this->validation->setRules($rules);
-        if (!$this->validation->withRequest($this->request)->run()) {
-            $errors = $this->validation->getErrors();
+
+        // --- Robust Backend Validation ---
+        if (empty($products) || !is_array($products) || count($products) === 0) {
             return $this->response->setJSON(csrfResponseData([
                 'success' => false,
-                'message' => $errors,
+                'message' => 'Please add at least one product.',
                 'data' => []
             ]));
+        }
+        foreach ($products as $product) {
+            $id = $product->id;
+            $qty = isset($qtys[$id]) ? floatval($qtys[$id]) : null;
+            $price = isset($prices[$id]) ? floatval($prices[$id]) : null;
+            $discount = isset($discounts[$id]) ? floatval($discounts[$id]) : 0;
+            if ($price === null || $qty === null || $price < 0 || $qty < 0) {
+                return $this->response->setJSON(csrfResponseData([
+                    'success' => false,
+                    'message' => 'Price and quantity must be positive numbers.',
+                    'data' => []
+                ]));
+            }
+            if ($discount < 0 || $discount > $price * $qty) {
+                return $this->response->setJSON(csrfResponseData([
+                    'success' => false,
+                    'message' => 'Discount must be between 0 and subtotal.',
+                    'data' => []
+                ]));
+            }
         }
         if ($this->ionAuth->isTeamMember()) {
             if (! userHasPermission('purchases', 'can_update',  session('user_id'))) {
@@ -282,6 +299,39 @@ class Purchases extends BaseController
                 'success' => false,
                 'message' => $errors,
             ]);
+        }
+
+        // --- Robust Backend Validation ---
+        $products = json_decode($this->request->getPost('products'));
+        $qtys = $this->request->getVar('qty');
+        $discounts = $this->request->getVar('discount');
+        $expiry_dates = $this->request->getVar('expire');
+        $sell_prices = $this->request->getVar('sell_price');
+        $prices = $this->request->getVar('price');
+        $order_type = $this->request->getVar('order_type');
+        if (empty($products) || !is_array($products) || count($products) === 0) {
+            return $this->response->setJSON([
+                'success' => false,
+                'message' => 'Please add at least one product.',
+            ]);
+        }
+        foreach ($products as $product) {
+            $id = $product->id;
+            $qty = isset($qtys[$id]) ? floatval($qtys[$id]) : null;
+            $price = isset($prices[$id]) ? floatval($prices[$id]) : null;
+            $discount = isset($discounts[$id]) ? floatval($discounts[$id]) : 0;
+            if ($price === null || $qty === null || $price < 0 || $qty < 0) {
+                return $this->response->setJSON([
+                    'success' => false,
+                    'message' => 'Cost Price and quantity must be 0 or greater.',
+                ]);
+            }
+            if ($discount < 0 || $discount > $price * $qty) {
+                return $this->response->setJSON([
+                    'success' => false,
+                    'message' => 'Discount must be between 0 and subtotal.',
+                ]);
+            }
         }
 
         // Prepare main purchase data
