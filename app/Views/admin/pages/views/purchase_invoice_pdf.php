@@ -29,7 +29,7 @@ $description = $order[0]['description'] != '' ?  $order[0]['description'] : '';
 $pdf = new TCPDF(PDF_PAGE_ORIENTATION, PDF_UNIT, PDF_PAGE_FORMAT, true, 'UTF-8', false);
 
 // set document information
-$pdf->SetTitle(labels('invoice_label', 'Invoice - ' . $description));
+$pdf->SetTitle(labels('purchase_invoice_label', 'Purchase Invoice - ' . $description));
 
 // Remove default header and footer
 $pdf->setPrintHeader(false);
@@ -49,7 +49,7 @@ $pdf->AddPage();
 $pdf->SetFillColor(248, 249, 250);
 $pdf->Rect(0, 0, 210, 45, 'F');
 
-// Company Logo and Info (Left side)
+// Company Logo and Info (Left side - This is the "Bill To" part, i.e. our business)
 $pdf->SetXY(15, 20);
 setKurdishFont($pdf, 'B', 16);
 $pdf->SetTextColor(33, 37, 41);
@@ -72,12 +72,12 @@ if (!empty($order[0]['warehouse_name'])) {
 $pdf->SetXY(120, 15);
 setKurdishFont($pdf, 'B', 20);
 $pdf->SetTextColor(52, 152, 219);
-$pdf->Cell(0, 8, 'INVOICE', 0, 1, 'R');
+$pdf->Cell(0, 8, 'PURCHASE INVOICE', 0, 1, 'R');
 
 $pdf->SetXY(120, 25);
 setKurdishFont($pdf, 'B', 11);
 $pdf->SetTextColor(33, 37, 41);
-$pdf->Cell(0, 5, '#INV-' . str_pad($order[0]['id'], 6, '0', STR_PAD_LEFT), 0, 1, 'R');
+$pdf->Cell(0, 5, '#PUR-' . str_pad($order[0]['id'], 6, '0', STR_PAD_LEFT), 0, 1, 'R');
 
 $pdf->SetXY(120, 30);
 setKurdishFont($pdf, '', 9);
@@ -112,14 +112,14 @@ $pdf->Cell(30, 6, $statustext, 0, 0, 'C', true);
 // Reset text color
 $pdf->SetTextColor(33, 37, 41);
 
-// Customer Information Section with better design
+// Supplier Information Section
 $pdf->SetY(55);
 $pdf->SetFillColor(240, 242, 245);
 $pdf->Rect(15, 55, 180, 30, 'F');
 
 $pdf->SetXY(20, 60);
 setKurdishFont($pdf, 'B', 11);
-$pdf->Cell(0, 5, 'BILL TO:', 0, 1, 'L');
+$pdf->Cell(0, 5, 'SUPPLIER:', 0, 1, 'L');
 
 $pdf->SetXY(20, 66);
 setKurdishFont($pdf, 'B', 10);
@@ -140,8 +140,7 @@ $pdf->SetTextColor(255, 255, 255);
 setKurdishFont($pdf, 'B', 9);
 
 // Table headers with better column widths
-$pdf->Cell(30, 7, 'Type', 0, 0, 'L', true);
-$pdf->Cell(70, 7, 'Description', 0, 0, 'L', true);
+$pdf->Cell(100, 7, 'Description', 0, 0, 'L', true);
 $pdf->Cell(20, 7, 'Qty', 0, 0, 'C', true);
 $pdf->Cell(30, 7, 'Price', 0, 0, 'R', true);
 $pdf->Cell(30, 7, 'Total', 0, 1, 'R', true);
@@ -150,18 +149,14 @@ $pdf->Cell(30, 7, 'Total', 0, 1, 'R', true);
 $pdf->SetTextColor(33, 37, 41);
 setKurdishFont($pdf, '', 8);
 $y_position = 102;
+$item_subtotal = 0;
 
-foreach ($order as $o) :
-    if (isset($o['service_name']) && !empty($o['service_name'])) {
-        $item_name = $o['service_name'];
-    }
-    if (isset($o['product_name']) && !empty($o['product_name'])) {
-        $item_name = $o['product_name'] ? $o['product_name'] : $o['pro_name'];
-    }
-
-    $tax_details = json_decode($o['tax_details'], true);
-    $tax_amount = empty($o['tax_name']) ? 0 : $o['price'] / (1 + $o['tax_percentage']);
-    $price = $o['price'] - $tax_amount;
+foreach ($order as $item) :
+    $item_name = $item['product_name'] . ' / ' . $item['variant_name'];
+    $price = $item['price'];
+    $quantity = $item['quantity'];
+    $sub_total = $price * $quantity;
+    $item_subtotal += $sub_total;
 
     // Alternate row colors for better readability
     if (($y_position - 102) % 14 == 0) {
@@ -171,15 +166,14 @@ foreach ($order as $o) :
     }
 
     $pdf->SetXY(15, $y_position);
-    $pdf->Cell(30, 7, ucwords($o['order_type']), 0, 0, 'L', true);
     
     // Truncate long descriptions properly
-    $description = strlen($item_name) > 35 ? substr($item_name, 0, 32) . '...' : $item_name;
-    $pdf->Cell(70, 7, $description, 0, 0, 'L', true);
+    $description = strlen($item_name) > 55 ? substr($item_name, 0, 52) . '...' : $item_name;
+    $pdf->Cell(100, 7, $description, 0, 0, 'L', true);
     
-    $pdf->Cell(20, 7, $o['quantity'], 0, 0, 'C', true);
+    $pdf->Cell(20, 7, $quantity, 0, 0, 'C', true);
     $pdf->Cell(30, 7, currency_location(number_format($price, 2)), 0, 0, 'R', true);
-    $pdf->Cell(30, 7, currency_location(number_format($o['sub_total'], 2)), 0, 1, 'R', true);
+    $pdf->Cell(30, 7, currency_location(number_format($sub_total, 2)), 0, 1, 'R', true);
 
     $y_position += 7;
 endforeach;
@@ -198,7 +192,7 @@ $pdf->Cell(0, 5, 'SUMMARY', 0, 1, 'L');
 $pdf->SetXY(125, $summary_y + 15);
 setKurdishFont($pdf, '', 9);
 $pdf->Cell(40, 4, 'Subtotal:', 0, 0, 'L');
-$pdf->Cell(30, 4, currency_location(number_format($order[0]['total'], 2)), 0, 1, 'R');
+$pdf->Cell(30, 4, currency_location(number_format($item_subtotal, 2)), 0, 1, 'R');
 
 // Delivery Charges
 $pdf->SetXY(125, $summary_y + 20);
@@ -208,7 +202,7 @@ $pdf->Cell(30, 4, $delivery_charges, 0, 1, 'R');
 
 // Discount
 $pdf->SetXY(125, $summary_y + 25);
-$discount = $order[0]['discount'] == 0 ? "N/A" : currency_location(decimal_points($order[0]['discount']));
+$discount = $order[0]['purchase_discount'] == 0 ? "N/A" : currency_location(decimal_points($order[0]['purchase_discount']));
 $pdf->Cell(40, 4, 'Discount:', 0, 0, 'L');
 $pdf->Cell(30, 4, $discount, 0, 1, 'R');
 
@@ -217,7 +211,7 @@ $pdf->SetXY(125, $summary_y + 35);
 setKurdishFont($pdf, 'B', 11);
 $pdf->SetTextColor(52, 152, 219);
 $pdf->Cell(40, 5, 'TOTAL:', 0, 0, 'L');
-$pdf->Cell(30, 5, currency_location(decimal_points($order[0]['final_total'])), 0, 1, 'R');
+$pdf->Cell(30, 5, currency_location(decimal_points($order[0]['total'])), 0, 1, 'R');
 
 // Footer with better design
 $pdf->SetY(-35);
@@ -233,9 +227,9 @@ $pdf->SetXY(15, $pdf->GetY() + 2);
 $pdf->Cell(0, 3, 'Generated on ' . date('F j, Y \a\t g:i A'), 0, 1, 'C');
 
 // Output PDF
-$path = FCPATH . "public\invoice\invoice";
+$path = FCPATH . "public/invoice/purchase-";
 $pdf->Output($path . $order[0]['id'] . '.pdf', 'F');
 $myFile = $path . $order[0]['id'] . ".pdf";
 if (file_exists($myFile)) {
-    $pdf->Output('inv-' . $order[0]['id'] . '.pdf', 'D');
-}
+    $pdf->Output('purchase-inv-' . $order[0]['id'] . '.pdf', 'D');
+} 

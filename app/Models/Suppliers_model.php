@@ -102,4 +102,14 @@ class Suppliers_model extends Model
         $response['data'] = $data;
         return json_encode($response);
     }
+
+    public function get_supplier($user_id)
+    {
+        $db = \Config\Database::connect();
+        $builder = $db->table("suppliers as s");
+        $builder->select('s.*, u.first_name, u.last_name, u.email, u.mobile');
+        $builder->join('users as u', 'u.id = s.user_id', 'left');
+        $builder->where('s.user_id', $user_id);
+        return $builder->get()->getRowArray();
+    }
 }

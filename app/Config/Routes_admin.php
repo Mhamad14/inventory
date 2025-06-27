@@ -26,6 +26,7 @@ $routes->group('admin/batches', ['filter' => 'permissioncheck'], function ($rout
     $routes->post('delete_batch', 'admin\WarehouseBatchController::delete_batch');
     $routes->post('delete_returned_batch/(:any)', 'admin\WarehouseBatchController::delete_returned_batch/$1');
     $routes->post('return_batch', 'admin\WarehouseBatchController::return_batch');
+    $routes->get('return_invoice_pdf/(:any)', 'admin\WarehouseBatchController::return_invoice_pdf/$1');
 });
 
 $routes->group('admin/home', function ($routes) {
@@ -48,6 +49,7 @@ $routes->group('admin/purchases', ['filter' => 'checkpermissions:module=purchase
     $routes->post('save', 'admin\Purchases::save', ['filter' => 'checkpermissions:action=can_create']);
     $routes->post('update_status_bulk', 'admin\Purchases::update_status_bulk', ['filter' => 'checkpermissions:action=can_update']);
     $routes->get('invoice/(:any)', 'admin\Purchases::invoice/$1', ['filter' => 'checkpermissions:action=can_read']);
+    $routes->get('purchase_invoice_pdf/(:any)', 'admin\Purchases::purchase_invoice_pdf/$1', ['filter' => 'checkpermissions:action=can_read']);
     $routes->get('invoice_table/(:any)', 'admin\Purchases::invoice_table/$1', ['filter' => 'checkpermissions:action=can_read']);
     $routes->get('update_order_status', 'admin\Purchases::update_order_status', ['filter' => 'checkpermissions:action=can_read']);
     $routes->get('purchase_return/(:any)', 'admin\Purchases::purchase_return/$1', ['filter' => 'checkpermissions:action=can_read']);
