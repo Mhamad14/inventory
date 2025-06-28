@@ -42,7 +42,7 @@
                                                 <h2 class="section-title"><?= labels('all_products', 'All Products') ?></h2>
                                             </div>
                                             <div class="row m-1">
-                                                <div class="col-md-4">
+                                                <div class="col-md-3">
                                                     <select class="select2 product_category form-control" id="product_category" name="product_category" onchange="fetch_products(this)">
                                                         <option value=""><?= labels('all_categories', 'All Categories') ?></option>
                                                         <?php foreach ($categories as $category) { ?>
@@ -50,7 +50,29 @@
                                                         <?php } ?>
                                                     </select>
                                                 </div>
-                                                <div class="col-md-8 search-element">
+                                                <div class="col-md-3">
+                                                    <select class="select2 product_brand form-control" id="product_brand" name="brand_id" onchange="fetch_products(this)">
+                                                        <option value=""><?= labels('all_brands', 'All Brands') ?></option>
+                                                        <?php 
+                                                        $brand_model = new \App\Models\BrandModel();
+                                                        $brands = $brand_model->where('business_id', $business_id)->findAll();
+                                                        foreach ($brands as $brand) { ?>
+                                                            <option value="<?= $brand['id'] ?>"><?= $brand['name'] ?></option>
+                                                        <?php } ?>
+                                                    </select>
+                                                </div>
+                                                <div class="col-md-3">
+                                                    <select class="select2 product_warehouse form-control" id="product_warehouse" name="warehouse_id" onchange="fetch_products(this)">
+                                                        <option value=""><?= labels('all_warehouses', 'All Warehouses') ?></option>
+                                                        <?php 
+                                                        $warehouse_model = new \App\Models\WarehouseModel();
+                                                        $warehouses = $warehouse_model->where('business_id', $business_id)->findAll();
+                                                        foreach ($warehouses as $warehouse) { ?>
+                                                            <option value="<?= $warehouse['id'] ?>"><?= $warehouse['name'] ?></option>
+                                                        <?php } ?>
+                                                    </select>
+                                                </div>
+                                                <div class="col-md-3 search-element">
                                                     <input class="form-control" type="search" placeholder="Search" id="search_product" oninput="fetch_products(this)" aria-label="Search">
                                                 </div>
                                             </div>
@@ -114,7 +136,7 @@
                                                         <div class="cart-items">
                                                         </div>
                                                         <div class=" mb-2 mt-3">
-                                                            <div class=" ">
+                                                            <div class="">
 
                                                                 <div class="invoice-detail-item d-flex gap-3">
                                                                     <p class="cart-total"><?= labels('subtotal', 'Subtotal') ?></p>

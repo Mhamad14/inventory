@@ -841,6 +841,7 @@ function delete_cart_items() {
 function fetch_products() {
   var category_id = $("#product_category").find("option:selected").val();
   var brand_id = $("#product_brand").find("option:selected").val();
+  var warehouse_id = $("#product_warehouse").find("option:selected").val();
   var limit = $("input[name=limit]").val();
   var offset = $("input[name=offset]").val();
   var search = $("#search_product").val();
@@ -852,6 +853,7 @@ function fetch_products() {
     data: {
       category_id: category_id,
       brand_id: brand_id,
+      warehouse_id: warehouse_id,
       search: search,
       limit: limit,
       offset: offset
@@ -887,7 +889,7 @@ function fetch_products() {
         );
       }
     },
-    error: function(xhr, status, error) {
+    error: function (xhr, status, error) {
       console.error('AJAX Error:', error);
       $("#products_div").html(
         `<div class="text-center" style='min-height:450px;' ><h4>Error loading products. Please try again.</h4></div>`
@@ -6300,8 +6302,7 @@ $(document).on('click', '#saveBatchPrice', function() {
     }
     $(this).blur();
     $('#editBatchModal').modal('hide');
-
-
+});
 
 // Add this function to format all SubTotal cells with commas
 function formatAllSubTotals() {
@@ -6312,13 +6313,6 @@ function formatAllSubTotals() {
     }
   });
 }
-
-// Call it on page load
-$(document).ready(function() {
-  formatAllSubTotals();
-});
-
-// If you have a function that renders or refreshes the purchase order table, call formatAllSubTotals() at the end of that function as well.
 
 // Add this function at the end of the file or after document ready
 function formatAllNumbers() {
@@ -6341,7 +6335,9 @@ function formatAllNumbers() {
     }
   });
 }
-$(document).ready(function() {
-  formatAllNumbers();
 
+// Consolidated document ready function
+$(document).ready(function() {
+  formatAllSubTotals();
+  formatAllNumbers();
 });
