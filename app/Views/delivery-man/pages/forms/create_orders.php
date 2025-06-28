@@ -238,6 +238,7 @@
                                                     <div class="text-center mt-4">
                                                         <button class="btn btn-sm btn-clear_cart btn-danger mb-2 mx-3" type="reset" id="clear_cart_btn"><?= labels('clear_cart', 'Clear Cart') ?></button>
                                                         <button class="btn btn-sm btn-purchase btn-primary mb-2" type="submit" id="place_order_btn"><?= labels('create_order', 'Create Order') ?></button>
+                                                        <button type="button" class="btn btn-sm btn-dark mb-2 d-none" id="pos_quick_invoice" onclick="printInvoice()" data-id="">Print last order Invoice</button>
                                                     </div>
                                         </div>
                                         </form>
@@ -431,6 +432,7 @@
                                                     <div class="text-center mt-4">
                                                         <button class="btn btn-sm btn-clear_cart btn-danger mb-2 mx-3" type="reset" id="clear_cart_btn"><?= labels('clear_cart', 'Clear Cart') ?></button>
                                                         <button class="btn btn-sm btn-purchase btn-primary mb-2" type="submit" id="place_order_service_btn"><?= labels('create_order', 'Create Order') ?></button>
+                                                        <button type="button" class="btn btn-sm btn-dark mb-2 d-none" id="pos_quick_invoice" onclick="printInvoice()" data-id="">Print last order Invoice</button>
                                                     </div>
                                                 </form>
 

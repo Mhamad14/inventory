@@ -1152,6 +1152,9 @@ $("#place_order_form").on("submit", function (e) {
 
     // If all validations pass, show confirmation modal
     showOrderConfirmationModal(() => {
+        // Show loading state
+        $('#place_order_btn').prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Creating Order...');
+        
         const request_body = {
             [csrf_token]: csrf_hash,
             data: cart,
@@ -1178,6 +1181,10 @@ $("#place_order_form").on("submit", function (e) {
             success: function (result) {
                 csrf_token = result['csrf_token'];
                 csrf_hash = result['csrf_hash'];
+                
+                // Reset button state
+                $('#place_order_btn').prop('disabled', false).html('Create Order');
+                
                 if (result.error == true) {
                     var message = "";
                     if (result.message === "Please add order item") {
@@ -1208,17 +1215,59 @@ $("#place_order_form").on("submit", function (e) {
                         });
                     }
                 } else {
-                    window.location = base_url + '/admin/orders';
+                    // Success - show success message and clear cart dynamically
                     iziToast.success({
                         title: 'Success!',
                         message: result.message,
-                        position: 'topRight'
+                        position: 'topRight',
+                        timeout: 5000
                     });
+                    
+                    // Clear cart and reset form
                     delete_cart_items();
-                    setTimeout(function () {
-                        location.reload();
-                    }, 600);
+                    display_cart();
+                    final_total();
+                    
+                    // Reset form fields
+                    $('#discount').val('');
+                    $('#delivery_charge').val('');
+                    $('#message').val('');
+                    $('#amount_paid_item').val('');
+                    $('#transaction_id').val('');
+                    $('#payment_method_name').val('');
+                    $('.payment_method').prop('checked', false);
+                    $('#cod').prop('checked', true); // Default to cash
+                    
+                    // Clear customer selection
+                    $('.select_user').val('').trigger('change');
+                    
+                    // Show print invoice button if order was created successfully
+                    if (result.data && result.data.order_id) {
+                        console.log('Order created successfully with ID:', result.data.order_id);
+                        $('#pos_quick_invoice').removeClass('d-none').data('id', result.data.order_id);
+                        console.log('Print button should now be visible');
+                    } else {
+                        console.log('No order_id returned in response:', result);
+                    }
+                    
+                    // Update today's stats if available
+                    if (typeof get_todays_stats === 'function') {
+                        get_todays_stats();
+                    }
+                    
+                    // Refresh products to update stock levels
+                    fetch_products();
                 }
+            },
+            error: function(xhr, status, error) {
+                // Reset button state
+                $('#place_order_btn').prop('disabled', false).html('Create Order');
+                
+                iziToast.error({
+                    title: 'Error!',
+                    message: 'An error occurred while creating the order. Please try again.',
+                    position: 'topRight'
+                });
             }
         });
     });
@@ -6338,6 +6387,41 @@ function formatAllNumbers() {
 
 // Consolidated document ready function
 $(document).ready(function() {
+  // Initialize Bootstrap tooltips
+  var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+  var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+      return new bootstrap.Tooltip(tooltipTriggerEl);
+  });
+  
   formatAllSubTotals();
   formatAllNumbers();
 });
+
+// Add keyboard shortcuts for POS
+$(document).keydown(function(e) {
+    // Ctrl+Enter to create order
+    if (e.ctrlKey && e.keyCode === 13) {
+        e.preventDefault();
+        $('#place_order_btn').click();
+    }
+    
+    // Escape to clear cart
+    if (e.keyCode === 27) {
+        e.preventDefault();
+        $('#clear_cart_btn').click();
+    }
+    
+    // Ctrl+Shift+H to hold cart
+    if (e.ctrlKey && e.shiftKey && e.keyCode === 72) {
+        e.preventDefault();
+        $('#hold_cart_btn').click();
+    }
+    
+    // Ctrl+Shift+L to load drafts
+    if (e.ctrlKey && e.shiftKey && e.keyCode === 76) {
+        e.preventDefault();
+        $('#load_drafts_btn').click();
+    }
+});
+
+// Add event listeners for category and brand changes
