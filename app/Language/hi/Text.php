@@ -2,19 +2,19 @@
 /**
 *
 *
-* Descriptions :  en language file for general labels
+* Descriptions :  hi language file for general labels
 *
 */
 
 
-$lang['label_language'] = "en";
-$lang['code'] = "en";
-$lang['order_details'] = "";
+$lang['label_language'] = "hi";
+$lang['code'] = "hi";
+$lang['order_details'] = "ऑर्डर से जुड़ी कुछ जानकारीः";
 $lang['add_payment'] = "";
 $lang['no_payments_found'] = "";
 $lang['payment_date'] = "";
 $lang['create_payment'] = "";
-$lang['payment_summary'] = "";
+$lang['payment_summary'] = " भुगतान सारांश";
 $lang['order_total'] = "";
 $lang['payment_details'] = "";
 $lang['no'] = "";
@@ -375,9 +375,4 @@ $lang['edit_product'] = "Edit Product";
 $lang['create_suppliers'] = "Create Suppliers";
 $lang['edit_suppliers'] = "Edit Suppliers";
 $lang['edit_expenses'] = "Edit Expenses";
-$lang['hold_cart'] = "Hold Cart";
-$lang['load_drafts'] = "Load Drafts";
-$lang['display_currency'] = "Display Currency";
-$lang['base_currency'] = "Base Currency";
-$lang['currency_conversion_note'] = "Select currency to view totals in different currency";
 return $lang;

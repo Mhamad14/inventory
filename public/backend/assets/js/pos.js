@@ -527,6 +527,10 @@ $('#place_service_order_form').on('submit', function (e) {
         if (!payment_method_name) {
             payment_method_name = '';
         }
+        
+        // Show loading state
+        $('#place_order_service_btn').prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Creating Order...');
+        
         const request_body = {
             [csrf_token]: csrf_hash,
             data: cart_service,
@@ -553,6 +557,10 @@ $('#place_service_order_form').on('submit', function (e) {
             success: function (result) {
                 csrf_token = result['csrf_token'];
                 csrf_hash = result['csrf_hash'];
+                
+                // Reset button state
+                $('#place_order_service_btn').prop('disabled', false).html('Create Order');
+                
                 if (result.error == true) {
                     var message = "";
                     if (result.message === "Please add order item") {
@@ -574,7 +582,6 @@ $('#place_service_order_form').on('submit', function (e) {
                             position: 'topRight'
                         });
                     } else {
-
                         Object.keys(result.message).map((key) => {
                             iziToast.error({
                                 title: 'Error!',
@@ -584,17 +591,59 @@ $('#place_service_order_form').on('submit', function (e) {
                         });
                     }
                 } else {
-                    window.location = base_url + '/admin/orders';
+                    // Success - show success message and clear cart dynamically
                     iziToast.success({
                         title: 'Success!',
                         message: result.message,
-                        position: 'topRight'
+                        position: 'topRight',
+                        timeout: 5000
                     });
+                    
+                    // Clear cart and reset form
                     delete_cart_service();
-                    setTimeout(function () {
-                        location.reload();
-                    }, 600);
+                    display_service_cart();
+                    final_total_service();
+                    
+                    // Reset form fields
+                    $('#discount_service').val('');
+                    $('#delivery_charge_service').val('');
+                    $('#service_message').val('');
+                    $('#amount_paid').val('');
+                    $('#transaction_id_service').val('');
+                    $('#payment_method_name_service').val('');
+                    $('.payment_method_service').prop('checked', false);
+                    $('#cod_service').prop('checked', true); // Default to cash
+                    
+                    // Clear customer selection
+                    $('.select_user').val('').trigger('change');
+                    
+                    // Update today's stats if available
+                    if (typeof get_todays_stats === 'function') {
+                        get_todays_stats();
+                    }
+                    
+                    // Refresh services list
+                    fetch_services();
+
+                    // Show print invoice button if order was created successfully
+                    if (result.data && result.data.order_id) {
+                        console.log('Service order created successfully with ID:', result.data.order_id);
+                        $('#pos_quick_invoice').removeClass('d-none').data('id', result.data.order_id);
+                        console.log('Print button should now be visible');
+                    } else {
+                        console.log('No order_id returned in response:', result);
+                    }
                 }
+            },
+            error: function(xhr, status, error) {
+                // Reset button state
+                $('#place_order_service_btn').prop('disabled', false).html('Create Order');
+                
+                iziToast.error({
+                    title: 'Error!',
+                    message: 'An error occurred while creating the order. Please try again.',
+                    position: 'topRight'
+                });
             }
         });
     }

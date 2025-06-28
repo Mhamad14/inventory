@@ -841,6 +841,7 @@ function delete_cart_items() {
 function fetch_products() {
   var category_id = $("#product_category").find("option:selected").val();
   var brand_id = $("#product_brand").find("option:selected").val();
+  var warehouse_id = $("#product_warehouse").find("option:selected").val();
   var limit = $("input[name=limit]").val();
   var offset = $("input[name=offset]").val();
   var search = $("#search_product").val();
@@ -852,6 +853,7 @@ function fetch_products() {
     data: {
       category_id: category_id,
       brand_id: brand_id,
+      warehouse_id: warehouse_id,
       search: search,
       limit: limit,
       offset: offset
@@ -887,7 +889,7 @@ function fetch_products() {
         );
       }
     },
-    error: function(xhr, status, error) {
+    error: function (xhr, status, error) {
       console.error('AJAX Error:', error);
       $("#products_div").html(
         `<div class="text-center" style='min-height:450px;' ><h4>Error loading products. Please try again.</h4></div>`
@@ -1150,6 +1152,9 @@ $("#place_order_form").on("submit", function (e) {
 
     // If all validations pass, show confirmation modal
     showOrderConfirmationModal(() => {
+        // Show loading state
+        $('#place_order_btn').prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Creating Order...');
+        
         const request_body = {
             [csrf_token]: csrf_hash,
             data: cart,
@@ -1176,6 +1181,10 @@ $("#place_order_form").on("submit", function (e) {
             success: function (result) {
                 csrf_token = result['csrf_token'];
                 csrf_hash = result['csrf_hash'];
+                
+                // Reset button state
+                $('#place_order_btn').prop('disabled', false).html('Create Order');
+                
                 if (result.error == true) {
                     var message = "";
                     if (result.message === "Please add order item") {
@@ -1206,17 +1215,59 @@ $("#place_order_form").on("submit", function (e) {
                         });
                     }
                 } else {
-                    window.location = base_url + '/admin/orders';
+                    // Success - show success message and clear cart dynamically
                     iziToast.success({
                         title: 'Success!',
                         message: result.message,
-                        position: 'topRight'
+                        position: 'topRight',
+                        timeout: 5000
                     });
+                    
+                    // Clear cart and reset form
                     delete_cart_items();
-                    setTimeout(function () {
-                        location.reload();
-                    }, 600);
+                    display_cart();
+                    final_total();
+                    
+                    // Reset form fields
+                    $('#discount').val('');
+                    $('#delivery_charge').val('');
+                    $('#message').val('');
+                    $('#amount_paid_item').val('');
+                    $('#transaction_id').val('');
+                    $('#payment_method_name').val('');
+                    $('.payment_method').prop('checked', false);
+                    $('#cod').prop('checked', true); // Default to cash
+                    
+                    // Clear customer selection
+                    $('.select_user').val('').trigger('change');
+                    
+                    // Show print invoice button if order was created successfully
+                    if (result.data && result.data.order_id) {
+                        console.log('Order created successfully with ID:', result.data.order_id);
+                        $('#pos_quick_invoice').removeClass('d-none').data('id', result.data.order_id);
+                        console.log('Print button should now be visible');
+                    } else {
+                        console.log('No order_id returned in response:', result);
+                    }
+                    
+                    // Update today's stats if available
+                    if (typeof get_todays_stats === 'function') {
+                        get_todays_stats();
+                    }
+                    
+                    // Refresh products to update stock levels
+                    fetch_products();
                 }
+            },
+            error: function(xhr, status, error) {
+                // Reset button state
+                $('#place_order_btn').prop('disabled', false).html('Create Order');
+                
+                iziToast.error({
+                    title: 'Error!',
+                    message: 'An error occurred while creating the order. Please try again.',
+                    position: 'topRight'
+                });
             }
         });
     });
@@ -6300,8 +6351,7 @@ $(document).on('click', '#saveBatchPrice', function() {
     }
     $(this).blur();
     $('#editBatchModal').modal('hide');
-
-
+});
 
 // Add this function to format all SubTotal cells with commas
 function formatAllSubTotals() {
@@ -6312,13 +6362,6 @@ function formatAllSubTotals() {
     }
   });
 }
-
-// Call it on page load
-$(document).ready(function() {
-  formatAllSubTotals();
-});
-
-// If you have a function that renders or refreshes the purchase order table, call formatAllSubTotals() at the end of that function as well.
 
 // Add this function at the end of the file or after document ready
 function formatAllNumbers() {
@@ -6341,7 +6384,44 @@ function formatAllNumbers() {
     }
   });
 }
-$(document).ready(function() {
-  formatAllNumbers();
 
+// Consolidated document ready function
+$(document).ready(function() {
+  // Initialize Bootstrap tooltips
+  var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+  var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+      return new bootstrap.Tooltip(tooltipTriggerEl);
+  });
+  
+  formatAllSubTotals();
+  formatAllNumbers();
 });
+
+// Add keyboard shortcuts for POS
+$(document).keydown(function(e) {
+    // Ctrl+Enter to create order
+    if (e.ctrlKey && e.keyCode === 13) {
+        e.preventDefault();
+        $('#place_order_btn').click();
+    }
+    
+    // Escape to clear cart
+    if (e.keyCode === 27) {
+        e.preventDefault();
+        $('#clear_cart_btn').click();
+    }
+    
+    // Ctrl+Shift+H to hold cart
+    if (e.ctrlKey && e.shiftKey && e.keyCode === 72) {
+        e.preventDefault();
+        $('#hold_cart_btn').click();
+    }
+    
+    // Ctrl+Shift+L to load drafts
+    if (e.ctrlKey && e.shiftKey && e.keyCode === 76) {
+        e.preventDefault();
+        $('#load_drafts_btn').click();
+    }
+});
+
+// Add event listeners for category and brand changes

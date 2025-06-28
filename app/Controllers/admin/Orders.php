@@ -1671,12 +1671,15 @@ class Orders extends BaseController
             // Get filter parameters
             $category_id = $this->request->getGet('category_id');
             $brand_id = $this->request->getGet('brand_id');
+            $warehouse_id = $this->request->getGet('warehouse_id');
             $search = $this->request->getGet('search');
             $limit = (int)($this->request->getGet('limit') ?? 20);
             $offset = (int)($this->request->getGet('offset') ?? 0);
 
-            // Build query
-            $builder = $products_model->builder();
+            // Build base query
+            $db = \Config\Database::connect();
+            $builder = $db->table('products');
+            $builder->select('products.*');
             $builder->where('products.business_id', $business_id);
             
             if (!empty($category_id)) {
@@ -1694,6 +1697,15 @@ class Orders extends BaseController
                     ->groupEnd();
             }
 
+            // If warehouse filter is applied, filter products that have batches in that warehouse
+            if (!empty($warehouse_id)) {
+                $builder->join('products_variants pv', 'products.id = pv.product_id', 'inner');
+                $builder->join('warehouse_batches wb', 'pv.id = wb.product_variant_id', 'inner');
+                $builder->where('wb.warehouse_id', $warehouse_id);
+                $builder->where('wb.quantity >', 0);
+                $builder->groupBy('products.id'); // Group to avoid duplicates
+            }
+
             // Get total count before pagination
             $total = $builder->countAllResults(false);
             
@@ -1708,9 +1720,20 @@ class Orders extends BaseController
                     ->findAll();
                 
                 foreach ($variants as &$variant) {
-                    $batches = $warehouseBatchesModel->getAvailableBatchesFIFO($variant['id'], $business_id);
+                    // If warehouse filter is applied, only get batches from that warehouse
+                    if (!empty($warehouse_id)) {
+                        $batches = $warehouseBatchesModel->where('product_variant_id', $variant['id'])
+                            ->where('business_id', $business_id)
+                            ->where('warehouse_id', $warehouse_id)
+                            ->where('quantity >', 0)
+                            ->orderBy('created_at', 'ASC')
+                            ->findAll();
+                    } else {
+                        $batches = $warehouseBatchesModel->getAvailableBatchesFIFO($variant['id'], $business_id);
+                    }
+                    
                     if (!empty($batches)) {
-                        $variant['fifo_sell_price'] = $batches[0]['sell_price'];
+                        $variant['fifo_sell_price'] = $batches[0]['sell_price'] ?? null;
                         $variant['fifo_batch_id'] = $batches[0]['id'];
                     } else {
                         $variant['fifo_sell_price'] = null;
@@ -1730,9 +1753,10 @@ class Orders extends BaseController
 
         } catch (\Exception $e) {
             log_message('error', '[fetch_pos_products] Error: ' . $e->getMessage());
+            log_message('error', '[fetch_pos_products] Stack trace: ' . $e->getTraceAsString());
             return $this->response->setJSON([
                 'error' => true,
-                'message' => 'An error occurred while fetching products'
+                'message' => 'An error occurred while fetching products: ' . $e->getMessage()
             ]);
         }
     }

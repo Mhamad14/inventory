@@ -592,7 +592,7 @@ class WarehouseBatchController extends BaseController
         ];
 
         return view("admin/pages/views/return_invoice_pdf", $data);
-
+    }
     public function return_purchase_batches($purchase_id = '')
     {
         $data = getdata(
