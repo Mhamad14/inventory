@@ -106,6 +106,8 @@ $routes->group('admin/orders', ['filter' => 'checkpermissions:module=orders', 'p
     $routes->get('payment_reminder', 'admin\Orders::payment_reminder', ['filter' => 'checkpermissions:action=can_read']);
     $routes->get('payment_reminder_table', 'admin\Orders::payment_reminder_table', ['filter' => 'checkpermissions:action=can_read']);
     $routes->get('send_reminder', 'admin\Orders::send_reminder', ['filter' => 'checkpermissions:action=can_read']);
+
+    $routes->get('get_batches_for_variant', 'admin\Orders::get_batches_for_variant');
 });
 
 $routes->group('admin/subscription', ['filter' => 'checkpermissions:module=subscription'], function ($routes) {

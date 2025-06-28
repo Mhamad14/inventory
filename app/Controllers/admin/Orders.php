@@ -616,7 +616,17 @@ class Orders extends BaseController
 
                     if (isset($item->product_id) && !empty($item->product_id)) {
                         $this->saveOrderItem($orders_items_model, $item, $order_id, $tax_details, $sub_total);
-                        $this->updateStock($item->product_variant_id, $item->quantity);
+                        if (isset($item->batch_id) && !empty($item->batch_id)) {
+                            $stock_ok = $this->updateStock($item->product_variant_id, $item->quantity, null, $item->batch_id);
+                            if ($stock_ok === false) {
+                                throw new \RuntimeException('Insufficient stock in the selected batch for ' . $item->variant_name . '.');
+                            }
+                        } else {
+                            $stock_ok = $this->updateStock($item->product_variant_id, $item->quantity);
+                            if ($stock_ok === false) {
+                                throw new \RuntimeException('Insufficient total stock for ' . $item->variant_name . '.');
+                            }
+                        }
                     }
 
                     if (isset($item->service_id) && !empty($item->service_id)) {
@@ -697,7 +707,7 @@ class Orders extends BaseController
         }
     }
 
-    private function updateStock($product_variant_id, $quantity, $warehouse_id = null)
+    private function updateStock($product_variant_id, $quantity, $warehouse_id = null, $batch_id = null)
     {
         try {
             $db = \Config\Database::connect();
@@ -706,36 +716,43 @@ class Orders extends BaseController
             $warehouse_product_stock_model = new \App\Models\WarehouseProductStockModel();
             $warehouse_batches_model = new \App\Models\warehouse_batches_model();
 
-            // Get available batches in FIFO order without warehouse filter
-            $available_batches = $warehouse_batches_model
-                ->where('product_variant_id', $product_variant_id)
-                ->where('quantity >', 0)
-                ->where('expiration_date >', date('Y-m-d'))
-                ->orWhere('expiration_date IS NULL')
-                ->orderBy('created_at', 'ASC')
-                ->findAll();
-
-            $remaining_quantity = $quantity;
-
-            // Update batches in FIFO order
-            foreach ($available_batches as $batch) {
-                if ($remaining_quantity <= 0) break;
-
-                $batch_quantity = min($remaining_quantity, $batch['quantity']);
-                $remaining_quantity -= $batch_quantity;
-
-                // Update batch quantity
-                $warehouse_batches_model->update($batch['id'], [
-                    'quantity' => $batch['quantity'] - $batch_quantity
-                ]);
+            if ($batch_id) {
+                // Deduct from the specific batch selected by the user
+                $batch = $warehouse_batches_model->find($batch_id);
+                if ($batch && $batch['quantity'] >= $quantity) {
+                    $warehouse_batches_model->update($batch_id, [
+                        'quantity' => $batch['quantity'] - $quantity
+                    ]);
+                } else {
+                    // Not enough quantity in selected batch, do NOT fallback to FIFO
+                    return false;
+                }
+            } else {
+                // FIFO as before, but check total available stock first
+                $available_batches = $warehouse_batches_model
+                    ->where('product_variant_id', $product_variant_id)
+                    ->where('quantity >', 0)
+                    ->orderBy('created_at', 'ASC')
+                    ->findAll();
+                $total_available = array_sum(array_column($available_batches, 'quantity'));
+                if ($total_available < $quantity) {
+                    return false;
+                }
+                $remaining_quantity = $quantity;
+                foreach ($available_batches as $batch) {
+                    if ($remaining_quantity <= 0) break;
+                    $batch_quantity = min($remaining_quantity, $batch['quantity']);
+                    $remaining_quantity -= $batch_quantity;
+                    $warehouse_batches_model->update($batch['id'], [
+                        'quantity' => $batch['quantity'] - $batch_quantity
+                    ]);
+                }
             }
-
-            // Update overall stock without warehouse filter
+            // Update overall stock
             $warehouse_product_stock_model
                 ->where('product_variant_id', $product_variant_id)
                 ->set('stock', "stock - {$quantity}", false)
                 ->update();
-
             $db->transComplete();
             return $db->transStatus();
         } catch (\Exception $e) {
@@ -1300,7 +1317,17 @@ class Orders extends BaseController
 
             $orders_items_model = new Orders_items_model();
             $orders_items_model->save($orders_items);
-            $this->updateStock($item->variant_id, $item->qty);
+            if (isset($item->batch_id) && !empty($item->batch_id)) {
+                $stock_ok = $this->updateStock($item->product_variant_id, $item->qty, null, $item->batch_id);
+                if ($stock_ok === false) {
+                    throw new \RuntimeException('Insufficient stock in the selected batch for ' . $item->variant_name . '.');
+                }
+            } else {
+                $stock_ok = $this->updateStock($item->product_variant_id, $item->qty);
+                if ($stock_ok === false) {
+                    throw new \RuntimeException('Insufficient total stock for ' . $item->variant_name . '.');
+                }
+            }
         }
 
         return $this->jsonSuccessResponse('Order saved successfully');
@@ -1708,6 +1735,20 @@ class Orders extends BaseController
                 'message' => 'An error occurred while fetching products'
             ]);
         }
+    }
+
+    // Add this method to provide batches for a variant (AJAX)
+    public function get_batches_for_variant()
+    {
+        $variant_id = $this->request->getGet('variant_id');
+        $business_id = $this->business_id ?? session('business_id');
+        $warehouseBatchesModel = new \App\Models\warehouse_batches_model();
+        $batches = $warehouseBatchesModel->getAvailableBatchesFIFO($variant_id, $business_id);
+
+        return $this->response->setJSON([
+            'error' => false,
+            'batches' => $batches
+        ]);
     }
 }
 

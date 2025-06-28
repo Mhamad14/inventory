@@ -669,6 +669,11 @@ function display_cart() {
                             </div>
                         </div>
                         <div class="col">
+                            <button type="button" class="btn btn-sm btn-info edit-batch-btn" 
+                                data-variant_id="${item.product_variant_id}" 
+                                data-product_id="${item.product_id || ''}">
+                                <i class="fas fa-layer-group"></i>
+                            </button>
                             <button class="btn btn-sm btn-danger remove-cart-item" data-business_id=${item.business_id} data-variant_id=${item.product_variant_id}><i class="fas fa-trash"></i></button>
                         </div>
                     </div>
@@ -6196,6 +6201,107 @@ $(document).ready(function () {
 });
 
 
+$(function() {
+  if ($('#editBatchModal').length === 0) {
+    $('body').append(`
+      <div class="modal fade" id="editBatchModal" tabindex="-1" role="dialog" aria-labelledby="editBatchModalLabel" aria-hidden="true">
+        <div class="modal-dialog" role="document">
+          <div class="modal-content">
+            <div class="modal-header">
+              <h5 class="modal-title" id="editBatchModalLabel">Select Batch Price</h5>
+              <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                <span aria-hidden="true">&times;</span>
+              </button>
+            </div>
+            <div class="modal-body">
+              <label for="batchPriceOption">Batch Price Option</label>
+              <select id="batchPriceOption" class="form-control"></select>
+              <div id="batchDetails" class="mt-2"></div>
+            </div>
+            <div class="modal-footer">
+              <button type="button" class="btn btn-primary" id="saveBatchPrice">Update</button>
+              <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    `);
+  }
+});
+
+$(document).on('click', '.edit-batch-btn', function() {
+    var variantId = $(this).data('variant_id');
+    var productId = $(this).data('product_id');
+    $('#editBatchModal').data('variant_id', variantId);
+    // Fetch batches via AJAX
+    $.ajax({
+        url: site_url + 'admin/orders/get_batches_for_variant',
+        data: { variant_id: variantId },
+        method: 'GET',
+        dataType: 'json',
+        success: function(res) {
+            if (res.error === false && res.batches.length > 0) {
+                var $select = $('#batchPriceOption');
+                $select.empty();
+                var seen = {};
+                res.batches.forEach(function(batch) {
+                    var expiry = batch.expiration_date ? batch.expiration_date : 'N/A';
+                    var qty = typeof batch.quantity !== 'undefined' ? batch.quantity : 0;
+                    var key = batch.sell_price + '|' + expiry + '|' + qty;
+                    if (!seen[key]) {
+                        var label = `Price: ${batch.sell_price} | Expiry: ${expiry} | Qty: ${qty}`;
+                        $select.append(
+                            `<option value="${batch.id}" data-price="${batch.sell_price}" data-expiry="${expiry}" data-qty="${qty}">${label}</option>`
+                        );
+                        seen[key] = true;
+                    }
+                });
+                $('#batchDetails').html('');
+            } else {
+                $('#batchPriceOption').empty();
+                $('#batchDetails').html('<div class="alert alert-warning">No batches available.</div>');
+            }
+            $('#editBatchModal').modal('show');
+        }
+    });
+});
+// Ensure modal close buttons work
+$(document).on('click', '#editBatchModal .close, #editBatchModal [data-dismiss="modal"]', function() {
+    $('#editBatchModal').modal('hide');
+});
+
+$(document).on('click', '#saveBatchPrice', function() {
+    var variantId = $('#editBatchModal').data('variant_id');
+    var selectedBatchId = $('#batchPriceOption').val();
+    var selectedPrice = $('#batchPriceOption option:selected').data('price');
+    var session_business_id = $("#business_id").val();
+    var cart = JSON.parse(localStorage.getItem("cart" + session_business_id)) || [];
+    var updated = false;
+    console.log('[Batch Modal] Update Clicked');
+    console.log('variantId:', variantId);
+    console.log('selectedBatchId:', selectedBatchId);
+    console.log('selectedPrice:', selectedPrice);
+    console.log('Cart before update:', cart);
+    cart.forEach(function(item) {
+        if(item.product_variant_id == variantId) {
+            console.log('Updating item:', item);
+            item.price = parseFloat(selectedPrice);
+            item.batch_id = selectedBatchId;
+            updated = true;
+        }
+    });
+    console.log('Cart after update:', cart);
+    console.log('Updated:', updated);
+    if (updated) {
+        localStorage.setItem("cart" + session_business_id, JSON.stringify(cart));
+        display_cart();
+    } else {
+        console.warn('No cart item matched for update!');
+    }
+    $(this).blur();
+    $('#editBatchModal').modal('hide');
+
+
 
 // Add this function to format all SubTotal cells with commas
 function formatAllSubTotals() {
@@ -6237,4 +6343,5 @@ function formatAllNumbers() {
 }
 $(document).ready(function() {
   formatAllNumbers();
+
 });
