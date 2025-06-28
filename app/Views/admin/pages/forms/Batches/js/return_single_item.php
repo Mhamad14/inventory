@@ -124,11 +124,22 @@
 
                         const response = axios.post('<?= base_url('admin/batches/return_batch') ?>', formData)
                             .then(res => {
-                                Swal.fire('Success!', 'Item returned successfully.', 'success').then(() => {
-                                    // Optionally, you can reload the page or update the UI
-                                    location.reload();
-                                });
+                                if (res.data.success) {
+                                    // Show success message
+                                    Swal.fire('Success!', 'Item returned successfully.', 'success').then(() => {
+                                        // Generate PDF if return_id is provided
+                                        if (res.data.return_id && res.data.pdf_url) {
+                                            // Open PDF in new tab
+                                            window.open(res.data.pdf_url, '_blank');
+                                        }
+                                        // Optionally, you can reload the page or update the UI
+                                        location.reload();
+                                    });
+                                } else {
+                                    Swal.fire('Error!', res.data.message || 'Failed to return item.', 'error');
+                                }
                             }).catch(err => {
+                                console.error('Return error:', err);
                                 Swal.fire('Error!', 'Failed to return item.', 'error');
                             });
                     }

@@ -63,8 +63,9 @@ class Employees extends BaseController
         $business_id = $this->session->get('business_id');
         $result = $employees_model->get_employees($business_id);
         $rows = [];
+        $lang= labels('edit', 'Edit') ;
         foreach ($result['data'] as $employee) {
-            $edit = "<a href=" . site_url('admin/employees/edit') . "/" . $employee['id'] . " class='btn btn-primary btn-sm' data-toggle='tooltip' data-placement='bottom' title='Edit'><i class='bi bi-pencil'></i></a> ";
+            $edit = "<a href=" . site_url('admin/employees/edit') . "/" . $employee['id'] . " class='btn btn-primary btn-sm' data-toggle='tooltip' data-placement='bottom' title='$lang'><i class='bi bi-pencil'></i></a> ";
             $rows[] = [
                 'id' => $employee['id'],
                 'name' => ucwords($employee['name']),

@@ -743,6 +743,22 @@ class Purchases extends BaseController
         return view("admin/template", $data);
     }
 
+    public function purchase_invoice_pdf($purchase_id)
+    {
+        $purchase_model = new Purchases_model();
+        $business_id = isset($_SESSION['business_id']) ? $_SESSION['business_id'] : "";
+
+        $order_items = $purchase_model->get_purchase_invoice($purchase_id, $business_id);
+
+        if (empty($order_items)) {
+            return redirect()->to('/admin/purchases')->with('error', 'Purchase not found.');
+        }
+
+        $data['order'] = $order_items;
+
+        return view("admin/pages/views/purchase_invoice_pdf", $data);
+    }
+
     public function invoice_table($purchase_id)
     {
         $orders_model = new Purchases_model();

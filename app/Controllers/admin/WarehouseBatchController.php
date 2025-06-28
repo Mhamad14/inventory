@@ -533,11 +533,13 @@ class WarehouseBatchController extends BaseController
             ]);
         }
 
-        $batch_query = $this->batch_model->return_batch($data['return_data'], $data['return_price'], $data['return_reason'], $data['return_quantity'], $data['return_date']);
-        if ($batch_query) {
+        $return_id = $this->batch_model->return_batch($data['return_data'], $data['return_price'], $data['return_reason'], $data['return_quantity'], $data['return_date']);
+        if ($return_id) {
             return $this->response->setJSON([
                 'success' => true,
-                'message' => 'Batch Returned successfully'
+                'message' => 'Batch Returned successfully',
+                'return_id' => $return_id,
+                'pdf_url' => base_url('admin/batches/return_invoice_pdf/' . $return_id)
             ]);
         } else {
             return $this->response->setJSON([
@@ -546,6 +548,50 @@ class WarehouseBatchController extends BaseController
             ]);
         }
     }
+
+
+    public function return_invoice_pdf($return_id = null)
+    {
+        if (!$return_id) {
+            return redirect()->to('/admin/batches')->with('error', 'Return ID is required.');
+        }
+
+        // Get return data from the database
+        $return_data = $this->batch_model->getReturnedBatchById($return_id);
+        
+        if (empty($return_data)) {
+            return redirect()->to('/admin/batches')->with('error', 'Return not found.');
+        }
+
+        // Get purchase data for reference
+        $purchase_data = $this->purchase_model->getPurchase($return_data['purchase_id']);
+        
+        // Get supplier information
+        $supplier_model = new \App\Models\Suppliers_model();
+        $supplier = $supplier_model->get_supplier($purchase_data['supplier_id']);
+        
+        // Get business information
+        $business_model = new \App\Models\Businesses_model();
+        $business = $business_model->get_business(session('business_id'));
+
+        // Prepare data for PDF
+        $data = [
+            'return_id' => $return_id,
+            'return_data' => $return_data,
+            'return_quantity' => $return_data['quantity'],
+            'return_price' => $return_data['return_price'],
+            'return_total' => $return_data['quantity'] * $return_data['return_price'],
+            'return_reason' => $return_data['return_reason'],
+            'return_date' => $return_data['return_date'],
+            'purchase_id' => $return_data['purchase_id'],
+            'original_purchase_date' => $purchase_data['purchase_date'],
+            'supplier_name' => $supplier['first_name'] . ' ' . $supplier['last_name'],
+            'warehouse_name' => $purchase_data['warehouse_name'] ?? '',
+            'business_address' => $business['address'] ?? '',
+            'business_contact' => $business['contact'] ?? ''
+        ];
+
+        return view("admin/pages/views/return_invoice_pdf", $data);
 
     public function return_purchase_batches($purchase_id = '')
     {
@@ -566,5 +612,6 @@ class WarehouseBatchController extends BaseController
         session()->set('purchase_id', $purchase_id);
 
         return view("admin/template", $data);
+
     }
 }

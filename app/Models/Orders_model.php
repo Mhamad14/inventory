@@ -167,7 +167,7 @@ class Orders_model extends Model
         if (isset($type) && !empty($type)) {
             if ($type[0]['order_type'] == "product") {
                 $builder = $db->table("orders as o");
-                $builder->select('o.created_at,b.contact,b.name as business_name,b.icon,b.address,b.tax_name as b_tax,b.tax_value,b.description,p.name as product_name,p.unit_id,u.first_name,u.last_name,u.mobile,u.email,o.id,o.order_type,o.customer_id,o.total,o.final_total,o.payment_status,o.amount_paid,o.payment_method,o.delivery_charges,o.discount,o.warehouse_id,oi.product_name as order_name,oi.product_id,oi.quantity,oi.price,oi.tax_name,oi.tax_percentage,oi.sub_total,oi.tax_details,warehouses.name as warehouse_name');
+                $builder->select('o.created_at,b.contact,b.name as business_name,b.icon,b.address,b.tax_name as b_tax,b.tax_value,b.description,p.name as product_name,u.first_name,u.last_name,u.mobile,u.email,o.id,o.order_type,o.customer_id,o.total,o.final_total,o.payment_status,o.amount_paid,o.payment_method,o.delivery_charges,o.discount,o.warehouse_id,oi.product_name as order_name,oi.product_id,oi.quantity,oi.price,oi.tax_name,oi.tax_percentage,oi.sub_total,oi.tax_details,warehouses.name as warehouse_name');
                 $builder->where(['o.id' => $order_id, 'o.business_id' => $business_id]);
                 $builder->join('orders_items as oi', 'oi.order_id=o.id', 'left');
                 $builder->join('warehouses', 'warehouses.id=o.warehouse_id', 'left');
