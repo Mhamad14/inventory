@@ -2,6 +2,131 @@
     function removeCommas(x) {
         return x ? x.toString().replace(/,/g, '') : x;
     }
+    $(document).on("submit", "#purchase_form", function(e) {
+        e.preventDefault();
+
+        $('.payment-converted-iqd').each(function() {
+            this.value = removeCommas(this.value);
+        });
+
+        let isValid = true;
+        const errorMessages = [];
+
+        // 1. Validate Supplier
+        if (!$('select[name="supplier_id"]').val()) {
+            isValid = false;
+            errorMessages.push("Please select a supplier.");
+        }
+
+        // 2. Validate at least one product is added
+        const productsInTable = $("#purchase_order").bootstrapTable("getData");
+        if (productsInTable.length === 0) {
+            isValid = false;
+            errorMessages.push("Please add at least one product to the purchase order.");
+        }
+
+        // 3. Validate each product row
+        $("#purchase_order tbody tr").each(function() {
+            const row = $(this);
+            const productName = row.find("td:eq(1)").text().trim();
+
+            const qtyInput = row.find(".qty");
+            const priceInput = row.find(".price");
+            const sellPriceInput = row.find(".sell_price");
+            const discountInput = row.find(".discount");
+            const expireInput = row.find(".expire");
+
+            const qty = parseFloat(qtyInput.val()) || 0;
+            const price = parseFloat(priceInput.val()) || 0;
+            const sellPrice = parseFloat(sellPriceInput.val()) || 0;
+            const discount = parseFloat(discountInput.val()) || 0;
+            const expire = expireInput.val();
+
+            if (qty < 1) {
+                isValid = false;
+                errorMessages.push(`For ${productName}: Quantity must be at least 1.`);
+            }
+            if (price < 0) {
+                isValid = false;
+                errorMessages.push(`For ${productName}: Cost price cannot be negative.`);
+            }
+            if (sellPrice < 0) {
+                isValid = false;
+                errorMessages.push(`For ${productName}: Sell price cannot be negative.`);
+            }
+
+            const subtotal = qty * price;
+            if (discount < 0) {
+                isValid = false;
+                errorMessages.push(`For ${productName}: Discount cannot be negative.`);
+            } else if (discount > subtotal) {
+                isValid = false;
+                errorMessages.push(`For ${productName}: Discount cannot be greater than subtotal.`);
+            }
+
+            if (expire && new Date(expire) < new Date(new Date().setHours(0, 0, 0, 0))) {
+                isValid = false;
+                errorMessages.push(`For ${productName}: Expiration date cannot be in the past.`);
+            }
+        });
+
+        if (!isValid) {
+            errorMessages.forEach(msg => showToastMessage(msg, "error"));
+            return;
+        }
+
+        // If all validation passes, submit the form via AJAX
+        var formData = new FormData(this);
+        formData.append('<?= csrf_token() ?>', '<?= csrf_hash() ?>');
+
+        // Recalculate and append payments if the section is visible
+        if ($('#add_payment_row').is(':visible')) {
+            recalculateTotalPaid();
+            let totalPaidInBase = parseFloat($('#total_paid_input').val()) || 0;
+            formData.append('total_paid_amount', totalPaidInBase);
+
+            // Append payment details
+            let payments = [];
+            $('#payments_table tbody tr').each(function() {
+                payments.push({
+                    currency_id: $(this).find('.payment-currency').val(),
+                    amount: $(this).find('.payment-amount').val(),
+                    note: $(this).find('.payment-note').val(),
+                });
+            });
+            formData.append('payments', JSON.stringify(payments));
+        }
+
+
+        $.ajax({
+            type: "POST",
+            url: this.action,
+            dataType: "json",
+            data: formData,
+            processData: false,
+            contentType: false,
+            success: function(result) {
+
+                if (result.error == false) {
+                    showToastMessage(result.message, "success");
+                    setTimeout(() => {
+                        window.location.href = base_url + "/admin/purchases";
+                    }, 1000);
+                } else {
+                    const messages = result.message;
+                    if (typeof messages === 'object' && messages !== null) {
+                        Object.values(messages).forEach(msg => showToastMessage(msg, "error"));
+                    } else {
+                        showToastMessage(messages, "error");
+                    }
+                }
+            },
+            error: function(jqXHR, textStatus, errorThrown) {
+                showToastMessage('An error occurred. Please try again.', 'error');
+                console.error(textStatus, errorThrown);
+            }
+        });
+    });
 
     $(document).ready(function() {
         // Hide add payment button and payment row on page load
@@ -266,7 +391,7 @@
         }
 
         function formatNumberWithCommas(x) {
-            if (x === null || x === undefined) return '';
+            if (!x) return '';
             x = x.toString().replace(/,/g, '');
             let parts = x.split('.');
             parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
@@ -311,7 +436,7 @@
             recalcConvertedIQD($row);
         });
 
-        $('#add_payment_row').off('click').on('click', function() {
+        $('#add_payment_row').on('click', function() {
             const $paymentsTableBody = $('#payments_table tbody');
             const rowIdx = $paymentsTableBody.find('tr').length;
 
@@ -327,12 +452,12 @@
                 <tr class="payment-row">
                     <td><select class="form-control payment-currency" name="payments[${rowIdx}][currency_id]">${currencyOptions}</select></td>
                     <td>
-                        <input type="text" class="form-control payment-amount format-number" name="payments[${rowIdx}][amount]" value="" />
+                        <input type="text" class="form-control payment-amount" name="payments[${rowIdx}][amount]" value="" />
                     </td>
-                    <td><input type="number" step="any" class="form-control payment-rate format-number" name="payments[${rowIdx}][rate_at_payment]" value="1" readonly /></td>
+                    <td><input type="number" step="any" class="form-control payment-rate" name="payments[${rowIdx}][rate_at_payment]" value="1" readonly /></td>
                     <td>
                         <input type="hidden" class="payment-converted-iqd-raw" name="payments[${rowIdx}][converted_iqd]" value="" />
-                        <span class="form-control-static payment-converted-iqd-display format-number">${formatNumberWithCommas(0)}</span>
+                        <span class="form-control-static payment-converted-iqd-display">${formatNumberWithCommas(0)}</span>
                     </td>
                     <td><input type="text" class="form-control payment-date" name="payments[${rowIdx}][paid_at]" value="${nowStr}" /></td>
                     <td><button type="button" class="btn btn-danger btn-sm remove-payment-row">×</button></td>
@@ -341,58 +466,43 @@
             `;
 
             $paymentsTableBody.append(newRow);
-            // Only set the rate for the new row
+            populatePaymentCurrencyDropdowns();
+
+            // Initialize flatpickr for the new payment date field
             const $newRow = $paymentsTableBody.find('tr:last-child');
             if ($newRow.length) {
-                const $currencySelect = $newRow.find('.payment-currency');
-                $currencySelect.trigger('change'); // This will set the rate
                 initPaymentDatePickersForElement($newRow.find('.payment-date'));
                 recalcConvertedIQD($newRow);
             }
+
+            // Enable remove buttons for all rows except the first one
             $paymentsTableBody.find('.remove-payment-row').prop('disabled', false);
-            if (typeof formatAllNumbers === 'function') formatAllNumbers();
         });
 
         // Handle remove payment row
-        $(document).off('click', '.remove-payment-row').on('click', '.remove-payment-row', function() {
+        $(document).on('click', '.remove-payment-row', function() {
             const $row = $(this).closest('tr');
-            const paymentId = $row.find('.payment-id').val();
-            Swal.fire({
-                title: 'Are you sure?',
-                text: 'Do you want to delete this payment?',
-                icon: 'warning',
-                showCancelButton: true,
-                confirmButtonText: 'Yes, delete it!',
-                cancelButtonText: 'Cancel',
-            }).then((result) => {
-                if (result.isConfirmed) {
-                    if (paymentId) {
-                        // Existing payment, delete from backend
-                        $.ajax({
-                            url: base_url + '/admin/purchases/delete_payment/' + paymentId,
-                            type: 'POST',
-                            dataType: 'json',
-                            data: { csrf_test_name: $('input[name=csrf_test_name]').val() },
-                            success: function(response) {
-                                if (response.success) {
-                                    $row.remove();
-                                    updatePaymentsSummary();
-                                    Swal.fire('Deleted!', 'Payment has been deleted.', 'success');
-                                } else {
-                                    Swal.fire('Error', response.message || 'Could not delete payment.', 'error');
-                                }
-                            },
-                            error: function() {
-                                Swal.fire('Error', 'Could not delete payment.', 'error');
-                            }
-                        });
-                    } else {
-                        // New row, just remove
-                        $row.remove();
-                        updatePaymentsSummary();
-                    }
+            const $paymentsTableBody = $('#payments_table tbody');
+
+            if ($paymentsTableBody.find('tr').length > 1) {
+                $row.remove();
+
+                // Re-index the remaining rows
+                $paymentsTableBody.find('tr').each(function(index) {
+                    $(this).find('select, input').each(function() {
+                        const name = $(this).attr('name');
+                        if (name) {
+                            $(this).attr('name', name.replace(/\[\d+\]/, `[${index}]`));
+                        }
+                    });
+                });
+
+                // Disable remove button if only one row remains
+                if ($paymentsTableBody.find('tr').length === 1) {
+                    $paymentsTableBody.find('.remove-payment-row').prop('disabled', true);
                 }
-            });
+            }
+            updatePaymentsSummary();
         });
 
         // Before form submit, ensure all payment amounts are properly formatted
@@ -403,12 +513,6 @@
             }
         });
 
-        // Submit the form
-        $('#purchase_form').on('submit', function() {
-            $('.payment-converted-iqd').each(function() {
-                this.value = removeCommas(this.value);
-            });
-        });
 
         // Initial fetch
         fetchCurrenciesAndRates();
@@ -480,7 +584,6 @@
             const $paymentsTableBody = $('#payments_table tbody');
             const $paymentsTableGroup = $('#payments_table').closest('.form-group');
             const $addPaymentRowButton = $('#add_payment_row');
-            const hasExistingPayments = window.prefillPurchasePayments && window.prefillPurchasePayments.length > 0;
 
             if (status === 'fully_paid') {
                 $paymentsTableGroup.hide();
@@ -587,7 +690,6 @@
                 $paymentsTableBody.find('.remove-payment-row').prop('disabled', $paymentsTableBody.find('tr').length <= 1);
                 $paymentsTableBody.find('.payment-rate, .payment-converted-iqd-raw').prop('readonly', true); // Keep these calculated fields readonly
             }
-            if (typeof formatAllNumbers === 'function') formatAllNumbers();
         }).trigger('change');
 
         // On page load, trigger the change to set the correct state
@@ -663,11 +765,6 @@
         setTimeout(function() {
             populateSummaryCurrencyDropdown();
             updatePaymentsSummary();
-
-            // Show payment summary for existing payments regardless of status
-            if (window.prefillPurchasePayments && window.prefillPurchasePayments.length > 0) {
-                $('#payments_summary_row').show();
-            }
         }, 1200);
 
         // --- PREFILL PRODUCTS/ITEMS TABLE AND PAYMENTS (EDIT MODE) ---
@@ -684,11 +781,11 @@
                         image: item.image ? `<img src='${site_url}${item.image}' width='60' height='60' class='img-thumbnail' alt='Product Image'>` : '',
                         name: item.product_name ? item.product_name + ' - ' + (item.variant_name || '') : (item.variant_name || ''),
                         quantity: `<input type='number' class='form-control qty' name='qty[${item.product_variant_id}]' value='${item.quantity}' min='1' step='1'>`,
-                        price: `<input type='text' class='form-control price' name='price[${item.product_variant_id}]' value='${item.price}' min='0.01' step='0.01' data-raw='${item.price}' />`,
-                        sell_price: `<input type='text' class='form-control sell_price' name='sell_price[${item.product_variant_id}]' value='${item.sell_price || ''}' min='0' step='0.01' data-raw='${item.sell_price || ''}' />`,
+                        price: `<input type='number' class='form-control price' name='price[${item.product_variant_id}]' value='${item.price}' min='0.01' step='0.01'>`,
+                        sell_price: `<input type='number' class='form-control sell_price' name='sell_price[${item.product_variant_id}]' value='${item.sell_price || ''}' min='0' step='0.01'>`,
                         expire: `<input type='text' class='form-control expire' name='expire[${item.product_variant_id}]' value='${item.expire || ''}' placeholder='YYYY-MM-DD' autocomplete='off'>`,
-                        discount: `<input type='text' class='form-control discount' name='discount[${item.product_variant_id}]' value='${item.discount || 0}' min='0' step='0.01' data-raw='${item.discount || 0}' />`,
-                        total: `<span class='table_price'>${formatNumberWithCommas(Math.round(item.quantity * item.price - (item.discount || 0)))}</span>`,
+                        discount: `<input type='number' class='form-control discount' name='discount[${item.product_variant_id}]' value='${item.discount || 0}' min='0' step='0.01'>`,
+                        total: `<span class='table_price'>${(item.quantity * item.price - (item.discount || 0)).toFixed(2)}</span>`,
                         hidden_inputs: ''
                     };
                     $('#purchase_order').bootstrapTable('insertRow', {
@@ -718,32 +815,21 @@
                     let row = `
                         <tr class='payment-row'>
                             <td><select class='form-control payment-currency' name='payments[${idx}][currency_id]'>${currencyOptions}</select></td>
-                            <td><input type='text' class='form-control payment-amount format-number' name='payments[${idx}][amount]' value='${removeCommas(payment.amount)}' /></td>
-                            <td><input type='number' step='any' class='form-control payment-rate format-number' name='payments[${idx}][rate_at_payment]' value='${removeCommas(payment.rate_at_payment || 1)}' readonly /></td>
+                            <td><input type='text' class='form-control payment-amount' name='payments[${idx}][amount]' value='${payment.amount}' /></td>
+                            <td><input type='number' step='any' class='form-control payment-rate' name='payments[${idx}][rate_at_payment]' value='${payment.rate_at_payment || 1}' readonly /></td>
                             <td>
-                                <input type='hidden' class='payment-converted-iqd-raw' name='payments[${idx}][converted_iqd]' value='${removeCommas(payment.converted_iqd || '')}' />
-                                <span class='form-control-static payment-converted-iqd-display format-number'>${removeCommas(payment.converted_iqd || 0)}</span>
+                                <input type='hidden' class='payment-converted-iqd-raw' name='payments[${idx}][converted_iqd]' value='${payment.converted_iqd || ''}' />
+                                <span class='form-control-static payment-converted-iqd-display'>${payment.converted_iqd || 0}</span>
                             </td>
                             <td><input type='text' class='form-control payment-date' name='payments[${idx}][paid_at]' value='${payment.paid_at || ''}' /></td>
                             <td><button type='button' class='btn btn-danger btn-sm remove-payment-row' ${(idx === 0) ? 'disabled' : ''}>×</button></td>
                             <input type='hidden' name='payments[${idx}][payment_type]' value='${payment.payment_type || 'cash'}' />
-                            <input type='hidden' class='payment-id' value='${payment.id || ''}' />
                         </tr>
                     `;
                     $('#payments_table tbody').append(row);
-                    // Ensure rate and converted IQD are set
-                    const $row = $('#payments_table tbody tr:last-child');
-                    $row.find('.payment-currency').trigger('change');
-                    recalcConvertedIQD($row);
                 });
                 $('#payments_table tbody .remove-payment-row').prop('disabled', $('#payments_table tbody tr').length <= 1);
-                if (typeof formatAllNumbers === 'function') formatAllNumbers();
-                // Initialize flatpickr for all payment-date fields after prefill
-                $('.payment-date').each(function() {
-                    if (!$(this).hasClass('flatpickr-input')) {
-                        initPaymentDatePickersForElement(this);
-                    }
-                });
+
                 // Show payment summary when there are existing payments
                 if (window.prefillPurchasePayments.length > 0) {
                     $('#payments_summary_row').show();
@@ -756,12 +842,6 @@
         function tryPrefillAfterCurrenciesLoaded() {
             if (typeof paymentCurrencies !== 'undefined' && paymentCurrencies.length > 0) {
                 prefillProductsAndPaymentsIfReady();
-                // Update payment summary after prefill
-                setTimeout(function() {
-                    if (window.prefillPurchasePayments && window.prefillPurchasePayments.length > 0) {
-                        updatePaymentsSummary();
-                    }
-                }, 100);
             } else {
                 setTimeout(tryPrefillAfterCurrenciesLoaded, 100);
             }
@@ -769,86 +849,6 @@
 
         // On page load, try to prefill after currencies are loaded
         tryPrefillAfterCurrenciesLoaded();
-
-        // 2. When changing the currency in a row, only update that row's rate
-        $(document).off('change', '.payment-currency').on('change', '.payment-currency', function() {
-            const $row = $(this).closest('tr');
-            const currencyId = $(this).val();
-            const rate = paymentRates[currencyId] || 1;
-            $row.find('.payment-rate').val(rate);
-            recalcConvertedIQD($row);
-        });
-
-        // Add formatting for cost price, sell price, discount, and subtotal (table_price) in the purchase_order table
-        // Use formatNumberWithCommas for display, but keep input values unformatted for calculations
-
-        // 1. When rendering the table (prefillProductsAndPaymentsIfReady):
-        // let tableRow = {
-        //     // ...
-        //     price: `<input type='number' class='form-control price' name='price[${item.product_variant_id}]' value='${item.price}' min='0.01' step='0.01' data-raw='${item.price}' />`,
-        //     sell_price: `<input type='number' class='form-control sell_price' name='sell_price[${item.product_variant_id}]' value='${item.sell_price || ''}' min='0' step='0.01' data-raw='${item.sell_price || ''}' />`,
-        //     discount: `<input type='number' class='form-control discount' name='discount[${item.product_variant_id}]' value='${item.discount || 0}' min='0' step='0.01' data-raw='${item.discount || 0}' />`,
-        //     total: `<span class='table_price'>${formatNumberWithCommas(Math.round(item.quantity * item.price - (item.discount || 0)))}</span>`,
-        //     // ...
-        // };
-
-        // 2. On input for price, sell_price, discount: format with commas for display, but keep raw value for calculations
-        $(document).on('input', '.price, .sell_price, .discount', function() {
-            let $input = $(this);
-            let value = $input.val().replace(/,/g, '');
-            if (value) {
-                value = parseFloat(value);
-                $input.val(formatNumberWithCommas(value));
-                $input.attr('data-raw', value);
-            }
-            // Update subtotal
-            var $row = $input.closest('tr');
-            var qty = parseFloat($row.find('.qty').val()) || 0;
-            var price = parseFloat($row.find('.price').val().replace(/,/g, '')) || 0;
-            var discount = parseFloat($row.find('.discount').val().replace(/,/g, '')) || 0;
-            var subtotal = qty * price - discount;
-            $row.find('.table_price').text(formatNumberWithCommas(subtotal));
-        });
-
-        // 3. On input for qty: update subtotal with formatted value
-        $(document).on('input', '.qty', function() {
-            var $row = $(this).closest('tr');
-            var qty = parseFloat($row.find('.qty').val()) || 0;
-            var price = parseFloat($row.find('.price').val().replace(/,/g, '')) || 0;
-            var discount = parseFloat($row.find('.discount').val().replace(/,/g, '')) || 0;
-            var subtotal = qty * price - discount;
-            $row.find('.table_price').text(formatNumberWithCommas(subtotal));
-        });
-
-        // 4. Before form submission, strip commas from all price, sell_price, discount inputs
-        $('#purchase_form').on('submit', function() {
-            $('.price, .sell_price, .discount').each(function() {
-                let $input = $(this);
-                let value = $input.val().replace(/,/g, '');
-                $input.val(value);
-            });
-        });
-
-        // Also, on page load, format any prefilled values with commas
-        $(document).ready(function() {
-            $('.price, .sell_price, .discount').each(function() {
-                let $input = $(this);
-                let value = $input.val().replace(/,/g, '');
-                if (value) {
-                    value = parseFloat(value);
-                    $input.val(formatNumberWithCommas(value));
-                    $input.attr('data-raw', value);
-                }
-            });
-            $('.table_price').each(function() {
-                let $span = $(this);
-                let value = $span.text().replace(/,/g, '');
-                if (value) {
-                    value = parseFloat(value);
-                    $span.text(formatNumberWithCommas(value));
-                }
-            });
-        });
     });
 
     document.addEventListener('DOMContentLoaded', function() {
@@ -859,31 +859,31 @@
         });
 
         validation
-            // .addField('[name="supplier_id"]', [{
-            //     rule: 'required',
-            //     errorMessage: 'Supplier is required'
-            // }])
-            // .addField('[name="warehouse_id"]', [{
-            //     rule: 'required',
-            //     errorMessage: 'Warehouse is required'
-            // }])
-            // .addField('[name="purchase_date"]', [{
-            //     rule: 'required',
-            //     errorMessage: 'Purchase date is required'
-            // }])
-            // .addField('[name="status"]', [{
-            //     rule: 'required',
-            //     errorMessage: 'Status is required'
-            // }])
-            // .addField('[name="payment_status"]', [{
-            //         rule: 'required',
-            //         errorMessage: 'Payment status is required'
-            //     },
-            //     {
-            //         validator: (value) => value !== 'pending',
-            //         errorMessage: 'Please select a valid payment status'
-            //     }
-            // ])
+            .addField('[name="supplier_id"]', [{
+                rule: 'required',
+                errorMessage: 'Supplier is required'
+            }])
+            .addField('[name="warehouse_id"]', [{
+                rule: 'required',
+                errorMessage: 'Warehouse is required'
+            }])
+            .addField('[name="purchase_date"]', [{
+                rule: 'required',
+                errorMessage: 'Purchase date is required'
+            }])
+            .addField('[name="status"]', [{
+                rule: 'required',
+                errorMessage: 'Status is required'
+            }])
+            .addField('[name="payment_status"]', [{
+                    rule: 'required',
+                    errorMessage: 'Payment status is required'
+                },
+                {
+                    validator: (value) => value !== 'pending',
+                    errorMessage: 'Please select a valid payment status'
+                }
+            ])
             .onSuccess(async (event) => {
                 // Prepare products data before submission
                 const products = $('#products_input').val();
@@ -988,68 +988,14 @@
             products.push({
                 id: row.id, // This is product_variant_id
                 name: row.name,
-                price: parseFloat($(row.price).val ? $(row.price).val().replace(/,/g, '') : row.price.toString().replace(/,/g, '')) || 0,
-                qty: parseFloat($(row.quantity).val ? $(row.quantity).val().replace(/,/g, '') : row.quantity.toString().replace(/,/g, '')) || 0,
-                discount: parseFloat($(row.discount).val ? $(row.discount).val().replace(/,/g, '') : row.discount.toString().replace(/,/g, '')) || 0,
-                sell_price: parseFloat($(row.sell_price).val ? $(row.sell_price).val().replace(/,/g, '') : row.sell_price.toString().replace(/,/g, '')) || 0,
+                price: parseFloat($(row.price).val ? $(row.price).val() : row.price) || 0,
+                qty: parseFloat($(row.quantity).val ? $(row.quantity).val() : row.quantity) || 0,
+                discount: parseFloat($(row.discount).val ? $(row.discount).val() : row.discount) || 0,
+                sell_price: parseFloat($(row.sell_price).val ? $(row.sell_price).val() : row.sell_price) || 0,
                 expire: $(row.expire).val ? $(row.expire).val() : row.expire
             });
         });
         return products;
-    }
-
-    // Update purchase_total to always strip commas
-    function purchase_total() {
-        var total = 0; // total purchase after row discount
-        var final_total = 0;
-        var sell_total = 0;
-        var profit_total = 0;
-        var currency = $("#sub_total").attr("data-currency");
-        var isIQD = currency === 'IQD' || currency === 'د.ع'; // Check for IQD symbol
-
-        $(".table_price").each(function (i, el) {
-            var row = $(el).closest("tr");
-            var price = parseFloat(row.find(".price").val().replace(/,/g, '')) || 0;
-            var qty = parseFloat(row.find(".qty").val().replace(/,/g, '')) || 0;
-            var discountInput = row.find(".discount").val().toString().replace(/,/g, '');
-            var discount = 0;
-
-            if (discountInput.endsWith("%")) {
-                var percentValue = parseFloat(discountInput.slice(0, -1));
-                discount = (percentValue / 100) * (price * qty);
-            } else {
-                discount = parseFloat(discountInput) || 0;
-            }
-
-            var row_total = price * qty - discount;
-            total += row_total;
-
-            // sell price total (calculate before applying order discount)
-            var sell_price = parseFloat(row.find(".sell_price").val().replace(/,/g, '')) || 0;
-            var row_sell_total = sell_price * qty;
-            sell_total += row_sell_total;
-
-            // profit total (calculate before applying order discount)
-            var row_profit = (sell_price * qty) - row_total;
-            profit_total += row_profit;
-        });
-
-        var order_discount = parseFloat($("#order_discount").val().replace(/,/g, '')) || 0;
-        var shipping = parseFloat($("#shipping").val().replace(/,/g, '')) || 0;
-
-        // Apply order discount and shipping
-        final_total = total - order_discount + shipping;
-        profit_total = sell_total - final_total;
-        
-        // Store base values in hidden inputs for currency conversion
-        $('input[name="total"]').val(final_total.toFixed(isIQD ? 0 : 3));
-        $('input[name="sell_total"]').val(sell_total.toFixed(isIQD ? 0 : 3));
-        $('input[name="profit_total"]').val(profit_total.toFixed(isIQD ? 0 : 3));
-        
-        // Update fields with base currency
-        $("#sub_total").html(currency + final_total.toFixed(isIQD ? 0 : 3));
-        $("#sell_total").html(currency + sell_total.toFixed(isIQD ? 0 : 3));
-        $("#profit_total").html(currency + profit_total.toFixed(isIQD ? 0 : 3));
     }
 
     // On form submit, serialize products using the above function
@@ -1057,6 +1003,5 @@
         // ... existing code ...
         const products = JSON.stringify(getProductsForSubmission());
         $('#products_input').val(products);
-        // ... existing code ...
     });
 </script>

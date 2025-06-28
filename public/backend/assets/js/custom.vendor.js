@@ -2739,7 +2739,7 @@ function setupPurchaseOrderEventHandlers() {
     var val = parseFloat($(this).val()) || 0;
     if (val < 0) {
       showToastMessage("Sell price cannot be negative.", "error");
-      $(this).val("");
+      $(this).val("0");
     }
     purchase_total();
   });
@@ -2752,27 +2752,31 @@ function setupPurchaseOrderEventHandlers() {
     var discount = parseFloat(row.find(".discount").val()) || 0;
 
     // Validate inputs
-    if (price < 0) {
-      showToastMessage("Price must be greater than 0.", "error");
+    if (row.find(".price").val() && price < 0) {
+      showToastMessage("Price must be a positive number.", "error");
       row.find(".price").val("");
       return;
     }
 
-    if (qty <= 0) {
-      showToastMessage("Quantity must be greater than 0.", "error");
-      row.find(".qty").val("");
-      return;
+    if (row.find(".qty").val() && qty < 1) {
+      showToastMessage("Quantity must be at least 1.", "error");
+      row.find(".qty").val("1");
+      qty = 1;
     }
 
     var subtotal = qty * price;
 
-    if (discount < 0 || discount > subtotal) {
+    if (discount < 0) {
+        showToastMessage("Discount cannot be negative.", "error");
+        row.find(".discount").val("0");
+        discount = 0;
+    } else if (discount > subtotal) {
       showToastMessage(
-        `Discount must be between 0 and ${subtotal.toFixed(2)}.`,
+        `Discount cannot be greater than subtotal (${subtotal}).`,
         "error"
       );
-      row.find(".discount").val("0");
-      discount = 0;
+      row.find(".discount").val(subtotal);
+      discount = subtotal;
     }
 
     row.find(".table_price").text((subtotal - discount).toFixed(2));
@@ -5591,7 +5595,8 @@ function get_todays_stats() {
             value = res.data[dataKey];
           }
           let currency = $("#" + elementId).data("currency");
-          $("#" + elementId).text(currency + " " + value);
+          let numValue = parseFloat(value) || 0;
+          $("#" + elementId).text(currency + " " + numValue.toLocaleString());
 
           if (callback) callback(value);
         },
@@ -5968,105 +5973,120 @@ function showDraftsModal() {
   }
 }
 
-// Add this function to format all SubTotal cells with commas
-function formatAllSubTotals() {
-  $(".table_price").each(function() {
-    var val = $(this).text().replace(/,/g, '');
-    if (!isNaN(val) && val !== "") {
-      $(this).text(Number(val).toLocaleString());
-    }
-  });
-}
+function showDraftsModal() { 
+  try {
+      const business_id = $("#business_id").val();
+      const drafts = JSON.parse(localStorage.getItem(`drafts${business_id}`) || "[]");
+      
+      let modalHTML = `
+          <div class="modal fade" id="draftsModal" tabindex="-1">
 
-// Call it on page load
-$(document).ready(function() {
-  formatAllSubTotals();
-});
+              <div class="modal-dialog modal-lg">
+                  <div class="modal-content">
+                      <div class="modal-header">
+                          <h5 class="modal-title">Saved Drafts</h5>
+                          <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                              <span aria-hidden="true">&times;</span>
+                          </button>
+                      </div>
+                      <div class="modal-body">
+                          ${drafts.length ? '' : '<p>No saved drafts found</p>'}
+                          <div class="list-group">
+      `;
 
-// If you have a function that renders or refreshes the purchase order table, call formatAllSubTotals() at the end of that function as well.
+      drafts.forEach(draft => {
+          modalHTML += `
 
-// Add this function at the end of the file or after document ready
-function formatAllNumbers() {
-  $(".format-number").each(function() {
-    // Skip input[type=number] fields!
-    if ($(this).is("input[type='number']")) {
-      // Do NOT format with commas
-      return;
-    }
-    if ($(this).is("input")) {
-      var val = $(this).val().replace(/,/g, '');
-      if (!isNaN(val) && val !== "") {
-        $(this).val(Number(val).toLocaleString());
-      }
-    } else {
-      var val = $(this).text().replace(/,/g, '');
-      if (!isNaN(val) && val !== "") {
-        $(this).text(Number(val).toLocaleString());
-      }
-    }
-  });
-}
-$(document).ready(function() {
-  formatAllNumbers();
 
-        // Workaround: force modal hide on close button click
-        $('body').off('click.draftsModalClose').on('click.draftsModalClose', '#draftsModal .close, #draftsModal [data-dismiss="modal"]', function() {
-            $('#draftsModal').modal('hide');
-        });
 
-        // Remove any previous event handler to avoid stacking
-        $('#draftsModal').off('hidden.bs.modal');
+              <div class="list-group-item d-flex justify-content-between align-items-center">
+                  <div>
+                      <strong>${draft.created_at}</strong><br>
+                      ${draft.cart.length} items
+                  </div>
+                  <div>
+                      <button class="btn btn-sm btn-primary me-2" onclick="loadDraft(${draft.id})">Load</button>
+                      <button class="btn btn-sm btn-danger" onclick="deleteDraft(${draft.id})">Delete</button>
 
-        // When modal is hidden, remove it from DOM
-        $('#draftsModal').on('hidden.bs.modal', function () {
-            $(this).remove();
-        });
 
-        $('#draftsModal').modal('show');
-    } catch (error) {
-        console.error("Modal error:", error);
-        show_message("Error", error.message, "error");
-    }
+
+
+
+
+                  </div>
+              </div>
+          `;
+      });
+
+      modalHTML += `
+                          </div>
+                      </div>
+                      <div class="modal-footer">
+                          <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+                      </div>
+                  </div>
+              </div>
+          </div>
+      `;
+
+      $('#draftsModal').remove();
+      $('body').append(modalHTML);
+
+      // Workaround: force modal hide on close button click
+      $('body').off('click.draftsModalClose').on('click.draftsModalClose', '#draftsModal .close, #draftsModal [data-dismiss="modal"]', function() {
+          $('#draftsModal').modal('hide');
+      });
+
+      // Remove any previous event handler to avoid stacking
+      $('#draftsModal').off('hidden.bs.modal');
+
+      // When modal is hidden, remove it from DOM
+      $('#draftsModal').on('hidden.bs.modal', function () {
+          $(this).remove();
+      });
+
+      $('#draftsModal').modal('show');
+  } catch (error) {
+      console.error("Modal error:", error);
+      show_message("Error", error.message, "error");
+  }
 }
 
 function deleteDraft(draftId) {
-    if (confirm("Delete this draft permanently?")) {
-        try {
-            const business_id = $("#business_id").val();
-            let drafts = JSON.parse(localStorage.getItem(`drafts${business_id}`) || "[]");
-            drafts = drafts.filter(d => d.id !== draftId);
-            localStorage.setItem(`drafts${business_id}`, JSON.stringify(drafts));
-            updateDraftCount();
+  if (confirm("Delete this draft permanently?")) {
+      try {
+          const business_id = $("#business_id").val();
+          let drafts = JSON.parse(localStorage.getItem(`drafts${business_id}`) || "[]");
+          drafts = drafts.filter(d => d.id !== draftId);
+          localStorage.setItem(`drafts${business_id}`, JSON.stringify(drafts));
+          updateDraftCount();
 
-            // Remove any previous event handler to avoid stacking
-            $('#draftsModal').off('hidden.bs.modal');
+          // Remove any previous event handler to avoid stacking
+          $('#draftsModal').off('hidden.bs.modal');
 
-            // After modal is hidden, show the updated modal
-            $('#draftsModal').on('hidden.bs.modal', function () {
-                $(this).remove();
-                showDraftsModal();
-            });
+          // After modal is hidden, show the updated modal
+          $('#draftsModal').on('hidden.bs.modal', function () {
+              $(this).remove();
+              showDraftsModal();
+          });
 
-            $('#draftsModal').modal('hide');
-            show_message("Success", "Draft deleted successfully", "success");
-        } catch (error) {
-            console.error("Delete error:", error);
-            show_message("Error", error.message, "error");
-        }
-    }
+          $('#draftsModal').modal('hide');
+          show_message("Success", "Draft deleted successfully", "success");
+      } catch (error) {
+          console.error("Delete error:", error);
+          show_message("Error", error.message, "error");
+      }
+  }
 }
 
 // Expiry Alert Message
 $(document).ready(function () {
-    console.log("Document ready - initializing expiry alerts");
-    console.log("Base URL:", base_url); // Debug log to check base_url
 
     // Check if iziToast is loaded (required for notifications)
     if (typeof iziToast === "undefined") {
         console.error("iziToast not loaded - expiry alerts disabled");
         return;
     }
-    console.log("iziToast is loaded"); // Debug log
 
     // Function to show expiry alert notification
     function showExpiryAlert(productName, variantName, warehouseName, quantity, expiryDate, daysRemaining, batchId) {
@@ -6129,8 +6149,6 @@ $(document).ready(function () {
 
     // Function to check expiry alerts
     function checkExpiryAlerts() {
-        console.log("Checking expiry alerts...");
-        console.log("Request URL:", base_url + "admin/products/expiry_alert"); // Debug log
         
         $.ajax({
             url: base_url + "admin/products/expiry_alert",
@@ -6140,9 +6158,7 @@ $(document).ready(function () {
                 'X-CSRF-TOKEN': csrf_token // Add CSRF token if required
             },
             success: function (response) {
-                console.log("Received expiry alert response:", response); // Debug log
                 if (response && response.rows && response.rows.length > 0) {
-                    console.log("Found", response.rows.length, "expiring products"); // Debug log
                     response.rows.forEach(function (item) {
                         try {
                             showExpiryAlert(
@@ -6183,6 +6199,7 @@ $(document).ready(function () {
     // Check expiry alerts every 5 minutes
     setInterval(checkExpiryAlerts, 5 * 60 * 1000);
 });
+
 
 $(function() {
   if ($('#editBatchModal').length === 0) {
@@ -6283,4 +6300,48 @@ $(document).on('click', '#saveBatchPrice', function() {
     }
     $(this).blur();
     $('#editBatchModal').modal('hide');
+
+
+
+// Add this function to format all SubTotal cells with commas
+function formatAllSubTotals() {
+  $(".table_price").each(function() {
+    var val = $(this).text().replace(/,/g, '');
+    if (!isNaN(val) && val !== "") {
+      $(this).text(Number(val).toLocaleString());
+    }
+  });
+}
+
+// Call it on page load
+$(document).ready(function() {
+  formatAllSubTotals();
+});
+
+// If you have a function that renders or refreshes the purchase order table, call formatAllSubTotals() at the end of that function as well.
+
+// Add this function at the end of the file or after document ready
+function formatAllNumbers() {
+  $(".format-number").each(function() {
+    // Skip input[type=number] fields!
+    if ($(this).is("input[type='number']")) {
+      // Do NOT format with commas
+      return;
+    }
+    if ($(this).is("input")) {
+      var val = $(this).val().replace(/,/g, '');
+      if (!isNaN(val) && val !== "") {
+        $(this).val(Number(val).toLocaleString());
+      }
+    } else {
+      var val = $(this).text().replace(/,/g, '');
+      if (!isNaN(val) && val !== "") {
+        $(this).text(Number(val).toLocaleString());
+      }
+    }
+  });
+}
+$(document).ready(function() {
+  formatAllNumbers();
+
 });

@@ -301,18 +301,10 @@ class warehouse_batches_model extends Model
 
             // Log the query we're about to execute
             $query = $builder->getCompiledSelect(false);
-            log_message('info', 'Executing expiry query: ' . $query);
 
             // Execute the query
             $result = $builder->get()->getResultArray();
             
-            // Log the results
-            log_message('info', 'Query returned ' . count($result) . ' rows');
-            if (empty($result)) {
-                log_message('info', 'No expiring batches found for business_id: ' . $business_id);
-            } else {
-                log_message('info', 'Sample batch data: ' . json_encode(array_slice($result, 0, 1)));
-            }
 
             return $result;
         } catch (\Exception $e) {

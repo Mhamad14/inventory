@@ -262,6 +262,30 @@
             baseCurrency: null,
             buttonText: 'Exchange Rate',
 
+            // Fetch exchange rates and currencies on Alpine init
+            init() {
+                this.fetchExchangeRates();
+            },
+            async fetchExchangeRates() {
+                try {
+                    const response = await axios.get('<?= base_url('admin/currency/get_exchange_rates') ?>', {
+                        headers: {
+                            'X-Requested-With': 'XMLHttpRequest',
+                            'X-CSRF-TOKEN': '<?= csrf_token() ?>'
+                        }
+                    });
+
+                    this.currencies = response.data.currencies || [];
+                    this.rates = response.data.rates || [];
+                    this.baseCurrency = this.currencies.find(c => parseInt(c.is_base) === 1);
+
+                    // Update button display
+                    this.updateButtonText();
+                } catch (error) {
+                    showToastMessage('Error fetching exchange rates', 'error');
+                    console.error('Error fetching exchange rates:', error);
+                }
+            },
             // Helper methods
             getCurrency(currencyId) {
                 return this.currencies.find(c => c.id == currencyId);
