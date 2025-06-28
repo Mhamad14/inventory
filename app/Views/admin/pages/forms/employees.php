@@ -3,7 +3,7 @@
         <div class="section-header">
             <h1><?= labels('employees', 'Employees') ?></h1>
             <div class="section-header-breadcrumb">
-                <a class="btn btn-primary text-white" href="<?= base_url('admin/employees'); ?>" data-toggle="tooltip" title="<?= labels('employees_list', 'employees') ?>">
+                <a class="btn btn-primary text-white" href="<?= base_url('admin/employees'); ?>" data-toggle="tooltip" title="<?= labels('employees', 'Employees') ?>">
                     <i class="fas fa-list"></i>
                 </a>
             </div>
@@ -36,7 +36,7 @@
                                                 <i class="fas fa-phone"></i>
                                             </span>
                                         </div>
-                                        <input type="text" class="form-control phone-number" placeholder="Enter Your Mobile Number" id="contact_number" name="contact_number" value="<?= !empty($employee['contact_number']) ? $employee['contact_number'] : "" ?>" required>
+                                        <input type="text" class="form-control phone-number" placeholder=" <?= labels('enter_mobile', 'Enter Your Mobile Number') ?>" id="contact_number" name="contact_number" value="<?= !empty($employee['contact_number']) ? $employee['contact_number'] : "" ?>" required>
                                     </div>
                                     <span class="text-danger text-bold phone-number-error-message"></span>
                                 </div>
@@ -72,11 +72,11 @@
                         </div>
                         <div class="form-group mt-3">
                             <?php if (!empty($employee['id'])) { ?>
-                                <button type="submit" name="update" class="btn btn-success" onclick="return confirm('Are you sure you want to update this employee?');"><?= labels('update', 'Update') ?></button>
-                                <button type="submit" name="delete" class="btn btn-danger" onclick="return confirm('Are you sure you want to delete this employee?');"><?= labels('delete', 'Delete') ?></button>
+                                <button type="submit" name="update" class="btn btn-success" onclick="return confirm('<?= labels('confirm_update_employee', 'Are you sure you want to update this employee?') ?>');"><?= labels('update', 'Update') ?></button>
+                                <button type="submit" name="delete" class="btn btn-danger" onclick="return confirm('<?= labels('confirm_delete_employee', 'Are you sure you want to delete this employee?') ?>');"><?= labels('delete', 'Delete') ?></button>
                             <?php } else { ?>
                                 <button type="reset" class="reset btn btn-primary"><?= labels('reset', 'Reset') ?></button>
-                                <button type="submit" name="insert" class="btn btn-success" onclick="return confirm('Are you sure you want to save this employee?');"><?= labels('save', 'Save') ?></button>
+                                <button type="submit" name="insert" class="btn btn-success" onclick="return confirm('<?= labels('confirm_save_employee', 'Are you sure you want to save this employee?') ?>');"><?= labels('save', 'Save') ?></button>
                             <?php } ?>
                         </div>
                     </form>

@@ -3,7 +3,7 @@
         <div class="section-header">
             <h1><?= labels('positions', 'positions') ?></h1>
             <div class="section-header-breadcrumb d-flex align-items-center gap-2">
-                <a class="btn btn-primary text-white me-2" href="<?= base_url('admin/positions/new'); ?>" title="<?= labels('add_position', 'Add position') ?>">
+                <a class="btn btn-primary text-white me-2" href="<?= base_url('admin/positions/new'); ?>" title="<?= labels('add_position', 'Add Position') ?>">
                     <i class="fas fa-plus"></i>
                 </a>
             </div>

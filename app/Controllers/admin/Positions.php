@@ -62,8 +62,10 @@ class positions extends BaseController
         $business_id = $this->session->get('business_id');
         $result = $positions_model->get_positions($business_id);
         $rows = [];
+                $lang= labels('edit', 'Edit') ;
+
         foreach ($result['data'] as $position) {
-            $edit = "<a href=" . site_url('admin/positions/edit') . "/" . $position['id'] . " class='btn btn-primary btn-sm' data-toggle='tooltip' data-placement='bottom' title='Edit'><i class='bi bi-pencil'></i></a> ";
+            $edit = "<a href=" . site_url('admin/positions/edit') . "/" . $position['id'] . " class='btn btn-primary btn-sm' data-toggle='tooltip' data-placement='bottom' title='$lang'><i class='bi bi-pencil'></i></a> ";
             $rows[] = [
                 'id' => $position['id'],
                 'description' => ucwords($position['description']),
