@@ -242,9 +242,9 @@ class Invoices extends BaseController
                 'order_type' => "",
                 'name' => "",
                 'tax_percentage' => "",
-                'quantity' => "<strong>Total</strong>",
+                'quantity' => '<strong style="background: #f5f5f5; color: #333; padding: 6px 12px; border-radius: 4px; font-size: 1.1em;">Total</strong>',
                 'price' => "",
-                'subtotal' => "<strong>" . currency_location(number_format($order['total'], 2)) . "</strong>",
+                'subtotal' => '<strong style="background: #ffe082; color: #222; padding: 6px 16px; border-radius: 4px; font-size: 1.2em;">' . currency_location(number_format($order['total'], 2)) . '</strong>',
             ];
 
             array_push($rows, $row);

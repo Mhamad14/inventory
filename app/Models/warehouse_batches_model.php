@@ -74,6 +74,24 @@ class warehouse_batches_model extends Model
             'total' => $count,
         ];
     }
+
+    public function getReturnedBatchById($return_id)
+    {
+        $db = \Config\Database::connect();
+        $builder = $db->table("warehouse_batches_returns as wb");
+        $builder->select(
+            'wb.id, wb.product_variant_id, wb.purchase_item_id, p.image, pv.variant_name, p.name as product_name, 
+            wb.quantity, wb.cost_price, wb.return_price, wb.return_reason, wb.return_date, wb.warehouse_id, wb.batch_number,
+            pi.purchase_id'
+        );
+        $builder->join('purchases_items as pi', 'pi.id = wb.purchase_item_id');
+        $builder->join('products_variants as pv', 'pv.id = wb.product_variant_id');
+        $builder->join('products as p', 'p.id = pv.product_id');
+        $builder->where('wb.id', $return_id);
+
+        return $builder->get()->getRowArray();
+    }
+
     public function saveBatch($purchase_items_id, $warehouse_id, $item, $orderType = 'order'): bool
     {
         $batch_prefix = $orderType == "order" ? "ORDER" : "RETURN";
@@ -194,6 +212,7 @@ class warehouse_batches_model extends Model
             'return_date' => $return_date,
         ];
         $db->table('warehouse_batches_returns')->insert($insertData);
+        $return_id = $db->insertID();
 
         // 3 update purchases_items
         $db->table('purchases_items')->where('id', $return_data['purchase_item_id'])->update([
@@ -214,7 +233,10 @@ class warehouse_batches_model extends Model
         $this->update_purchase_total($purchase_id);
 
         $db->transComplete();
-        return $db->transStatus(); // returns true on success, false on failure
+        if ($db->transStatus()) {
+            return $return_id; // Return the return ID for PDF generation
+        }
+        return false;
     }
 
     function prepareBatchNumber($id, $expire_date)

@@ -34,7 +34,7 @@
                                         <th data-field="position" data-sortable="true"><?= labels('position', 'Position') ?></th>
                                         <th data-field="position_id" data-sortable="true" data-visible="false"><?= labels('position_id', 'Position_id') ?></th>
                                         <th data-field="address" data-sortable="true"><?= labels('address', 'Address') ?></th>
-                                        <th data-field="mobile" data-sortable="true"><?= labels('mobile', 'Contact Number') ?></th>
+                                        <th data-field="mobile" data-sortable="true"><?= labels('mobile', 'Mobile') ?></th>
                                         <th data-field="salary" data-sortable="true"><?= labels('salary', 'Salary') ?></th>
                                         <th data-field="action"><?= labels('action', 'Action') ?></th>
                                     </tr>

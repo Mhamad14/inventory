@@ -55,7 +55,20 @@ helper('form')
                                         <!-- labels -->
                                         <?= create_label('order_details', "Order Details") ?>
                                         <?= create_label('employees', "Employees") ?>
+                                        <?= create_label('enter_mobile', "Enter Your Mobile Number") ?>
+                                        <?= create_label('select_position', "Select position") ?>
                                         <?= create_label('positions', "Positions") ?>
+                                        <?= create_label('position', "Position") ?>
+                                        <?= create_label('confirm_update_employee',"Are you sure you want to update this employee?") ?>
+                                        <?= create_label('confirm_save_employee',"Are you sure you want to save this employee?") ?>
+                                        <?= create_label('confirm_delete_employee',"Are you sure you want to delete this employee?") ?>
+                                        <?= create_label('confirm_update_position',"Are you sure you want to update this position?") ?>
+                                        <?= create_label('confirm_save_position',"Are you sure you want to save this position?") ?>
+                                        <?= create_label('confirm_delete_position',"Are you sure you want to delete this position?") ?>
+                                        <?= create_label('add_position', "Add Position") ?>
+                                        <?= create_label('position_id', "Position_id") ?>
+                                        <?= create_label('mobile', "Mobile") ?>
+                                        <?= create_label('salary', "Salary") ?>
                                         <?= create_label('brands', "Brands") ?>
                                         <?= create_label('admin', "Admin") ?>
                                         <?= create_label('Team_members', 'Team members') ?>

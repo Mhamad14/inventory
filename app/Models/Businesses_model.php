@@ -101,5 +101,10 @@ class Businesses_model extends Model
         $businesses = $builder->orderBy($sort, $order)->limit($limit, $offset)->get()->getResultArray();
         return $businesses;
     }
+
+    public function get_business($business_id)
+    {
+        return $this->find($business_id);
+    }
     
 }
