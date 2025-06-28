@@ -5,8 +5,7 @@ use App\Models\Products_model;
 use App\Models\Products_variants_model;
 use App\Models\Units_model;
 use App\Libraries\Razorpay;
-
-
+use App\Models\Currency_model;
 use CodeIgniter\HTTP\Response;
 
 /**
@@ -410,13 +409,31 @@ function find_days($start_date = "", $end_date = "")
 
 function get_settings($type = "", $is_json = false)
 {
+    $currency_model = new Currency_model();
+    $base_symbol = $currency_model->get_base_currency(session('business_id') ?? '')['symbol']?? 0 ;
+
     $settings = fetch_details("settings", ['variable' => $type]);
+
     if (isset($settings[0]['value']) && !empty($settings[0]['value'])) {
-        return ($is_json) ? json_decode($settings[0]['value'], true) : $settings[0]['value'];
+        $value = ($is_json) ? json_decode($settings[0]['value'], true) : $settings[0]['value'];
+
+        // If it's an array (decoded JSON), inject the currency symbol
+        if (is_array($value)) {
+            if(isset($base_symbol)) {
+                $value['currency_symbol'] = $base_symbol;
+            } else {
+                log_message('error', 'Base symbol is not set in get_settings function');
+            }
+            $value['currency_symbol'] = $base_symbol;
+            
+        }
+
+        return $value;
     } else {
         return false;
     }
 }
+
 function check_data_in_table($table, $id)
 {
     $db      = \Config\Database::connect();
@@ -1442,18 +1459,22 @@ function backup_tables($host, $user, $pass, $dbname, $tables = '*')
 
 function currency_location($data)
 {
-    $settings = get_settings('general', true);
-    $currency_location = isset($settings['currency_locate']) ? $settings['currency_locate'] : 'left';
-    $currency = $settings['currency_symbol'];
+    $currency_model = new Currency_model();
+    $base = $currency_model->get_base_currency(session('business_id'));
 
-
-    if ($currency_location === 'left') {
-        $data = $currency . $data;
-        return $data;
+    if (!$base) {
+        return $data; // Return original data if no base currency found
     }
-    if ($currency_location === 'right') {
-        $data =  $data . $currency;
-        return $data;
+
+    $symbol = $base['symbol'];
+    $position = $base['symbol_position'];
+
+    if ($position == 0) {
+        // Symbol before the amount
+        return $symbol .' '. $data;
+    } else {
+        // Symbol after the amount
+        return $data .' '. $symbol;
     }
 }
 function date_formats($data)
@@ -1481,6 +1502,7 @@ function date_formats($data)
 }
 function decimal_points($data)
 {
+    $currency_model = new Currency_model();
     $settings = get_settings('general', true);
     $decimal_points = isset($settings['decimal_points']) ? $settings['decimal_points'] : 0;
     // $data = number_format($data, $decimal_points);

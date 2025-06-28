@@ -974,7 +974,6 @@ class Products extends BaseController
     public function expiry_alert()
     {
         try {
-            log_message('info', 'Starting expiry_alert check for business_id: ' . $this->business_id);
             
             if (empty($this->business_id)) {
                 log_message('error', 'Business ID is empty in expiry_alert');
@@ -982,19 +981,8 @@ class Products extends BaseController
             }
 
             $warehouseBatchesModel = new \App\Models\warehouse_batches_model();
-            
-            // Debug log the query parameters
-            log_message('info', 'Checking for expiring batches with parameters: ' . json_encode([
-                'business_id' => $this->business_id,
-                'date_range' => [
-                    'from' => date('Y-m-d'),
-                    'to' => date('Y-m-d', strtotime('+3 days'))
-                ]
-            ]));
 
             $expiringBatches = $warehouseBatchesModel->get_expiring_batches($this->business_id);
-            
-            log_message('info', 'Found ' . count($expiringBatches) . ' expiring batches');
 
             $rows = [];
             $i = 0;
@@ -1024,8 +1012,6 @@ class Products extends BaseController
                     continue;
                 }
             }
-
-            log_message('info', 'Successfully processed ' . count($rows) . ' batches for expiry alerts');
 
             return $this->response->setJSON([
                 'error' => false,

@@ -16,12 +16,16 @@ class WarehouseBatchController extends BaseController
     protected $ionAuth;
     protected $validation;
     protected $configIonAuth;
-
+    protected $session;
+    protected $data;
+    protected $settings;
+    protected $business_id;
+    protected $status_model;
+    protected $warehouse_model;
+    protected $tax_model;
     protected $batch_model;
     protected $purchase_model;
     protected $purchases_items_model;
-    protected $status_model;
-    protected $warehouses_model;
     protected $warehouse_product_stock_model;
 
     public function __construct()
@@ -30,11 +34,13 @@ class WarehouseBatchController extends BaseController
         $this->validation = \Config\Services::validation();
         helper(['form', 'url', 'filesystem', 'common']);
         $this->configIonAuth = config('IonAuth');
-
-        $this->batch_model = new warehouse_batches_model();
-        $this->purchase_model = new Purchases_model();
-        $this->status_model = new Status_model();
-        $this->warehouses_model = new WarehouseModel();
+        $this->session = \Config\Services::session();
+        $this->business_id = session('business_id') ?? "";
+        $this->status_model = new \App\Models\Status_model();
+        $this->warehouse_model = new \App\Models\WarehouseModel();
+        $this->tax_model = new \App\Models\Tax_model();
+        $this->batch_model = new \App\Models\warehouse_batches_model();
+        $this->purchase_model = new \App\Models\Purchases_model();
         $this->purchases_items_model = new Purchases_items_model();
         $this->warehouse_product_stock_model = new \App\Models\WarehouseProductStockModel();
     }
@@ -42,19 +48,20 @@ class WarehouseBatchController extends BaseController
     // 🧾 List all batches
     public function index($purchase_id = '')
     {
+        $purchase = $this->purchase_model->getPurchase($purchase_id);
         $data = getdata(
             'purchase',
-            $this->purchase_model->getPurchase($purchase_id),
+            $purchase,
             FORMS . 'Batches/show',
             'status_list',
             $this->status_model->get_status(session('business_id')),
             'warehouses',
-            $this->warehouses_model->where('business_id', session('business_id'))->findAll()
+            $this->warehouse_model->where('business_id', session('business_id'))->findAll()
         );
         
-        $data['currency'] = "$";
         $data['order_type'] = 'return';
         $data['purchase_id'] = $purchase_id;
+        $data['warehouse_id'] = $purchase['warehouse_id'] ?? null;
         session()->set('purchase_id', $purchase_id);
 
         return view("admin/template", $data);
@@ -542,6 +549,7 @@ class WarehouseBatchController extends BaseController
         }
     }
 
+
     public function return_invoice_pdf($return_id = null)
     {
         if (!$return_id) {
@@ -584,5 +592,26 @@ class WarehouseBatchController extends BaseController
         ];
 
         return view("admin/pages/views/return_invoice_pdf", $data);
+
+    public function return_purchase_batches($purchase_id = '')
+    {
+        $data = getdata(
+            'status',
+            $this->status_model->get_status($this->business_id),
+            FORMS . 'Batches/return',
+            'warehouses',
+            $this->warehouse_model->where('business_id', $this->business_id)->get()->getResultArray(),
+            'purchase',
+            $this->purchase_model->getPurchase($purchase_id)
+        );
+
+        $settings = get_settings('general', true);
+        $data['currency'] = (isset($settings['currency_symbol'])) ? $settings['currency_symbol'] : '₹';
+        $data['order_type'] = 'return';
+        $data['purchase_id'] = $purchase_id;
+        session()->set('purchase_id', $purchase_id);
+
+        return view("admin/template", $data);
+
     }
 }

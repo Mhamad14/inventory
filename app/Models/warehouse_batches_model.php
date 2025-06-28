@@ -274,6 +274,23 @@ class warehouse_batches_model extends Model
         return $updateResult;
     }
 
+    /**
+     * Update warehouse_id for all batches in a purchase
+     */
+    public function updateWarehouseIdByPurchase($purchase_id, $new_warehouse_id)
+    {
+        $db = \Config\Database::connect();
+        // Find all batches for this purchase (via purchases_items)
+        $builder = $db->table('warehouse_batches wb');
+        $builder->join('purchases_items pi', 'pi.id = wb.purchase_item_id');
+        $builder->where('pi.purchase_id', $purchase_id);
+        $batches = $builder->select('wb.id')->get()->getResultArray();
+        $batch_ids = array_column($batches, 'id');
+        if (!empty($batch_ids)) {
+            $db->table('warehouse_batches')->whereIn('id', $batch_ids)->update(['warehouse_id' => $new_warehouse_id]);
+        }
+        return true;
+    }
     public function get_expiring_batches($business_id)
     {
         try {
@@ -306,23 +323,27 @@ class warehouse_batches_model extends Model
 
             // Log the query we're about to execute
             $query = $builder->getCompiledSelect(false);
-            log_message('info', 'Executing expiry query: ' . $query);
 
             // Execute the query
             $result = $builder->get()->getResultArray();
             
-            // Log the results
-            log_message('info', 'Query returned ' . count($result) . ' rows');
-            if (empty($result)) {
-                log_message('info', 'No expiring batches found for business_id: ' . $business_id);
-            } else {
-                log_message('info', 'Sample batch data: ' . json_encode(array_slice($result, 0, 1)));
-            }
 
             return $result;
         } catch (\Exception $e) {
             log_message('error', 'Error in get_expiring_batches: ' . $e->getMessage() . "\n" . $e->getTraceAsString());
             throw $e;
         }
+    }
+
+    /**
+     * Get available batches for a product variant in FIFO order (oldest first, quantity > 0)
+     */
+    public function getAvailableBatchesFIFO($product_variant_id, $business_id)
+    {
+        return $this->where('product_variant_id', $product_variant_id)
+                    ->where('business_id', $business_id)
+                    ->where('quantity >', 0)
+                    ->orderBy('created_at', 'ASC')
+                    ->findAll();
     }
 }

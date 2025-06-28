@@ -5,7 +5,7 @@
         <option value="">Select status</option>
         <?php if (!empty($status) && isset($status)) {
             foreach ($status as $val) { ?>
-                <option value="<?= $val['id'] ?>"><?= $val['status'] ?></option>
+                <option value="<?= $val['id'] ?>" <?= (isset($purchase['status']) && $purchase['status'] == $val['id']) ? 'selected' : '' ?>><?= $val['status'] ?></option>
         <?php }
         } ?>
     </select>

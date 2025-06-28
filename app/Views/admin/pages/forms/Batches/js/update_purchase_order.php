@@ -166,4 +166,47 @@
             allowInput: true,
         });
     });
+
+    // Helper to format numbers with commas
+    function formatNumberWithCommas(x) {
+        if (x === null || x === undefined) return '';
+        x = x.toString().replace(/,/g, '');
+        let parts = x.split('.');
+        parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+        return parts.join('.');
+    }
+
+    $(document).ready(function() {
+        // Live formatting for cost price, sell price, discount
+        $(document).on('input', '#add_cost_price, #add_sell_price, #add_discount', function() {
+            let $input = $(this);
+            let value = $input.val().replace(/,/g, '');
+            if (value) {
+                value = parseFloat(value);
+                $input.val(formatNumberWithCommas(value));
+                $input.attr('data-raw', value);
+            }
+        });
+
+        // When quantity, price, or discount changes, update subtotal with commas
+        $(document).on('input', '#add_quantity, #add_cost_price, #add_discount', function() {
+            let qty = parseFloat($('#add_quantity').val().replace(/,/g, '')) || 0;
+            let price = parseFloat($('#add_cost_price').attr('data-raw')) || 0;
+            let discount = parseFloat($('#add_discount').attr('data-raw')) || 0;
+            let subtotal = Math.round(qty * price - discount);
+            // If you have a subtotal display element, update it here, e.g.:
+            // $('#subtotal_display').text(formatNumberWithCommas(subtotal));
+        });
+
+        // On page load, format any prefilled values with commas
+        $('#add_cost_price, #add_sell_price, #add_discount').each(function() {
+            let $input = $(this);
+            let value = $input.val().replace(/,/g, '');
+            if (value) {
+                value = parseFloat(value);
+                $input.val(formatNumberWithCommas(value));
+                $input.attr('data-raw', value);
+            }
+        });
+    });
 </script>

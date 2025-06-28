@@ -110,7 +110,7 @@
                         iziToast.error({
                             title: "Error",
                             message: message,
-                            position: "topRight",
+                            position: "topCenter",
                         })
                     );
                     break;
@@ -119,7 +119,7 @@
                         iziToast.success({
                             title: "Success",
                             message: message,
-                            position: "topRight",
+                            position: "topCenter",
                         })
                     );
                     break;

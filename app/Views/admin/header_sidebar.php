@@ -52,7 +52,6 @@
                     @click="openExchangeRateModal"
                     @mouseenter="showTooltip = true"
                     @mouseleave="showTooltip = false">
-                    <i class="bi bi-currency-exchange"></i>
                     <span x-text="buttonText">Exchange Rate</span>
 
                     <!-- Custom tooltip -->
@@ -62,7 +61,7 @@
                         <template x-for="rate in rates" :key="rate.currency_id">
                             <div class="d-flex justify-content-between">
                                 <!-- Fixed: Using component method properly -->
-                                <span x-text="'1 ' + getCurrencyCode(rate.currency_id)"></span>
+                                <span x-text="'100 ' + getCurrencyCode(rate.currency_id)"></span>
                                 <span x-text="formatRate(rate.rate, rate.currency_id)"></span>
                             </div>
                         </template>
@@ -250,6 +249,9 @@
     </aside>
 </div>
 
+<?= view('common_partials/js/number_utils/text_input_formatter'); ?>
+<?= view('common_partials/js/number_utils/unmask'); ?>
+
 
 <script>
     document.addEventListener('alpine:init', () => {
@@ -260,6 +262,30 @@
             baseCurrency: null,
             buttonText: 'Exchange Rate',
 
+            // Fetch exchange rates and currencies on Alpine init
+            init() {
+                this.fetchExchangeRates();
+            },
+            async fetchExchangeRates() {
+                try {
+                    const response = await axios.get('<?= base_url('admin/currency/get_exchange_rates') ?>', {
+                        headers: {
+                            'X-Requested-With': 'XMLHttpRequest',
+                            'X-CSRF-TOKEN': '<?= csrf_token() ?>'
+                        }
+                    });
+
+                    this.currencies = response.data.currencies || [];
+                    this.rates = response.data.rates || [];
+                    this.baseCurrency = this.currencies.find(c => parseInt(c.is_base) === 1);
+
+                    // Update button display
+                    this.updateButtonText();
+                } catch (error) {
+                    showToastMessage('Error fetching exchange rates', 'error');
+                    console.error('Error fetching exchange rates:', error);
+                }
+            },
             // Helper methods
             getCurrency(currencyId) {
                 return this.currencies.find(c => c.id == currencyId);
@@ -317,7 +343,7 @@
                     const mainRate = this.rates[0];
                     const currency = this.getCurrency(mainRate.currency_id);
                     this.buttonText = currency ?
-                        `1${currency.symbol}:${this.formatRate(mainRate.rate, mainRate.currency_id)}` :
+                        `100${currency.symbol} : ${this.formatRate(mainRate.rate, mainRate.currency_id)}` :
                         'Exchange Rates';
                 } else {
                     this.buttonText = 'Exchange Rates';
@@ -348,27 +374,28 @@
                     const step = (0.1 ** currency.decimal_places).toFixed(currency.decimal_places);
 
                     formHtml += `
-                <div class="mb-3">
-                    <label for="rate_${currency.id}" class="form-label">
-                        ${currency.name} (${currency.code})
-                    </label>
-                    <input type="number" 
-                           id="rate_${currency.id}" 
-                           name="rates[${currency.id}]" 
-                           class="form-control" 
-                           step="${step}" 
-                           min="0" 
-                           value="${rateValue}"
-                           placeholder="Enter rate"
-                           required>
-                    <small class="text-muted">1 ${currency.code} = ${rateValue || '?'} ${this.baseCurrency.code}</small>
-                </div>
-                `;
+        <div class="mb-3">
+            <label for="rate_${currency.id}" class="form-label">
+                ${currency.name} (${currency.code})
+            </label>
+            <input type="text" 
+                x-numberformat="{ decimals: ${currency.decimal_places}, allowDecimal: true }"
+                id="rate_${currency.id}" 
+                name="rates[${currency.id}]" 
+                class="form-control" 
+                step="${step}" 
+                min="0" 
+                value="${rateValue}"
+                placeholder="Enter rate"
+                required>
+            <small class="text-muted">100 ${currency.code} = ${rateValue || '?'} ${this.baseCurrency.code}</small>
+        </div>
+    `;
                 });
 
-                formHtml += `</form>`;
+                formHtml += `</form>`; // ✅ Close the form AFTER loop
 
-                // Show modal
+                // ✅ Now show modal once
                 Swal.fire({
                     title: 'Update Exchange Rates',
                     html: formHtml,
@@ -394,7 +421,7 @@
                                 const decimalPlaces = currency ? currency.decimal_places : 2;
                                 const precision = 10 ** decimalPlaces;
 
-                                const newRate = parseFloat(value);
+                                const newRate = parseFloat(this.$number.unmask(value));
                                 const oldRate = currentRates[currencyId] || 0;
 
                                 // Compare with proper decimal precision
@@ -434,9 +461,10 @@
                             let errorMsg = error.response?.data?.message || 'Failed to update rates';
                             Swal.fire('Error', errorMsg, 'error');
                         }
-                    }
-                });
-            }
-        }));
-    });
+                    } // if (result.isConfirmed)
+                }); // close Swal.fire
+            } // showExchangeRateModal method
+
+        })); // close Alpine.data
+    }); // close document.addEventListener
 </script>

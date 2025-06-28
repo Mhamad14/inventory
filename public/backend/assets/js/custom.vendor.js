@@ -490,22 +490,34 @@ $(".payment_method_name").hide();
 function display_products(products, currency) {
   var html = "";
   $.each(products, function (i, products) {
-    var product_variants;
+    var product_variants = "";
     $.each(products["variants"], function (j, variants) {
-      // calculate here
+      // Check if price is available
+      var price = variants.fifo_sell_price;
+      if (price === null || price === undefined) {
+        product_variants +=
+          '<option value="' +
+          variants.id +
+          '" data-price="0" data-variant_name ="' +
+          variants.variant_name +
+          '">' +
+          variants.variant_name +
+          " - No price available</option>";
+      } else {
       product_variants +=
         '<option value="' +
         variants.id +
         '" data-price="' +
-        variants.sale_price +
+          price +
         '" data-variant_name ="' +
         variants.variant_name +
         '">' +
         variants.variant_name +
         " -" +
-        variants.sale_price +
+          price +
         currency +
         "</option>";
+      }
     });
     html =
       '<div class="col-md-4">' +
@@ -641,30 +653,28 @@ function display_cart() {
                             <p class="cart-item-title ">${item.variant_name}</p>
                         </div>
                         <div class="col">
-                            <span class="cart-price">${
-                              currency + parseFloat(item.price).toLocaleString()
-                            }</span>
+                            <input type="number" class="form-control cart-price-input" 
+                                value="${item.price}" 
+                                data-variant-id="${item.product_variant_id}"
+                                data-business-id="${item.business_id}"
+                                step="0.01"
+                                min="0">
                         </div>
                         <div class="col">
                         <div class="input-group-prepend">
-                            <input type="hidden" class="product-variant" name="variant_ids[]" type="number" value=${
-                              item.product_variant_id
-                            }>
+                            <input type="hidden" class="product-variant" name="variant_ids[]" type="number" value=${item.product_variant_id}>
                             <button type="button" class="cart-quantity-input btn btn-sm btn-secondary" data-operation="minus"><i class="fas fa-minus"></i></button>
-                                <input  class="form-control cart-input cart-quantity-input-new text-center p-0" step="0.1" name="quantity[]" id="quantity${
-                                  item.product_variant_id
-                                }" data-qty="${item.quantity}"  value="${
-        item.quantity
-      }">
+                                <input  class="form-control cart-input cart-quantity-input-new text-center p-0" step="0.1" name="quantity[]" id="quantity${item.product_variant_id}" data-qty="${item.quantity}"  value="${item.quantity}">
                                 <button type="button" class="cart-quantity-input btn btn-sm btn-secondary" data-operation="plus"><i class="fas fa-plus"></i></button>
                             </div>
                         </div>
                         <div class="col">
-                            <button class="btn btn-sm btn-danger remove-cart-item" data-business_id=${
-                              item.business_id
-                            } data-variant_id=${
-        item.product_variant_id
-      }><i class="fas fa-trash"></i></button>
+                            <button type="button" class="btn btn-sm btn-info edit-batch-btn" 
+                                data-variant_id="${item.product_variant_id}" 
+                                data-product_id="${item.product_id || ''}">
+                                <i class="fas fa-layer-group"></i>
+                            </button>
+                            <button class="btn btn-sm btn-danger remove-cart-item" data-business_id=${item.business_id} data-variant_id=${item.product_variant_id}><i class="fas fa-trash"></i></button>
                         </div>
                     </div>
                 </div>`;
@@ -680,6 +690,26 @@ function display_cart() {
   $(".cart-items").html(cartRowContents);
   update_cart_total();
 }
+
+// Add event handler for price changes
+$(document).on('change', '.cart-price-input', function() {
+    var newPrice = parseFloat($(this).val());
+    var variantId = $(this).data('variant-id');
+    var businessId = $(this).data('business-id');
+    
+    // Update price in cart
+    var session_business_id = $("#business_id").val();
+    var cart = JSON.parse(localStorage.getItem("cart" + session_business_id));
+    
+    cart.forEach(function(item) {
+        if(item.product_variant_id == variantId) {
+            item.price = newPrice;
+        }
+    });
+    
+    localStorage.setItem("cart" + session_business_id, JSON.stringify(cart));
+    update_cart_total();
+});
 
 function cart_total() {
   var session_business_id = $("#business_id").val();
@@ -814,48 +844,74 @@ function fetch_products() {
   var limit = $("input[name=limit]").val();
   var offset = $("input[name=offset]").val();
   var search = $("#search_product").val();
-  var flag = null;
+
   $.ajax({
     type: "GET",
-    url: site_url + "admin/products/json",
+    url: site_url + "admin/orders/fetch_pos_products",
     cache: false,
-    // processData:false,
     data: {
       category_id: category_id,
       brand_id: brand_id,
       search: search,
       limit: limit,
-      offset: offset,
+      offset: offset
     },
     beforeSend: function () {
       $("#products_div").html(
         `<div class="text-center" style='min-height:450px;' ><h4>Please wait.. . loading products..</h4></div>`
       );
     },
-    // dataType: "json",
+    dataType: 'json',
     success: function (result) {
-      if (result.error == true) {
-        console.log(result.message);
+      if (result.error === true) {
+        console.error('Error:', result.message);
         $("#products_div").html(
-          `<div class="text-center" style='min-height:450px;' ><h4>No products found..</h4></div>`
+          `<div class="text-center" style='min-height:450px;' ><h4>${result.message || 'No products found..'}</h4></div>`
         );
-      } else {
-        var products = result.data;
-        if (products) {
-          var html = "";
-          $("#total_products").val(result.total);
-          $("#products_div").empty(html);
+        return;
+      }
+
+      var products = result.products;
+      if (products && products.length > 0) {
+        $("#total_products").val(result.total || products.length);
+        $("#products_div").empty();
           var currency = result.currency;
           display_products(products, currency);
           var total = $("#total_products").val();
           var current_page = $("#current_page").val();
           var limit = $("#limit").val();
           paginate(total, current_page, limit);
-        }
+      } else {
+        $("#products_div").html(
+          `<div class="text-center" style='min-height:450px;' ><h4>No products found..</h4></div>`
+        );
       }
     },
+    error: function(xhr, status, error) {
+      console.error('AJAX Error:', error);
+      $("#products_div").html(
+        `<div class="text-center" style='min-height:450px;' ><h4>Error loading products. Please try again.</h4></div>`
+      );
+    }
   });
 }
+
+// Add event listeners for category and brand changes
+$("#product_category").on("change", function() {
+  $("#current_page").val("0");
+  fetch_products();
+});
+
+$("#product_brand").on("change", function() {
+  $("#current_page").val("0");
+  fetch_products();
+});
+
+// Add event listener for search
+$("#search_product").on("keyup", function() {
+  $("#current_page").val("0");
+  fetch_products();
+});
 
 // paginantion
 function paginate(total, current_page, limit) {
@@ -932,25 +988,26 @@ $(".select_user").on("change", function () {
 });
 
 $(".payment_status").on("change", function () {
-  var status = $(this).find("option:selected").val();
-  if (status != "partially_paid") {
-    $(".amount_paid").hide();
-  } else {
-    $(".amount_paid").show();
-    $(".amount_paid").removeClass("d-none");
-  }
+    var status = $(this).find("option:selected").val();
+    if (status === "partially_paid") {
+        $(".amount_paid").show();
+        $(".amount_paid").removeClass("d-none");
+    } else {
+        $(".amount_paid").hide();
+        $(".amount_paid").addClass("d-none");
+    }
 });
 $(".payment_method").on("click", function () {
-  var payment_method = $(this).val();
-  if (payment_method == "wallet") {
-    $(".amount_paid").hide();
-    $(".payment_status").hide();
-    $(".payment_status_label").hide();
-  } else {
-    $(".payment_status_label").show();
-    $(".payment_status").show();
-    $(".payment_status").trigger("change");
-  }
+    var payment_method = $(this).val();
+    if (payment_method === "wallet") {
+        $(".amount_paid").hide();
+        $(".payment_status").hide();
+        $(".payment_status_label").hide();
+    } else {
+        $(".payment_status_label").show();
+        $(".payment_status").show();
+        $(".payment_status").trigger("change");
+    }
 });
 
 // customer registration
@@ -1012,132 +1069,157 @@ $(".payment_method").on("click", function () {
     $(".payment_method_name").hide();
   }
 });
+
+// Add this function for the custom confirmation modal
+function showOrderConfirmationModal(callback) {
+    Swal.fire({
+        title: 'Confirm Order',
+        text: 'Do you want to confirm this order?',
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonColor: '#3085d6',
+        cancelButtonColor: '#d33',
+        confirmButtonText: 'Yes',
+        cancelButtonText: 'No'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            callback();
+        }
+    });
+}
+
+// Update the form submission handler
 $("#place_order_form").on("submit", function (e) {
-  e.preventDefault();
-  if (confirm("Are you sure? want to check out.")) {
+    e.preventDefault();
+    
     var session_business_id = $("#business_id").val();
     var cart = localStorage.getItem("cart" + session_business_id);
     if (cart == null || !cart) {
-      var message = "Please add items to cart";
-      show_message("Oops!", message, "error");
-      return;
+        show_message("Oops!", "Please add items to cart", "error");
+        return;
     }
 
     var cartTotal = cart_total();
-    var total = cartTotal["total"];
-    var discount = $("#discount").val();
-    var status = $("#status").val();
-    var delivery_charges = $("#delivery_charge").val();
-    var order_type = $("#order_type").val();
-    var message = $("#message").val();
+    var total = cartTotal['total'];
+    var discount = $('#discount').val() || 0;
+    var delivery_charges = $('#delivery_charge').val() || 0;
     var finalTotal = final_total();
-    var final = finalTotal["total"];
-    var payment_status = $("#payment_status_item").find(":selected").val();
-    var amount_paid = $("#amount_paid_item").val();
-    var payment_method = $(".payment_method:checked").val();
+    var final = finalTotal['total'];
+    var status = $('#status').val();
+    var payment_status = $('#payment_status_item').val();
+    var amount_paid = $('#amount_paid_item').val();
+    var order_type = $('#order_type').val();
+    var message = $("#message").val();
+    var payment_method = $('.payment_method:checked').val();
     var transaction_id = $("#transaction_id").val();
+    var customer_id = $(".select_user").val();
 
-    if (payment_status != "unpaid" && payment_status != "cancelled") {
-      console.log("here");
-
-      if (!payment_method) {
-        var message = "Please choose a payment method";
-        show_message("Oops!", message, "error");
+    // Run all validations first
+    if (!customer_id) {
+        show_message("Oops!", "Please select a customer", "error");
         return;
-      }
     }
-    var payment_method_name = $("#payment_method_name").val();
-    if (!payment_method_name) {
-      payment_method_name = "";
+
+    if (!status) {
+        show_message("Oops!", "Please select order status", "error");
+        return;
     }
-    const request_body = {
-      [csrf_token]: csrf_hash,
-      data: cart,
-      payment_method: payment_method,
-      customer_id: customer_id,
-      payment_method_name: payment_method_name,
-      total: total,
-      discount: discount,
-      delivery_charges: delivery_charges,
-      final_total: final,
-      status: status,
-      payment_status: payment_status,
-      amount_paid: amount_paid,
-      transaction_id: transaction_id,
-      order_type: order_type,
-      message: message,
-    };
-    $.ajax({
-      type: "post",
-      url: this.action,
-      data: request_body,
-      dataType: "json",
-      success: function (result) {
-        let order_id = result.data.order_id;
-        console.log(order_id);
 
-        csrf_token = result["csrf_token"];
-        csrf_hash = result["csrf_hash"];
-        if (result.error == true) {
-          var message = "";
+    if (!payment_status) {
+        show_message("Oops!", "Please select payment status", "error");
+        return;
+    }
 
-          if (result.message === "Please add order item") {
-            iziToast.error({
-              title: "Error!",
-              message: result.message,
-              position: "topRight",
-            });
-          } else if (
-            result.message === "Amount is more than order total please check!"
-          ) {
-            iziToast.error({
-              title: "Error!",
-              message: result.message,
-              position: "topRight",
-            });
-          } else if (
-            result.message ===
-            "You dont have sufficient wallet balance,Please recharge wallet!"
-          ) {
-            iziToast.error({
-              title: "Error!",
-              message: result.message,
-              position: "topRight",
-            });
-          } else if (result.message === "Please select the customer!") {
-            iziToast.error({
-              title: "Error!",
-              message: result.message,
-              position: "topRight",
-            });
-          } else {
-            Object.keys(result.message).map((key) => {
-              iziToast.error({
-                title: "Error!",
-                message: result.message[key],
-                position: "topRight",
-              });
-            });
-          }
-        } else {
-          $("#pos_quick_invoice").data("id", order_id);
-          $("#pos_quick_invoice").removeClass("d-none");
-          // window.location = base_url + "/admin/orders";
-          iziToast.success({
-            title: "Success!",
-            message: result.message,
-            position: "topRight",
-          });
-          delete_cart_items();
-          // setTimeout(function () {
-          //     location.reload();
-          // }, 600);
+    if (payment_status !== "unpaid" && payment_status !== "cancelled") {
+        if (!payment_method) {
+            show_message("Oops!", "Please choose a payment method", "error");
+            return;
         }
+    }
 
-        get_todays_stats();
-      },
+    var payment_method_name = $('#payment_method_name').val();
+    if (!payment_method_name && payment_method === 'other') {
+        show_message("Oops!", "Please enter payment method name", "error");
+        return;
+    }
+
+    if (payment_method !== 'cash' && payment_method !== 'wallet' && !transaction_id) {
+        show_message("Oops!", "Please enter transaction ID", "error");
+        return;
+    }
+
+    // If all validations pass, show confirmation modal
+    showOrderConfirmationModal(() => {
+        const request_body = {
+            [csrf_token]: csrf_hash,
+            data: cart,
+            payment_method: payment_method,
+            customer_id: customer_id,
+            payment_method_name: payment_method_name,
+            total: total,
+            discount: discount,
+            delivery_charges: delivery_charges,
+            final_total: final,
+            status: status,
+            payment_status: payment_status,
+            amount_paid: amount_paid,
+            transaction_id: transaction_id,
+            order_type: order_type,
+            message: message
+        };
+
+        $.ajax({
+            type: "post",
+            url: this.action,
+            data: request_body,
+            dataType: 'json',
+            success: function (result) {
+                csrf_token = result['csrf_token'];
+                csrf_hash = result['csrf_hash'];
+                if (result.error == true) {
+                    var message = "";
+                    if (result.message === "Please add order item") {
+                        iziToast.error({
+                            title: 'Error!',
+                            message: result.message,
+                            position: 'topRight'
+                        });
+                    } else if (result.message === "Please Add Wallet Balance") {
+                        iziToast.error({
+                            title: 'Error!',
+                            message: result.message,
+                            position: 'topRight'
+                        });
+                    } else if (result.message === "Please select the customer!") {
+                        iziToast.error({
+                            title: 'Error!',
+                            message: result.message,
+                            position: 'topRight'
+                        });
+                    } else {
+                        Object.keys(result.message).map((key) => {
+                            iziToast.error({
+                                title: 'Error!',
+                                message: result.message[key],
+                                position: 'topRight'
+                            });
+                        });
+                    }
+                } else {
+                    window.location = base_url + '/admin/orders';
+                    iziToast.success({
+                        title: 'Success!',
+                        message: result.message,
+                        position: 'topRight'
+                    });
+                    delete_cart_items();
+                    setTimeout(function () {
+                        location.reload();
+                    }, 600);
+                }
+            }
+        });
     });
-  }
 });
 
 // create-status form
@@ -2657,7 +2739,7 @@ function setupPurchaseOrderEventHandlers() {
     var val = parseFloat($(this).val()) || 0;
     if (val < 0) {
       showToastMessage("Sell price cannot be negative.", "error");
-      $(this).val("");
+      $(this).val("0");
     }
     purchase_total();
   });
@@ -2670,27 +2752,31 @@ function setupPurchaseOrderEventHandlers() {
     var discount = parseFloat(row.find(".discount").val()) || 0;
 
     // Validate inputs
-    if (price < 0) {
-      showToastMessage("Price must be greater than 0.", "error");
+    if (row.find(".price").val() && price < 0) {
+      showToastMessage("Price must be a positive number.", "error");
       row.find(".price").val("");
       return;
     }
 
-    if (qty <= 0) {
-      showToastMessage("Quantity must be greater than 0.", "error");
-      row.find(".qty").val("");
-      return;
+    if (row.find(".qty").val() && qty < 1) {
+      showToastMessage("Quantity must be at least 1.", "error");
+      row.find(".qty").val("1");
+      qty = 1;
     }
 
     var subtotal = qty * price;
 
-    if (discount < 0 || discount > subtotal) {
+    if (discount < 0) {
+        showToastMessage("Discount cannot be negative.", "error");
+        row.find(".discount").val("0");
+        discount = 0;
+    } else if (discount > subtotal) {
       showToastMessage(
-        `Discount must be between 0 and ${subtotal.toFixed(2)}.`,
+        `Discount cannot be greater than subtotal (${subtotal}).`,
         "error"
       );
-      row.find(".discount").val("0");
-      discount = 0;
+      row.find(".discount").val(subtotal);
+      discount = subtotal;
     }
 
     row.find(".table_price").text((subtotal - discount).toFixed(2));
@@ -2759,14 +2845,17 @@ function subTotal(e) {
   var discount = $(
     e.parentElement.parentElement.getElementsByClassName("discount")
   ).val();
+  // Strip commas before parsing
+  price = price ? price.replace(/,/g, "") : "0";
+  discount = discount ? discount.replace(/,/g, "") : "0";
   $(table_subtotal).html("0");
   if (qty != 0 && qty != null) {
     var sub_total = parseFloat(price) * parseFloat(qty);
-    $(table_subtotal).html(sub_total);
+    $(table_subtotal).html(Number(sub_total).toLocaleString());
   }
   if (discount != 0 && discount != null) {
     var sub_total = parseFloat(price) * parseFloat(qty) - parseFloat(discount);
-    $(table_subtotal).html(sub_total);
+    $(table_subtotal).html(Number(sub_total).toLocaleString());
   }
 }
 
@@ -2782,19 +2871,21 @@ function settlePrice(e) {
   var discount = $(
     e.parentElement.parentElement.getElementsByClassName("discount")
   ).val();
-  var price = $(price_class).val();
+  // Strip commas before parsing
+  price = price ? price.replace(/,/g, "") : "0";
+  discount = discount ? discount.replace(/,/g, "") : "0";
   var sub_total = parseFloat(price) * parseFloat(qty);
-  $(table_subtotal).html(sub_total);
+  $(table_subtotal).html(Number(sub_total).toLocaleString());
   if (price != 0 && price != null) {
-    $(table_subtotal).html(sub_total);
+    $(table_subtotal).html(Number(sub_total).toLocaleString());
     if (qty != 0 && qty != null) {
       sub_total = parseFloat(price) * parseFloat(qty);
-      $(table_subtotal).html(sub_total);
+      $(table_subtotal).html(Number(sub_total).toLocaleString());
     }
     if (discount != 0 && discount != null) {
       var sub_total =
         parseFloat(price) * parseFloat(qty) - parseFloat(discount);
-      $(table_subtotal).html(sub_total);
+      $(table_subtotal).html(Number(sub_total).toLocaleString());
     }
   }
 }
@@ -2907,11 +2998,14 @@ function settleDisount(e) {
   var price = $(
     e.parentElement.parentElement.getElementsByClassName("price")
   ).val();
+  // Strip commas before parsing
+  price = price ? price.replace(/,/g, "") : "0";
+  discount = discount ? discount.replace(/,/g, "") : "0";
   var sub_total = parseFloat(price) * parseFloat(qty);
-  $(table_subtotal).html(sub_total);
+  $(table_subtotal).html(Number(sub_total).toLocaleString());
   if (discount != 0 && discount != null) {
     sub_total = parseFloat(price) * parseFloat(qty) - parseFloat(discount);
-    $(table_subtotal).html(sub_total);
+    $(table_subtotal).html(Number(sub_total).toLocaleString());
   }
 }
 $(document).on("change", "#order_taxes", function (e) {
@@ -2948,47 +3042,58 @@ function purchase_total() {
   var sell_total = 0;
   var profit_total = 0;
   var currency = $("#sub_total").attr("data-currency");
+  var isIQD = currency === 'IQD' || currency === 'د.ع'; // Check for IQD symbol
 
   $(".table_price").each(function (i, el) {
     var row = $(el).closest("tr");
-
-    var price = parseFloat(row.find(".price").val()) || 0;
-    var qty = parseFloat(row.find(".qty").val()) || 0;
+    var price = row.find(".price").val();
+    var qty = row.find(".qty").val();
     var discountInput = row.find(".discount").val().trim();
     var discount = 0;
+    var sell_price = row.find(".sell_price").val();
+    // Strip commas before parsing
+    price = price ? price.replace(/,/g, "") : "0";
+    qty = qty ? qty.replace(/,/g, "") : "0";
+    discountInput = discountInput ? discountInput.replace(/,/g, "") : "0";
+    sell_price = sell_price ? sell_price.replace(/,/g, "") : "0";
 
     if (discountInput.endsWith("%")) {
       var percentValue = parseFloat(discountInput.slice(0, -1));
-      discount = (percentValue / 100) * (price * qty);
+      discount = (percentValue / 100) * (parseFloat(price) * parseFloat(qty));
     } else {
       discount = parseFloat(discountInput) || 0;
     }
 
-    var row_total = price * qty - discount;
+    var row_total = parseFloat(price) * parseFloat(qty) - discount;
     total += row_total;
 
-    // sell price total
-    var sell_price = parseFloat(row.find(".sell_price").val()) || 0;
-    var row_sell_total = sell_price * qty;
+    // sell price total (calculate before applying order discount)
+    var row_sell_total = parseFloat(sell_price) * parseFloat(qty);
     sell_total += row_sell_total;
 
-    // profit total
-    profit_total += row_sell_total - row_total;
+    // profit total (calculate before applying order discount)
+    var row_profit = (parseFloat(sell_price) * parseFloat(qty)) - row_total;
+    profit_total += row_profit;
   });
 
-  var order_discount = parseFloat($("#order_discount").val()) || 0;
-  var shipping = parseFloat($("#shipping").val()) || 0;
+  var order_discount = $("#order_discount").val();
+  var shipping = $("#shipping").val();
+  order_discount = order_discount ? order_discount.replace(/,/g, "") : "0";
+  shipping = shipping ? shipping.replace(/,/g, "") : "0";
 
   // Apply order discount and shipping
-  final_total = total - order_discount + shipping;
+  final_total = total - parseFloat(order_discount) + parseFloat(shipping);
   profit_total = sell_total - final_total;
-  // Update fields
-  $("#sub_total").html(currency + final_total.toFixed(3));
-  $('input[name="total"]').val(final_total.toFixed(3));
-
-  // Show sell total and profit total
-  $("#sell_total").html(currency + sell_total.toFixed(3));
-  $("#profit_total").html(currency + profit_total.toFixed(3));
+  
+  // Store base values in hidden inputs for currency conversion
+  $('input[name="total"]').val(final_total.toFixed(isIQD ? 0 : 3));
+  $('input[name="sell_total"]').val(sell_total.toFixed(isIQD ? 0 : 3));
+  $('input[name="profit_total"]').val(profit_total.toFixed(isIQD ? 0 : 3));
+  
+  // Update fields with base currency
+  $("#sub_total").html(currency + final_total.toFixed(isIQD ? 0 : 3));
+  $("#sell_total").html(currency + sell_total.toFixed(isIQD ? 0 : 3));
+  $("#profit_total").html(currency + profit_total.toFixed(isIQD ? 0 : 3));
 }
 
 // purchase order status update bulk
@@ -5490,7 +5595,8 @@ function get_todays_stats() {
             value = res.data[dataKey];
           }
           let currency = $("#" + elementId).data("currency");
-          $("#" + elementId).text(currency + " " + value);
+          let numValue = parseFloat(value) || 0;
+          $("#" + elementId).text(currency + " " + numValue.toLocaleString());
 
           if (callback) callback(value);
         },
@@ -5810,59 +5916,54 @@ function deleteDraft(draftId) {
 
 // Modified modal function
 function showDraftsModal() {
-  try {
-    const business_id = $("#business_id").val();
-    const drafts =
-      JSON.parse(localStorage.getItem(`drafts${business_id}`)) || [];
-
-    let modalHTML = `
-            <div class="modal fade" id="draftsModal" tabindex="-1" aria-hidden="true">
+    try {
+        const business_id = $("#business_id").val();
+        const drafts = JSON.parse(localStorage.getItem(`drafts${business_id}`) || "[]");
+        
+        let modalHTML = `
+            <div class="modal fade" id="draftsModal" tabindex="-1">
                 <div class="modal-dialog modal-lg">
                     <div class="modal-content">
                         <div class="modal-header">
                             <h5 class="modal-title">Saved Drafts</h5>
-                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                            <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                                <span aria-hidden="true">&times;</span>
+                            </button>
                         </div>
                         <div class="modal-body">
-                            ${
-                              drafts.length
-                                ? ""
-                                : "<p>No saved drafts found</p>"
-                            }
-                            <div class="list-group">`;
+                            ${drafts.length ? '' : '<p>No saved drafts found</p>'}
+                            <div class="list-group">
+        `;
 
-    drafts.forEach((draft) => {
-      modalHTML += `
+        drafts.forEach(draft => {
+            modalHTML += `
                 <div class="list-group-item d-flex justify-content-between align-items-center">
                     <div>
                         <strong>${draft.created_at}</strong><br>
                         ${draft.cart.length} items
                     </div>
                     <div>
-                        <button class="btn btn-sm btn-primary me-2" 
-                            onclick="loadDraft(${draft.id})">
-                            Load
-                        </button>
-                        <button class="btn btn-sm btn-danger" 
-                            onclick="deleteDraft(${draft.id})">
-                            Delete
-                        </button>
+                        <button class="btn btn-sm btn-primary me-2" onclick="loadDraft(${draft.id})">Load</button>
+                        <button class="btn btn-sm btn-danger" onclick="deleteDraft(${draft.id})">Delete</button>
                     </div>
-                </div>`;
-    });
+                </div>
+            `;
+        });
 
-    modalHTML += `
+        modalHTML += `
                             </div>
                         </div>
                         <div class="modal-footer">
-                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                            <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
                         </div>
                     </div>
                 </div>
-            </div>`;
+            </div>
+        `;
 
-    $("#draftsModal").remove();
-    $("body").append(modalHTML);
+        $('#draftsModal').remove();
+        $('body').append(modalHTML);
+
 
     const modal = new bootstrap.Modal(document.getElementById("draftsModal"));
     modal.show();
@@ -5872,17 +5973,120 @@ function showDraftsModal() {
   }
 }
 
+function showDraftsModal() { 
+  try {
+      const business_id = $("#business_id").val();
+      const drafts = JSON.parse(localStorage.getItem(`drafts${business_id}`) || "[]");
+      
+      let modalHTML = `
+          <div class="modal fade" id="draftsModal" tabindex="-1">
+
+              <div class="modal-dialog modal-lg">
+                  <div class="modal-content">
+                      <div class="modal-header">
+                          <h5 class="modal-title">Saved Drafts</h5>
+                          <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                              <span aria-hidden="true">&times;</span>
+                          </button>
+                      </div>
+                      <div class="modal-body">
+                          ${drafts.length ? '' : '<p>No saved drafts found</p>'}
+                          <div class="list-group">
+      `;
+
+      drafts.forEach(draft => {
+          modalHTML += `
+
+
+
+              <div class="list-group-item d-flex justify-content-between align-items-center">
+                  <div>
+                      <strong>${draft.created_at}</strong><br>
+                      ${draft.cart.length} items
+                  </div>
+                  <div>
+                      <button class="btn btn-sm btn-primary me-2" onclick="loadDraft(${draft.id})">Load</button>
+                      <button class="btn btn-sm btn-danger" onclick="deleteDraft(${draft.id})">Delete</button>
+
+
+
+
+
+
+                  </div>
+              </div>
+          `;
+      });
+
+      modalHTML += `
+                          </div>
+                      </div>
+                      <div class="modal-footer">
+                          <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+                      </div>
+                  </div>
+              </div>
+          </div>
+      `;
+
+      $('#draftsModal').remove();
+      $('body').append(modalHTML);
+
+      // Workaround: force modal hide on close button click
+      $('body').off('click.draftsModalClose').on('click.draftsModalClose', '#draftsModal .close, #draftsModal [data-dismiss="modal"]', function() {
+          $('#draftsModal').modal('hide');
+      });
+
+      // Remove any previous event handler to avoid stacking
+      $('#draftsModal').off('hidden.bs.modal');
+
+      // When modal is hidden, remove it from DOM
+      $('#draftsModal').on('hidden.bs.modal', function () {
+          $(this).remove();
+      });
+
+      $('#draftsModal').modal('show');
+  } catch (error) {
+      console.error("Modal error:", error);
+      show_message("Error", error.message, "error");
+  }
+}
+
+function deleteDraft(draftId) {
+  if (confirm("Delete this draft permanently?")) {
+      try {
+          const business_id = $("#business_id").val();
+          let drafts = JSON.parse(localStorage.getItem(`drafts${business_id}`) || "[]");
+          drafts = drafts.filter(d => d.id !== draftId);
+          localStorage.setItem(`drafts${business_id}`, JSON.stringify(drafts));
+          updateDraftCount();
+
+          // Remove any previous event handler to avoid stacking
+          $('#draftsModal').off('hidden.bs.modal');
+
+          // After modal is hidden, show the updated modal
+          $('#draftsModal').on('hidden.bs.modal', function () {
+              $(this).remove();
+              showDraftsModal();
+          });
+
+          $('#draftsModal').modal('hide');
+          show_message("Success", "Draft deleted successfully", "success");
+      } catch (error) {
+          console.error("Delete error:", error);
+          show_message("Error", error.message, "error");
+      }
+  }
+}
+
 // Expiry Alert Message
 $(document).ready(function () {
-    console.log("Document ready - initializing expiry alerts");
-    console.log("Base URL:", base_url); // Debug log to check base_url
 
     // Check if iziToast is loaded (required for notifications)
     if (typeof iziToast === "undefined") {
         console.error("iziToast not loaded - expiry alerts disabled");
         return;
     }
-    console.log("iziToast is loaded"); // Debug log
 
     // Function to show expiry alert notification
     function showExpiryAlert(productName, variantName, warehouseName, quantity, expiryDate, daysRemaining, batchId) {
@@ -5945,8 +6149,6 @@ $(document).ready(function () {
 
     // Function to check expiry alerts
     function checkExpiryAlerts() {
-        console.log("Checking expiry alerts...");
-        console.log("Request URL:", base_url + "admin/products/expiry_alert"); // Debug log
         
         $.ajax({
             url: base_url + "admin/products/expiry_alert",
@@ -5956,9 +6158,7 @@ $(document).ready(function () {
                 'X-CSRF-TOKEN': csrf_token // Add CSRF token if required
             },
             success: function (response) {
-                console.log("Received expiry alert response:", response); // Debug log
                 if (response && response.rows && response.rows.length > 0) {
-                    console.log("Found", response.rows.length, "expiring products"); // Debug log
                     response.rows.forEach(function (item) {
                         try {
                             showExpiryAlert(
@@ -5998,4 +6198,150 @@ $(document).ready(function () {
 
     // Check expiry alerts every 5 minutes
     setInterval(checkExpiryAlerts, 5 * 60 * 1000);
+});
+
+
+$(function() {
+  if ($('#editBatchModal').length === 0) {
+    $('body').append(`
+      <div class="modal fade" id="editBatchModal" tabindex="-1" role="dialog" aria-labelledby="editBatchModalLabel" aria-hidden="true">
+        <div class="modal-dialog" role="document">
+          <div class="modal-content">
+            <div class="modal-header">
+              <h5 class="modal-title" id="editBatchModalLabel">Select Batch Price</h5>
+              <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                <span aria-hidden="true">&times;</span>
+              </button>
+            </div>
+            <div class="modal-body">
+              <label for="batchPriceOption">Batch Price Option</label>
+              <select id="batchPriceOption" class="form-control"></select>
+              <div id="batchDetails" class="mt-2"></div>
+            </div>
+            <div class="modal-footer">
+              <button type="button" class="btn btn-primary" id="saveBatchPrice">Update</button>
+              <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    `);
+  }
+});
+
+$(document).on('click', '.edit-batch-btn', function() {
+    var variantId = $(this).data('variant_id');
+    var productId = $(this).data('product_id');
+    $('#editBatchModal').data('variant_id', variantId);
+    // Fetch batches via AJAX
+    $.ajax({
+        url: site_url + 'admin/orders/get_batches_for_variant',
+        data: { variant_id: variantId },
+        method: 'GET',
+        dataType: 'json',
+        success: function(res) {
+            if (res.error === false && res.batches.length > 0) {
+                var $select = $('#batchPriceOption');
+                $select.empty();
+                var seen = {};
+                res.batches.forEach(function(batch) {
+                    var expiry = batch.expiration_date ? batch.expiration_date : 'N/A';
+                    var qty = typeof batch.quantity !== 'undefined' ? batch.quantity : 0;
+                    var key = batch.sell_price + '|' + expiry + '|' + qty;
+                    if (!seen[key]) {
+                        var label = `Price: ${batch.sell_price} | Expiry: ${expiry} | Qty: ${qty}`;
+                        $select.append(
+                            `<option value="${batch.id}" data-price="${batch.sell_price}" data-expiry="${expiry}" data-qty="${qty}">${label}</option>`
+                        );
+                        seen[key] = true;
+                    }
+                });
+                $('#batchDetails').html('');
+            } else {
+                $('#batchPriceOption').empty();
+                $('#batchDetails').html('<div class="alert alert-warning">No batches available.</div>');
+            }
+            $('#editBatchModal').modal('show');
+        }
+    });
+});
+// Ensure modal close buttons work
+$(document).on('click', '#editBatchModal .close, #editBatchModal [data-dismiss="modal"]', function() {
+    $('#editBatchModal').modal('hide');
+});
+
+$(document).on('click', '#saveBatchPrice', function() {
+    var variantId = $('#editBatchModal').data('variant_id');
+    var selectedBatchId = $('#batchPriceOption').val();
+    var selectedPrice = $('#batchPriceOption option:selected').data('price');
+    var session_business_id = $("#business_id").val();
+    var cart = JSON.parse(localStorage.getItem("cart" + session_business_id)) || [];
+    var updated = false;
+    console.log('[Batch Modal] Update Clicked');
+    console.log('variantId:', variantId);
+    console.log('selectedBatchId:', selectedBatchId);
+    console.log('selectedPrice:', selectedPrice);
+    console.log('Cart before update:', cart);
+    cart.forEach(function(item) {
+        if(item.product_variant_id == variantId) {
+            console.log('Updating item:', item);
+            item.price = parseFloat(selectedPrice);
+            item.batch_id = selectedBatchId;
+            updated = true;
+        }
+    });
+    console.log('Cart after update:', cart);
+    console.log('Updated:', updated);
+    if (updated) {
+        localStorage.setItem("cart" + session_business_id, JSON.stringify(cart));
+        display_cart();
+    } else {
+        console.warn('No cart item matched for update!');
+    }
+    $(this).blur();
+    $('#editBatchModal').modal('hide');
+
+
+
+// Add this function to format all SubTotal cells with commas
+function formatAllSubTotals() {
+  $(".table_price").each(function() {
+    var val = $(this).text().replace(/,/g, '');
+    if (!isNaN(val) && val !== "") {
+      $(this).text(Number(val).toLocaleString());
+    }
+  });
+}
+
+// Call it on page load
+$(document).ready(function() {
+  formatAllSubTotals();
+});
+
+// If you have a function that renders or refreshes the purchase order table, call formatAllSubTotals() at the end of that function as well.
+
+// Add this function at the end of the file or after document ready
+function formatAllNumbers() {
+  $(".format-number").each(function() {
+    // Skip input[type=number] fields!
+    if ($(this).is("input[type='number']")) {
+      // Do NOT format with commas
+      return;
+    }
+    if ($(this).is("input")) {
+      var val = $(this).val().replace(/,/g, '');
+      if (!isNaN(val) && val !== "") {
+        $(this).val(Number(val).toLocaleString());
+      }
+    } else {
+      var val = $(this).text().replace(/,/g, '');
+      if (!isNaN(val) && val !== "") {
+        $(this).text(Number(val).toLocaleString());
+      }
+    }
+  });
+}
+$(document).ready(function() {
+  formatAllNumbers();
+
 });

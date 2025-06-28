@@ -283,7 +283,7 @@ class Currency extends BaseController
 
         // Soft delete
         $this->currency_model->where('id', $id)
-            ->set(['deleted_at' => date('Y-m-d H:i:s')])
+            ->set(['deleted_at' => date(format: 'Y-m-d H:i:s')])
             ->update();
 
         $response = [

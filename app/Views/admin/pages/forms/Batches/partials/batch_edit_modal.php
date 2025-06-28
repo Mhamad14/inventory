@@ -1,5 +1,26 @@
 <!-- Modal Order Items Update ..Start -->
-<div class="modal fade" id="batch_edit_modal" tabindex="-1" role="dialog" aria-labelledby="exampleModalLabel" aria-hidden="true">
+<div class="modal fade" id="batch_edit_modal" tabindex="-1" role="dialog" aria-labelledby="exampleModalLabel" aria-hidden="true" x-data="{ 
+    init() {
+        this.$nextTick(() => {
+            if (typeof Alpine !== 'undefined' && Alpine.store('purchase')) {
+                this.initializeModal();
+            }
+        });
+    },
+    initializeModal() {
+        // Your existing modal initialization code here
+        flatpickr('#expire', {
+            dateFormat: 'Y-m-d',
+            minDate: 'today',
+            allowInput: true,
+        });
+        flatpickr('#return_date', {
+            dateFormat: 'Y-m-d',
+            defaultDate: new Date(),
+            allowInput: true
+        });
+    }
+}">
     <div class="modal-dialog modal-lg">
         <div class="modal-content" role="form">
             <!-- Modal Header -->

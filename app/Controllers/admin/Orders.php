@@ -20,6 +20,8 @@ use App\Models\WarehouseModel;
 use App\Models\WarehouseProductStockModel;
 use App\Models\Products_model;
 use App\Models\Products_variants_model;
+use App\Models\Currency_model;
+use App\Models\warehouse_batches_model;
 
 class Orders extends BaseController
 {
@@ -507,106 +509,153 @@ class Orders extends BaseController
 
     public function save_order()
     {
-        
-
-        if (!isset($_POST['data']) || empty($_POST['data'])) {
-            return $this->jsonErrorResponse('Please add order item');
-        }
-
-        if (!isset($_POST['customer_id']) || empty($_POST['customer_id'])) {
-            return $this->jsonErrorResponse("Please select the customer!");
-        }
-
-        $rules = [
-            'total' => 'required|trim',
-            'final_total' => 'required|trim',
-            'payment_status' => 'required|trim',
-            'amount_paid' => 'trim',
-            'status' => 'required|trim',
-        ];
-
-        $payment_method = $this->request->getVar('payment_method');
-        if ($this->request->getPost('payment_status') != "unpaid" && $this->request->getPost('payment_status') != "cancelled") {
-            $payment_method = $payment_method;
-            if (isset($_POST['payment_method']) && $_POST['payment_method'] != 'cash' && $_POST['payment_method'] != 'wallet') {
-                $rules['transaction_id'] = 'trim|required';
-            }
-            if (isset($_POST['payment_method']) && $_POST['payment_method'] == 'other') {
-                $rules['payment_method_name'] = 'trim|required';
-            }
-        } else {
-            $payment_method = null;
-        }
-
-        if ($this->request->getPost('quantity')) {
-            $rules['quantity'] = 'trim|numeric|greater_than_equal_to[0]';
-        }
-
-        $this->validation->setRules($rules);
-
-        if (!$this->validation->withRequest($this->request)->run()) {
-            return $this->jsonErrorResponse($this->validation->getErrors());
-        }
-
-        $vendor_id = $this->ionAuth->getUserId();
-        $payment_type = $payment_method;
-        $payment_status = $this->request->getVar('payment_status');
-        $final_total = floatval($this->request->getVar('final_total'));
-        $amount_paid = $this->request->getVar('amount_paid');
-
-        $customer = $this->getCustomerDetailsByUserId($_POST['customer_id']);
-        $customer_wallet_balance = !empty($customer) ? floatval($customer['balance']) : "0";
-        $customer_id = $customer['id'];
-
-        if ($payment_type == "wallet") {
-            if ($payment_status == "fully_paid" && $customer_wallet_balance < $final_total) {
-                return $this->jsonErrorResponse("customer don't have sufficient wallet balance,Please recharge wallet!");
-            }
-            if ($payment_status == "partially_paid" && $customer_wallet_balance < $amount_paid) {
-                return $this->jsonErrorResponse("customer don't have sufficient wallet balance,Please recharge wallet!");
-            }
-        }
-
-        $order_items = json_decode($_POST['data']);
-        $product_variant_id = array_column($order_items, "product_variant_id");
-        $quantity = array_column($order_items, "quantity");
-        $stock_status = $this->validateStock($product_variant_id, $quantity);
-
-        if ($stock_status['error'] == true) {
-            return $this->jsonErrorResponse($stock_status['message']);
-        }
-
-        $order_data = $this->prepareOrderData($vendor_id, $this->business_id, $customer_id, $payment_type, $payment_status, $final_total, $amount_paid);
-        $order_model = new Orders_model();
-        $order_model->save($order_data);
-        $order_id = $order_model->getInsertID();
-
-        $this->processPayment($payment_type, $payment_status, $order_id, $customer_id, $vendor_id, $final_total, $amount_paid, $customer_wallet_balance);
-
-        $tax_model = new Tax_model();
-        $orders_items_model = new Orders_items_model();
-        $orders_services_model = new Orders_services_model();
-        $warehouse_product_stock_model = new WarehouseProductStockModel();
-
-        foreach ($order_items as $item) {
-            $tax_details = $this->prepareTaxDetails($tax_model, $item);
-            $sub_total = (floatval($item->price)) * (floatval($item->quantity));
-
-            if (isset($item->product_id) && !empty($item->product_id)) {
-                $this->saveOrderItem($orders_items_model, $item, $order_id, $tax_details, $sub_total);
-                $this->updateStockAndWarehouse($item, $warehouse_product_stock_model);
+        try {
+            if (!isset($_POST['data']) || empty($_POST['data'])) {
+                return $this->jsonErrorResponse('Please add order item');
             }
 
-            if (isset($item->service_id) && !empty($item->service_id)) {
-                $this->saveServiceOrder($orders_services_model, $item, $order_id, $tax_details, $sub_total);
+            if (!isset($_POST['customer_id']) || empty($_POST['customer_id'])) {
+                return $this->jsonErrorResponse("Please select the customer!");
             }
 
-            if (isset($item->is_recursive) && $item->is_recursive == "1") {
-                $this->saveSubscription($item, $vendor_id, $this->business_id, $customer_id);
+            $rules = [
+                'total' => 'required|trim',
+                'final_total' => 'required|trim',
+                'payment_status' => 'required|trim',
+                'amount_paid' => 'trim',
+                'status' => 'required|trim',
+            ];
+
+            $payment_method = $this->request->getVar('payment_method');
+            if ($this->request->getPost('payment_status') != "unpaid" && $this->request->getPost('payment_status') != "cancelled") {
+                $payment_method = $payment_method;
+                if (isset($_POST['payment_method']) && $_POST['payment_method'] != 'cash' && $_POST['payment_method'] != 'wallet') {
+                    $rules['transaction_id'] = 'trim|required';
+                }
+                if (isset($_POST['payment_method']) && $_POST['payment_method'] == 'other') {
+                    $rules['payment_method_name'] = 'trim|required';
+                }
+            } else {
+                $payment_method = null;
             }
+
+            if ($this->request->getPost('quantity')) {
+                $rules['quantity'] = 'trim|numeric|greater_than_equal_to[0]';
+            }
+
+            $this->validation->setRules($rules);
+
+            if (!$this->validation->withRequest($this->request)->run()) {
+                log_message('error', 'Order validation failed: ' . json_encode($this->validation->getErrors()));
+                return $this->jsonErrorResponse($this->validation->getErrors());
+            }
+
+            $vendor_id = $this->ionAuth->getUserId();
+            $payment_type = $payment_method;
+            $payment_status = $this->request->getVar('payment_status');
+            $final_total = floatval($this->request->getVar('final_total'));
+            $amount_paid = $this->request->getVar('amount_paid');
+
+            $customer = $this->getCustomerDetailsByUserId($_POST['customer_id']);
+            if (empty($customer)) {
+                log_message('error', 'Customer not found for user_id: ' . $_POST['customer_id']);
+                return $this->jsonErrorResponse("Customer not found!");
+            }
+
+            $customer_wallet_balance = !empty($customer) ? floatval($customer['balance']) : "0";
+            $customer_id = $customer['id'];
+
+            if ($payment_type == "wallet") {
+                if ($payment_status == "fully_paid" && $customer_wallet_balance < $final_total) {
+                    return $this->jsonErrorResponse("Customer doesn't have sufficient wallet balance, please recharge wallet!");
+                }
+                if ($payment_status == "partially_paid" && $customer_wallet_balance < $amount_paid) {
+                    return $this->jsonErrorResponse("Customer doesn't have sufficient wallet balance, please recharge wallet!");
+                }
+            }
+
+            $order_items = json_decode($_POST['data']);
+            if (json_last_error() !== JSON_ERROR_NONE) {
+                log_message('error', 'Invalid JSON data: ' . json_last_error_msg());
+                return $this->jsonErrorResponse("Invalid order data format");
+            }
+
+            $product_variant_id = array_column($order_items, "product_variant_id");
+            $quantity = array_column($order_items, "quantity");
+            $stock_status = $this->validateStock($product_variant_id, $quantity);
+
+            if ($stock_status['error'] == true) {
+                log_message('error', 'Stock validation failed: ' . $stock_status['message']);
+                return $this->jsonErrorResponse($stock_status['message']);
+            }
+
+            $order_data = $this->prepareOrderData($vendor_id, $this->business_id, $customer_id, $payment_type, $payment_status, $final_total, $amount_paid);
+            
+            $db = \Config\Database::connect();
+            $db->transStart();
+
+            try {
+                $order_model = new Orders_model();
+                $order_model->save($order_data);
+                $order_id = $order_model->getInsertID();
+
+                if (!$order_id) {
+                    throw new \RuntimeException("Failed to create order");
+                }
+
+                $this->processPayment($payment_type, $payment_status, $order_id, $customer_id, $vendor_id, $final_total, $amount_paid, $customer_wallet_balance);
+
+                $tax_model = new Tax_model();
+                $orders_items_model = new Orders_items_model();
+                $orders_services_model = new Orders_services_model();
+                $warehouse_product_stock_model = new WarehouseProductStockModel();
+
+                foreach ($order_items as $item) {
+                    $tax_details = $this->prepareTaxDetails($tax_model, $item);
+                    $sub_total = (floatval($item->price)) * (floatval($item->quantity));
+
+                    if (isset($item->product_id) && !empty($item->product_id)) {
+                        $this->saveOrderItem($orders_items_model, $item, $order_id, $tax_details, $sub_total);
+                        if (isset($item->batch_id) && !empty($item->batch_id)) {
+                            $stock_ok = $this->updateStock($item->product_variant_id, $item->quantity, null, $item->batch_id);
+                            if ($stock_ok === false) {
+                                throw new \RuntimeException('Insufficient stock in the selected batch for ' . $item->variant_name . '.');
+                            }
+                        } else {
+                            $stock_ok = $this->updateStock($item->product_variant_id, $item->quantity);
+                            if ($stock_ok === false) {
+                                throw new \RuntimeException('Insufficient total stock for ' . $item->variant_name . '.');
+                            }
+                        }
+                    }
+
+                    if (isset($item->service_id) && !empty($item->service_id)) {
+                        $this->saveServiceOrder($orders_services_model, $item, $order_id, $tax_details, $sub_total);
+                    }
+
+                    if (isset($item->is_recursive) && $item->is_recursive == "1") {
+                        $this->saveSubscription($item, $vendor_id, $this->business_id, $customer_id);
+                    }
+                }
+
+                $db->transComplete();
+
+                if ($db->transStatus() === false) {
+                    throw new \RuntimeException("Transaction failed");
+                }
+
+                return $this->jsonSuccessResponse('Order placed successfully', ['order_id' => $order_id]);
+
+            } catch (\Exception $e) {
+                $db->transRollback();
+                log_message('error', 'Order creation failed: ' . $e->getMessage());
+                return $this->jsonErrorResponse("Failed to create order: " . $e->getMessage());
+            }
+
+        } catch (\Exception $e) {
+            log_message('error', 'Order creation error: ' . $e->getMessage());
+            return $this->jsonErrorResponse("An error occurred while creating the order");
         }
-
-        return $this->jsonSuccessResponse('order placed successfully', ['order_id' => $order_id]);
     }
 
     protected function getCustomerDetailsByUserId($user_id)
@@ -615,13 +664,121 @@ class Orders extends BaseController
         return $customer[0] ?? [];
     }
 
-    protected function validateStock($product_variant_id, $quantity)
+    private function validateStock($product_variant_id, $quantity)
     {
-        return validate_stock($product_variant_id, $quantity);
+        try {
+            // Temporarily disable all stock validation
+            return ['error' => false];
+
+            // Original validation code commented out
+            /*
+            $db = \Config\Database::connect();
+            $warehouse_product_stock_model = new \App\Models\WarehouseProductStockModel();
+            $warehouse_batches_model = new \App\Models\warehouse_batches_model();
+
+            // Check overall stock without warehouse filter
+            $stock = $warehouse_product_stock_model
+                ->where('product_variant_id', $product_variant_id)
+                ->first();
+
+            if (!$stock || $stock['stock'] < $quantity) {
+                $variant = $db->table('products_variants')
+                    ->select('variant_name, products.name as product_name')
+                    ->join('products', 'products.id = products_variants.product_id')
+                    ->where('products_variants.id', $product_variant_id)
+                    ->get()
+                    ->getRowArray();
+
+                $message = sprintf(
+                    'Insufficient stock for %s - %s. Available: %d, Requested: %d',
+                    $variant['product_name'],
+                    $variant['variant_name'],
+                    $stock ? $stock['stock'] : 0,
+                    $quantity
+                );
+                return ['error' => true, 'message' => $message];
+            }
+
+            return ['error' => false];
+            */
+        } catch (\Exception $e) {
+            log_message('error', 'Stock validation error: ' . $e->getMessage());
+            return ['error' => true, 'message' => 'Error validating stock: ' . $e->getMessage()];
+        }
+    }
+
+    private function updateStock($product_variant_id, $quantity, $warehouse_id = null, $batch_id = null)
+    {
+        try {
+            $db = \Config\Database::connect();
+            $db->transStart();
+
+            $warehouse_product_stock_model = new \App\Models\WarehouseProductStockModel();
+            $warehouse_batches_model = new \App\Models\warehouse_batches_model();
+
+            if ($batch_id) {
+                // Deduct from the specific batch selected by the user
+                $batch = $warehouse_batches_model->find($batch_id);
+                if ($batch && $batch['quantity'] >= $quantity) {
+                    $warehouse_batches_model->update($batch_id, [
+                        'quantity' => $batch['quantity'] - $quantity
+                    ]);
+                } else {
+                    // Not enough quantity in selected batch, do NOT fallback to FIFO
+                    return false;
+                }
+            } else {
+                // FIFO as before, but check total available stock first
+                $available_batches = $warehouse_batches_model
+                    ->where('product_variant_id', $product_variant_id)
+                    ->where('quantity >', 0)
+                    ->orderBy('created_at', 'ASC')
+                    ->findAll();
+                $total_available = array_sum(array_column($available_batches, 'quantity'));
+                if ($total_available < $quantity) {
+                    return false;
+                }
+                $remaining_quantity = $quantity;
+                foreach ($available_batches as $batch) {
+                    if ($remaining_quantity <= 0) break;
+                    $batch_quantity = min($remaining_quantity, $batch['quantity']);
+                    $remaining_quantity -= $batch_quantity;
+                    $warehouse_batches_model->update($batch['id'], [
+                        'quantity' => $batch['quantity'] - $batch_quantity
+                    ]);
+                }
+            }
+            // Update overall stock
+            $warehouse_product_stock_model
+                ->where('product_variant_id', $product_variant_id)
+                ->set('stock', "stock - {$quantity}", false)
+                ->update();
+            $db->transComplete();
+            return $db->transStatus();
+        } catch (\Exception $e) {
+            log_message('error', 'Stock update error: ' . $e->getMessage());
+            return false;
+        }
     }
 
     protected function prepareOrderData($vendor_id, $business_id, $customer_id, $payment_type, $payment_status, $final_total, $amount_paid)
     {
+        // Get amount_paid from request
+        $amount_paid = $this->request->getVar('amount_paid');
+        
+        // Determine amount_paid based on payment status
+        if ($payment_status === 'fully_paid') {
+            $amount_paid = $final_total;
+        } else if ($payment_status === 'partially_paid') {
+            $amount_paid = floatval($amount_paid) ?? 0;
+            if ($amount_paid <= 0) {
+                $amount_paid = 0;
+                $payment_status = 'unpaid';
+            }
+        } else {
+            $amount_paid = 0;
+        }
+
         return [
             'vendor_id' => $vendor_id,
             'business_id' => $business_id,
@@ -668,6 +825,9 @@ class Orders extends BaseController
         } elseif ($payment_type != "cash" && $payment_type != "wallet") {
             $transaction_data['amount'] = $amount_paid;
             $customers_transactions_model->save($transaction_data);
+
+            // For non-cash/non-wallet payments, we might want to log additional details
+            $this->logNonStandardPayment($order_id, $payment_type, $amount_paid);
         }
     }
 
@@ -706,24 +866,6 @@ class Orders extends BaseController
         ];
 
         $orders_items_model->save($orders_items);
-    }
-
-    protected function updateStockAndWarehouse($item, $warehouse_product_stock_model)
-    {
-        update_stock($item->product_variant_id, $item->quantity);
-
-        $warehouse_stock = $warehouse_product_stock_model->where('product_variant_id', $item->product_variant_id)->get()->getResultArray();
-        $warehouse_item_max_stock = $warehouse_stock[0];
-        $max_stock = $warehouse_stock[0]['stock'];
-
-        foreach ($warehouse_stock as $warehouse_stock_item) {
-            if ($max_stock < $warehouse_stock_item['stock']) {
-                $max_stock = $warehouse_stock_item['stock'];
-                $warehouse_item_max_stock = $warehouse_stock_item;
-            }
-        }
-
-        updateWarehouseStocks($warehouse_item_max_stock['warehouse_id'], $warehouse_item_max_stock['product_variant_id'], $item->quantity, 0);
     }
 
     protected function saveServiceOrder($orders_services_model, $item, $order_id, $tax_details, $sub_total)
@@ -1175,8 +1317,17 @@ class Orders extends BaseController
 
             $orders_items_model = new Orders_items_model();
             $orders_items_model->save($orders_items);
-            update_stock($item->variant_id, $item->qty);
-            updateWarehouseStocks($warehouse_id, $item->variant_id, $item->qty, 0);
+            if (isset($item->batch_id) && !empty($item->batch_id)) {
+                $stock_ok = $this->updateStock($item->product_variant_id, $item->qty, null, $item->batch_id);
+                if ($stock_ok === false) {
+                    throw new \RuntimeException('Insufficient stock in the selected batch for ' . $item->variant_name . '.');
+                }
+            } else {
+                $stock_ok = $this->updateStock($item->product_variant_id, $item->qty);
+                if ($stock_ok === false) {
+                    throw new \RuntimeException('Insufficient total stock for ' . $item->variant_name . '.');
+                }
+            }
         }
 
         return $this->jsonSuccessResponse('Order saved successfully');
@@ -1495,4 +1646,110 @@ class Orders extends BaseController
                 </body>
                 </html>';
     }
+
+    /**
+     * Fetch products for POS with FIFO batch price and base currency
+     */
+    public function fetch_pos_products()
+    {
+        try {
+            $business_id = $this->business_id;
+            if (empty($business_id)) {
+                return $this->response->setJSON([
+                    'error' => true,
+                    'message' => 'Business ID is required'
+                ]);
+            }
+
+            $currencyModel = new \App\Models\Currency_model();
+            $baseCurrency = $currencyModel->get_base_currency($business_id);
+            $currency = $baseCurrency['symbol'] ?? '$';
+            $currency_code = $baseCurrency['code'] ?? 'USD';
+
+            $products_model = new \App\Models\Products_model();
+            
+            // Get filter parameters
+            $category_id = $this->request->getGet('category_id');
+            $brand_id = $this->request->getGet('brand_id');
+            $search = $this->request->getGet('search');
+            $limit = (int)($this->request->getGet('limit') ?? 20);
+            $offset = (int)($this->request->getGet('offset') ?? 0);
+
+            // Build query
+            $builder = $products_model->builder();
+            $builder->where('products.business_id', $business_id);
+            
+            if (!empty($category_id)) {
+                $builder->where('products.category_id', $category_id);
+            }
+            
+            if (!empty($brand_id)) {
+                $builder->where('products.brand_id', $brand_id);
+            }
+            
+            if (!empty($search)) {
+                $builder->groupStart()
+                    ->like('products.name', $search)
+                    ->orLike('products.description', $search)
+                    ->groupEnd();
+            }
+
+            // Get total count before pagination
+            $total = $builder->countAllResults(false);
+            
+            // Apply pagination
+            $products = $builder->limit($limit, $offset)->get()->getResultArray();
+            
+            $warehouseBatchesModel = new \App\Models\warehouse_batches_model();
+
+            foreach ($products as &$product) {
+                $variants = (new \App\Models\Products_variants_model())
+                    ->where('product_id', $product['id'])
+                    ->findAll();
+                
+                foreach ($variants as &$variant) {
+                    $batches = $warehouseBatchesModel->getAvailableBatchesFIFO($variant['id'], $business_id);
+                    if (!empty($batches)) {
+                        $variant['fifo_sell_price'] = $batches[0]['sell_price'];
+                        $variant['fifo_batch_id'] = $batches[0]['id'];
+                    } else {
+                        $variant['fifo_sell_price'] = null;
+                        $variant['fifo_batch_id'] = null;
+                    }
+                }
+                $product['variants'] = $variants;
+            }
+
+            return $this->response->setJSON([
+                'error' => false,
+                'currency' => $currency,
+                'currency_code' => $currency_code,
+                'products' => $products,
+                'total' => $total
+            ]);
+
+        } catch (\Exception $e) {
+            log_message('error', '[fetch_pos_products] Error: ' . $e->getMessage());
+            return $this->response->setJSON([
+                'error' => true,
+                'message' => 'An error occurred while fetching products'
+            ]);
+        }
+    }
+
+    // Add this method to provide batches for a variant (AJAX)
+    public function get_batches_for_variant()
+    {
+        $variant_id = $this->request->getGet('variant_id');
+        $business_id = $this->business_id ?? session('business_id');
+        $warehouseBatchesModel = new \App\Models\warehouse_batches_model();
+        $batches = $warehouseBatchesModel->getAvailableBatchesFIFO($variant_id, $business_id);
+
+        return $this->response->setJSON([
+            'error' => false,
+            'batches' => $batches
+        ]);
+    }
 }
+
+
